@@ -2,6 +2,8 @@
 
 This guide walks you through deploying and managing the **VPS Deploy & Backup Manager** on an **Ubuntu / Debian VPS** (e.g., Contabo, Hetzner, DigitalOcean, Linode, AWS EC2).
 
+> 💡 **100% Dynamic Configuration**: You do **not** need to manually edit config files like `service-account.json`, `msmtprc`, or `rclone.conf` on the server. All email credentials, Google Drive service accounts, storage targets, and backup tasks are managed directly through the Web Admin UI.
+
 ---
 
 ## 📋 Table of Contents
@@ -9,13 +11,14 @@ This guide walks you through deploying and managing the **VPS Deploy & Backup Ma
 2. [Step 1: SSH Connection & Server Preparation](#step-1-ssh-connection--server-preparation)
 3. [Step 2: Configure UFW Firewall](#step-2-configure-ufw-firewall)
 4. [Step 3: Clone the Repository](#step-3-clone-the-repository)
-5. [Step 4: Configure Environment & Login Credentials](#step-4-configure-environment--login-credentials)
-6. [Step 5: Run Automated Setup Script](#step-5-run-automated-setup-script)
-7. [Step 6: Verify & Access Dashboard](#step-6-verify--access-dashboard)
-8. [Step 7: Service Management Commands](#step-7-service-management-commands)
-9. [Step 8: How to Update in the Future](#step-8-how-to-update-in-the-future)
-10. [Step 9: (Optional) Nginx Reverse Proxy with Free SSL](#step-9-optional-nginx-reverse-proxy-with-free-ssl)
-11. [Troubleshooting](#troubleshooting)
+5. [Step 4: Configure Login Credentials (.env)](#step-4-configure-login-credentials-env)
+6. [Step 5: Run Automated Setup Script (setup.sh)](#step-5-run-automated-setup-script-setupsh)
+7. [Step 6: Access Dashboard & Dynamic Configuration](#step-6-access-dashboard--dynamic-configuration)
+8. [Step 7: 1-Click Instant Backup & Health Checks](#step-7-1-click-instant-backup--health-checks)
+9. [Step 8: Service Management Commands](#step-8-service-management-commands)
+10. [Step 9: How to Update in the Future](#step-9-how-to-update-in-the-future)
+11. [Step 10: (Optional) Nginx Reverse Proxy with Free SSL](#step-10-optional-nginx-reverse-proxy-with-free-ssl)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -72,11 +75,11 @@ git clone https://github.com/auts-tech/backup-vps.git backup-vps
 cd /opt/backup-vps
 ```
 
-*(If using an SSH deploy key instead, clone via `git clone git@github.com:auts-tech/backup-vps.git backup-vps`)*.
-
 ---
 
-## Step 4: Configure Environment & Login Credentials
+## Step 4: Configure Login Credentials (.env)
+
+The only file you need to create on the server is `.env` for your initial admin login:
 
 1. Copy the example configuration template:
    ```bash
@@ -88,7 +91,7 @@ cd /opt/backup-vps
    nano .env
    ```
 
-3. Fill in your credentials:
+3. Fill in your login credentials:
    ```ini
    # ── Admin Login Credentials ──────────
    ADMIN_EMAIL=admin@yourdomain.com
@@ -109,38 +112,29 @@ cd /opt/backup-vps
    chmod 600 .env
    ```
 
-#### (Optional) Cloud Credentials Setup
-- **Google Drive**: If you have Google Drive backups, copy your files:
-  ```bash
-  # cp service-account.json.example service-account.json
-  # cp rclone.conf.example rclone.conf
-  ```
-- **Email Alerts**: If configuring Gmail / SMTP:
-  ```bash
-  # cp msmtprc.example msmtprc
-  ```
+*(All other configurations like Google Drive Service Account, SMTP passwords, Discord webhooks, and S3 are done in the browser UI in Step 6).*
 
 ---
 
-## Step 5: Run Automated Setup Script
+## Step 5: Run Automated Setup Script (setup.sh)
 
 The project provides a complete installer script that automates tool installation and system service registration:
 
 ```bash
-chmod +x setup.sh start.sh
+chmod +x setup.sh start.sh backup.sh
 sudo bash setup.sh
 ```
 
 ### What `setup.sh` automatically configures:
 1. Installs system packages: `rclone`, `jq`, `curl`, `git`, `gzip`, `msmtp`, `tar`, `ca-certificates`.
 2. Installs **Node.js 20 LTS** & npm if not present.
-3. Installs backend dependencies (`server/package.json`).
+3. Installs backend production dependencies (`server/package.json`).
 4. Creates necessary log and config directories (`/root/.config/backup`, `/root/.config/rclone`, `/var/log`).
-5. Creates and enables the systemd background daemon (`vps-backup-manager.service`).
+5. Creates and enables the systemd background daemon (`vps-backup-manager.service`) with auto-restart on boot.
 
 ---
 
-## Step 6: Verify & Access Dashboard
+## Step 6: Access Dashboard & Dynamic Configuration
 
 Open your web browser and visit:
 ```
@@ -148,11 +142,44 @@ http://YOUR_SERVER_IP:9090
 ```
 
 - Enter the **Email** and **Password** configured in your `.env`.
-- You will be greeted by the dark glassmorphism dashboard where you can add projects, configure backup destinations, inspect system resources, and trigger deployments.
+- You will be greeted by the modern high-contrast dashboard.
+
+### Configuring Credentials in the UI:
+Navigate to **Settings** from the sidebar:
+
+1. **SMTP & Email Alerts**:
+   - Enter your SMTP Host (e.g. `smtp.gmail.com`), Port (`587`), Username, and App Password.
+   - Enter your sender and recipient email addresses.
+   - Click **"Send Test Email"** to verify live email delivery.
+   - When saved, the server dynamically generates and secures `/root/.msmtprc` automatically!
+
+2. **Google Drive & Service Account**:
+   - Paste your Google Cloud Service Account JSON directly into the text box (or click **"Upload .json File"**).
+   - Enter your **Google Drive Root Folder ID**.
+   - Click **"Save Service Account JSON"** and **"Test Google Drive Connection"**.
+   - The server validates the JSON, writes `service-account.json`, and dynamically configures `rclone.conf` with `chmod 600`.
+
+3. **Discord Webhooks**:
+   - Paste your Discord webhook URL and click **"Send Test Webhook"**.
+
+4. **Amazon S3 / SFTP**:
+   - Configure S3 buckets or remote SFTP storage with live verification tests.
 
 ---
 
-## Step 7: Service Management Commands
+## Step 7: 1-Click Instant Backup & Health Checks
+
+### 1. Persistent Instant Backup Button
+- Located on the **top navigation bar** on every page.
+- Click **"Instant Backup"** to immediately trigger a full snapshot across all registered applications and databases. Live toast alerts update you as the snapshot runs.
+
+### 2. VPS System Health Check
+- In **Settings**, click **"System Health Check"**.
+- View real-time status and installed versions for `Node.js`, `rclone`, `msmtp`, `mysqldump`, `git`, `tar`, and `gzip` without touching the terminal.
+
+---
+
+## Step 8: Service Management Commands
 
 The application runs as a native Linux system service named `vps-backup-manager`.
 
@@ -165,12 +192,13 @@ The application runs as a native Linux system service named `vps-backup-manager`
 | **View real-time app logs** | `sudo journalctl -u vps-backup-manager -f` |
 | **View backup execution logs** | `tail -f /var/log/vps-backup-manager.log` |
 | **Check process port** | `ss -tulpn \| grep 9090` |
+| **Manual backup via CLI** | `sudo /opt/backup-vps/backup.sh` |
 
 ---
 
-## Step 8: How to Update in the Future
+## Step 9: How to Update in the Future
 
-When new features or fixes are pushed to the GitHub repository:
+When new features or updates are pushed to GitHub:
 
 ```bash
 cd /opt/backup-vps
@@ -181,7 +209,7 @@ sudo systemctl restart vps-backup-manager
 
 ---
 
-## Step 9: (Optional) Nginx Reverse Proxy with Free SSL
+## Step 10: (Optional) Nginx Reverse Proxy with Free SSL
 
 To access your panel at `https://backup.yourdomain.com` with a valid SSL certificate:
 
@@ -247,5 +275,7 @@ To access your panel at `https://backup.yourdomain.com` with a valid SSL certifi
   sudo systemctl restart vps-backup-manager
   ```
 
-### 3. Permission denied during backup
-- Ensure the service runs as `root` (default in the systemd unit) so it can back up MySQL databases, system configuration files, and read project directories.
+### 3. rclone or Google Drive connection issues
+- Go to **Settings > Google Drive** in the dashboard.
+- Paste your Service Account JSON and verify your Root Folder ID.
+- Click **"Test Google Drive Connection"** to see the exact error output returned by rclone.
