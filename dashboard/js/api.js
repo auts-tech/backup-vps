@@ -172,7 +172,10 @@ class API {
   // ── Settings ────────────────────────────────────────────
   getSettings() { return this.get('/settings'); }
   updateSettings(data) { return this.put('/settings', data); }
-  testNotification(type) { return this.post('/settings/test-notification', { type }); }
+  testNotification(type, emailTo, emailFrom) { return this.post('/settings/test-notification', { type, emailTo, emailFrom }); }
+  testStorage(target) { return this.post('/settings/test-storage', { target }); }
+  saveServiceAccount(serviceAccountJson) { return this.post('/settings/service-account', { serviceAccountJson }); }
+  runSystemCheck() { return this.get('/settings/system-check'); }
   generateApiKey(apiKey) { return this.post('/settings/api-key', { apiKey }); }
   setupInitial(data) { return this.post('/settings/setup', data); }
 

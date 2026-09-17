@@ -244,6 +244,10 @@ class App {
             </div>
 
             <div class="topbar-actions">
+              <button class="btn btn-primary btn-sm" id="topbar-instant-backup-btn" onclick="window.app.handleInstantBackup()" title="Trigger immediate backup for all registered projects">
+                ${I.get('database', { size: 13, color: '#ffffff' })}
+                <span>Instant Backup</span>
+              </button>
               <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--border-primary);border-radius:var(--radius-sm);background:#fafafa;font-size:12px;">
                 <span class="badge-dot" id="server-status-dot" style="background:var(--color-green);"></span>
                 <span id="server-status-text" style="color:var(--text-secondary);font-weight:500;">VPS Online</span>
@@ -343,6 +347,32 @@ class App {
     } catch {
       if (this.statusDotEl) this.statusDotEl.style.background = 'var(--color-red)';
       if (this.statusTextEl) this.statusTextEl.textContent = 'Server Offline';
+    }
+  }
+
+  async handleInstantBackup() {
+    const btn = document.getElementById('topbar-instant-backup-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner spinner-sm" style="margin-right:6px;"></span> <span>Running...</span>';
+    }
+    toast.info('Instant Backup', 'Snapshot queued for all projects...');
+
+    try {
+      const res = await api.triggerBackupAll();
+      toast.success('Backup Started', res.message || 'All project backups are in progress');
+
+      // If already on backups page, reload view to see running task
+      if (this.currentPage === 'backups' && typeof loadBackupPage === 'function') {
+        setTimeout(loadBackupPage, 1000);
+      }
+    } catch (err) {
+      toast.error('Backup Failed', err.message || 'Failed to trigger backup');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `${window.Icons.get('database', { size: 13, color: '#ffffff' })} <span>Instant Backup</span>`;
+      }
     }
   }
 
