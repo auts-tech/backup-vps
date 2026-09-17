@@ -1,79 +1,105 @@
 /**
  * Cron & Automation Management Page
+ * Clean white theme with vector icons and deep black text
  */
 function renderCron(container) {
+  const I = window.Icons;
+
   container.innerHTML = `
-    <div class="animate-in">
-      <div class="flex justify-between items-center mb-6">
-        <div>
-          <h2 style="font-size:20px;font-weight:700;">Cron Job Automation</h2>
-          <p style="font-size:13px;color:var(--text-tertiary);margin-top:4px;">Manage scheduled backups and recurring VPS tasks</p>
+    <div>
+      <div class="page-header">
+        <div class="page-header-title">
+          <h2>Cron Automation</h2>
+          <p>Schedule automatic backups and recurring maintenance on your VPS</p>
         </div>
-        <div class="btn-group">
-          <button class="btn btn-secondary" onclick="loadCronJobs()">🔄 Refresh</button>
-          <button class="btn btn-primary" onclick="showAddCronModal()">➕ Add Cron Job</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" onclick="loadCronJobs()">
+            ${I.get('refresh', { size: 13 })}
+            <span>Refresh</span>
+          </button>
+          <button class="btn btn-primary" onclick="showAddCronModal()">
+            ${I.get('plus', { size: 13, color: '#ffffff' })}
+            <span>Add Cron Job</span>
+          </button>
         </div>
       </div>
 
       <!-- Quick Preset Schedule Banner -->
-      <div class="card mb-6 animate-in stagger-1">
+      <div class="card" style="margin-bottom:24px;">
         <div class="card-header">
-          <h3 class="card-title">⚡ Quick Automation Presets</h3>
+          <h3 class="card-title">
+            ${I.get('zap', { size: 16 })}
+            <span>Quick Automation Presets</span>
+          </h3>
         </div>
-        <div class="quick-actions">
-          <div class="quick-action" onclick="quickAddCron('0 12 * * *', 'Daily Backup (12:00 PM UK)')">
-            <div class="quick-action-icon" style="background:rgba(6,182,212,0.1);color:var(--color-cyan)">🕛</div>
-            <div>
-              <div class="quick-action-text">Daily Backup (12 PM)</div>
-              <div class="quick-action-sub">Run all backups at 12:00 PM</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px;padding:16px;">
+          <button class="btn btn-secondary" onclick="quickAddCron('0 12 * * *', 'Daily Backup (12:00 PM UK)')" style="justify-content:flex-start;padding:12px 14px;height:auto;">
+            <div style="width:32px;height:32px;border-radius:6px;background:#f4f4f5;display:flex;align-items:center;justify-content:center;margin-right:10px;flex-shrink:0;">
+              ${I.get('clock', { size: 16 })}
             </div>
-          </div>
-          <div class="quick-action" onclick="quickAddCron('0 0 * * *', 'Midnight Backup')">
-            <div class="quick-action-icon" style="background:rgba(139,92,246,0.1);color:var(--color-purple)">🌙</div>
-            <div>
-              <div class="quick-action-text">Midnight Backup</div>
-              <div class="quick-action-sub">Nightly backup at 00:00</div>
+            <div style="text-align:left;">
+              <div style="font-weight:600;color:var(--text-primary);font-size:13px;">Daily at 12 PM</div>
+              <div style="font-size:11px;color:var(--text-tertiary);">Trigger full backup at noon</div>
             </div>
-          </div>
-          <div class="quick-action" onclick="quickAddCron('0 2 * * 0', 'Weekly VPS Snapshot')">
-            <div class="quick-action-icon" style="background:rgba(16,185,129,0.1);color:var(--color-green)">🗓️</div>
-            <div>
-              <div class="quick-action-text">Weekly Full Snapshot</div>
-              <div class="quick-action-sub">Sundays at 02:00 AM</div>
+          </button>
+
+          <button class="btn btn-secondary" onclick="quickAddCron('0 0 * * *', 'Midnight Backup')" style="justify-content:flex-start;padding:12px 14px;height:auto;">
+            <div style="width:32px;height:32px;border-radius:6px;background:#f4f4f5;display:flex;align-items:center;justify-content:center;margin-right:10px;flex-shrink:0;">
+              ${I.get('moon', { size: 16 })}
             </div>
-          </div>
-          <div class="quick-action" onclick="quickAddCron('0 3 * * *', 'Daily Retention Cleanup')">
-            <div class="quick-action-icon" style="background:rgba(249,115,22,0.1);color:var(--color-orange)">🧹</div>
-            <div>
-              <div class="quick-action-text">Cleanup Expired</div>
-              <div class="quick-action-sub">Prune backups older than 30d</div>
+            <div style="text-align:left;">
+              <div style="font-weight:600;color:var(--text-primary);font-size:13px;">Nightly at 00:00</div>
+              <div style="font-size:11px;color:var(--text-tertiary);">Daily midnight backup</div>
             </div>
-          </div>
+          </button>
+
+          <button class="btn btn-secondary" onclick="quickAddCron('0 2 * * 0', 'Weekly VPS Snapshot')" style="justify-content:flex-start;padding:12px 14px;height:auto;">
+            <div style="width:32px;height:32px;border-radius:6px;background:#f4f4f5;display:flex;align-items:center;justify-content:center;margin-right:10px;flex-shrink:0;">
+              ${I.get('calendar', { size: 16 })}
+            </div>
+            <div style="text-align:left;">
+              <div style="font-weight:600;color:var(--text-primary);font-size:13px;">Weekly Snapshot</div>
+              <div style="font-size:11px;color:var(--text-tertiary);">Sundays at 02:00 AM</div>
+            </div>
+          </button>
+
+          <button class="btn btn-secondary" onclick="quickAddCron('0 3 * * *', 'Daily Retention Cleanup')" style="justify-content:flex-start;padding:12px 14px;height:auto;">
+            <div style="width:32px;height:32px;border-radius:6px;background:#f4f4f5;display:flex;align-items:center;justify-content:center;margin-right:10px;flex-shrink:0;">
+              ${I.get('trash', { size: 16 })}
+            </div>
+            <div style="text-align:left;">
+              <div style="font-weight:600;color:var(--text-primary);font-size:13px;">Prune Expired</div>
+              <div style="font-size:11px;color:var(--text-tertiary);">Purge backups older than 30d</div>
+            </div>
+          </button>
         </div>
       </div>
 
       <!-- Active Cron Table -->
-      <div class="card animate-in stagger-2">
+      <div class="card">
         <div class="card-header">
-          <h3 class="card-title">Active System Cron Jobs</h3>
+          <h3 class="card-title">
+            ${I.get('clock', { size: 16 })}
+            <span>Active System Crontab Schedules</span>
+          </h3>
           <span class="badge badge-neutral" id="cron-count-badge">0 Jobs</span>
         </div>
-        <div class="table-container">
+        <div class="table-container" style="border:none;border-radius:0;">
           <table class="table">
             <thead>
               <tr>
-                <th style="width:60px;">#</th>
+                <th style="width:50px;">#</th>
                 <th>Schedule</th>
-                <th>Human Description</th>
-                <th>Command</th>
-                <th style="width:120px;">Actions</th>
+                <th>Human Interval</th>
+                <th>Execution Command</th>
+                <th style="text-align:right">Action</th>
               </tr>
             </thead>
             <tbody id="cron-table-body">
               <tr>
                 <td colspan="5" style="text-align:center;padding:40px;">
                   <div class="spinner spinner-lg" style="margin:0 auto 12px;"></div>
-                  <div style="color:var(--text-tertiary);">Loading crontab...</div>
+                  <div style="color:var(--text-tertiary);font-size:13px;">Reading server crontab...</div>
                 </td>
               </tr>
             </tbody>
@@ -89,6 +115,7 @@ function renderCron(container) {
 async function loadCronJobs() {
   const tbody = document.getElementById('cron-table-body');
   const countBadge = document.getElementById('cron-count-badge');
+  const I = window.Icons;
   if (!tbody) return;
 
   try {
@@ -100,8 +127,12 @@ async function loadCronJobs() {
     if (jobs.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="5" style="text-align:center;padding:40px;color:var(--text-tertiary);">
-            No cron jobs currently configured. Use the presets above or click "Add Cron Job" to schedule one.
+          <td colspan="5">
+            <div class="empty-state" style="padding:36px 20px;">
+              <div class="empty-state-icon">${I.get('clock', { size: 20 })}</div>
+              <div class="empty-state-title">No Cron Schedules Configured</div>
+              <div class="empty-state-desc">Use the Quick Automation Presets above or add a custom schedule.</div>
+            </div>
           </td>
         </tr>
       `;
@@ -112,20 +143,21 @@ async function loadCronJobs() {
       const desc = describeCron(job.schedule);
       return `
         <tr>
-          <td><span style="color:var(--text-tertiary);">${idx + 1}</span></td>
+          <td><span style="color:var(--text-tertiary);font-size:12px;">${idx + 1}</span></td>
           <td>
-            <code style="background:var(--bg-tertiary);padding:4px 8px;border-radius:4px;font-size:12px;color:var(--color-cyan);">
-              ${escapeHtml(job.schedule)}
-            </code>
+            <code style="font-weight:600;">${escapeHtml(job.schedule)}</code>
           </td>
           <td>
-            <span style="font-weight:500;color:var(--text-primary);">${escapeHtml(desc)}</span>
+            <span style="font-weight:500;color:var(--text-primary);font-size:13px;">${escapeHtml(desc)}</span>
           </td>
           <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(job.command)}">
             <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);">${escapeHtml(job.command)}</span>
           </td>
-          <td>
-            <button class="btn btn-sm btn-danger" onclick="deleteCronJob(${job.id || idx})">🗑️ Delete</button>
+          <td style="text-align:right">
+            <button class="btn btn-sm btn-danger" onclick="deleteCronJob(${job.id || idx})" title="Delete Job">
+              ${I.get('trash', { size: 12 })}
+              <span>Delete</span>
+            </button>
           </td>
         </tr>
       `;
@@ -158,10 +190,10 @@ async function quickAddCron(schedule, label) {
   const command = `curl -s -X POST http://127.0.0.1:9090/api/v1/backups/trigger > /dev/null 2>&1`;
   try {
     await api.addCronJob(schedule, command);
-    Toast.success(`Added preset: ${label}`);
+    toast.success('Preset Added', label);
     loadCronJobs();
   } catch (err) {
-    Toast.error(err.message || 'Failed to add cron preset');
+    toast.error('Failed', err.message || 'Failed to add cron preset');
   }
 }
 
@@ -170,7 +202,7 @@ function showAddCronModal() {
     <div class="form-group">
       <label class="form-label">Schedule Preset</label>
       <select id="modal-cron-preset" class="form-select" onchange="applyCronPreset(this.value)">
-        <option value="custom">-- Custom Schedule --</option>
+        <option value="custom">-- Select a Preset or Enter Custom --</option>
         <option value="0 12 * * *">Daily at 12:00 PM</option>
         <option value="0 0 * * *">Daily at Midnight (00:00)</option>
         <option value="0 * * * *">Every Hour</option>
@@ -179,34 +211,28 @@ function showAddCronModal() {
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label">Cron Expression (min hour day month weekday)</label>
+      <label class="form-label">Cron Expression *</label>
       <input type="text" id="modal-cron-schedule" class="form-input" placeholder="0 12 * * *" required value="0 12 * * *">
-      <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px;">5 standard cron fields: minute (0-59), hour (0-23), day (1-31), month (1-12), day of week (0-6)</div>
+      <div class="form-hint">Format: <code>minute hour day-of-month month day-of-week</code></div>
     </div>
     <div class="form-group">
-      <label class="form-label">Command to Execute</label>
-      <input type="text" id="modal-cron-command" class="form-input" placeholder="/root/.config/backup/backup.sh or curl command" value="curl -s -X POST http://127.0.0.1:9090/api/v1/backups/trigger > /dev/null 2>&1" required>
+      <label class="form-label">Command to Execute *</label>
+      <input type="text" id="modal-cron-command" class="form-input" value="curl -s -X POST http://127.0.0.1:9090/api/v1/backups/trigger > /dev/null 2>&1" required>
     </div>
   `, {
-    submitText: 'Add Cron Job',
+    submitText: 'Save Schedule',
     onSubmit: async () => {
       const schedule = document.getElementById('modal-cron-schedule').value.trim();
       const command = document.getElementById('modal-cron-command').value.trim();
 
       if (!schedule || !command) {
-        Toast.error('Please enter schedule and command');
-        return false;
+        toast.error('Required', 'Please specify both schedule and command');
+        throw new Error('Please specify both schedule and command');
       }
 
-      try {
-        await api.addCronJob(schedule, command);
-        Toast.success('Cron job scheduled successfully!');
-        loadCronJobs();
-        return true;
-      } catch (err) {
-        Toast.error(err.message || 'Failed to add cron job');
-        return false;
-      }
+      await api.addCronJob(schedule, command);
+      toast.success('Cron Saved', 'Cron schedule registered with system');
+      loadCronJobs();
     }
   });
 }
@@ -219,12 +245,15 @@ function applyCronPreset(val) {
 }
 
 async function deleteCronJob(id) {
-  if (!confirm('Are you sure you want to remove this cron job?')) return;
-  try {
-    await api.deleteCronJob(id);
-    Toast.success('Cron job removed');
-    loadCronJobs();
-  } catch (err) {
-    Toast.error(err.message || 'Failed to delete cron job');
-  }
+  Modal.confirm('Delete Cron Job', 'Are you sure you want to remove this scheduled cron job from the system?', async () => {
+    try {
+      await api.deleteCronJob(id);
+      toast.success('Deleted', 'Cron schedule removed');
+      loadCronJobs();
+    } catch (err) {
+      toast.error('Failed', err.message || 'Failed to delete cron job');
+    }
+  });
 }
+
+window.renderCron = renderCron;

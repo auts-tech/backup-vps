@@ -1,5 +1,5 @@
 /**
- * Toast notification system
+ * Toast notification system with vector icons
  */
 class Toast {
   constructor() {
@@ -14,22 +14,27 @@ class Toast {
   }
 
   show(type, title, message, duration = 4000) {
-    const icons = {
-      success: '✅',
-      error: '❌',
-      warning: '⚠️',
-      info: 'ℹ️'
+    const iconNames = {
+      success: 'checkCircle',
+      error: 'alertCircle',
+      warning: 'alertTriangle',
+      info: 'info'
     };
+
+    const iconName = iconNames[type] || 'info';
+    const iconHtml = window.Icons ? window.Icons.get(iconName, { size: 18 }) : '';
 
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.innerHTML = `
-      <span class="toast-icon">${icons[type] || 'ℹ️'}</span>
+      <span class="toast-icon">${iconHtml}</span>
       <div class="toast-body">
-        <div class="toast-title">${title}</div>
-        ${message ? `<div class="toast-message">${message}</div>` : ''}
+        <div class="toast-title">${escapeHtml(title)}</div>
+        ${message ? `<div class="toast-message">${escapeHtml(message)}</div>` : ''}
       </div>
-      <button class="toast-close" onclick="this.closest('.toast').remove()">✕</button>
+      <button class="toast-close" onclick="this.closest('.toast').remove()" title="Close">
+        ${window.Icons ? window.Icons.get('x', { size: 14 }) : '✕'}
+      </button>
     `;
 
     this.container.appendChild(toast);
@@ -37,7 +42,7 @@ class Toast {
     if (duration > 0) {
       setTimeout(() => {
         toast.classList.add('removing');
-        setTimeout(() => toast.remove(), 300);
+        setTimeout(() => toast.remove(), 250);
       }, duration);
     }
   }

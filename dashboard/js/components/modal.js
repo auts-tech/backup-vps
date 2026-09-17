@@ -1,5 +1,5 @@
 /**
- * Modal dialog system
+ * Modal dialog system with vector icons
  */
 class Modal {
   static show(title, bodyHtml, options = {}) {
@@ -7,11 +7,13 @@ class Modal {
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
+    const closeIcon = window.Icons ? window.Icons.get('x', { size: 16 }) : '✕';
+    
     overlay.innerHTML = `
       <div class="modal" ${width ? `style="max-width:${width}px"` : ''}>
         <div class="modal-header">
           <h3 class="modal-title">${title}</h3>
-          <button class="modal-close" id="modal-close-btn">✕</button>
+          <button class="modal-close" id="modal-close-btn" title="Close">${closeIcon}</button>
         </div>
         <div class="modal-body">${bodyHtml}</div>
         ${onSubmit ? `

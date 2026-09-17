@@ -1,107 +1,142 @@
 /**
  * System Settings & Configuration Page
+ * Clean white theme with vector icons and deep black text
  */
 function renderSettings(container) {
+  const I = window.Icons;
+
   container.innerHTML = `
-    <div class="animate-in">
-      <div class="flex justify-between items-center mb-6">
-        <div>
-          <h2 style="font-size:20px;font-weight:700;">System Settings</h2>
-          <p style="font-size:13px;color:var(--text-tertiary);margin-top:4px;">Configure notifications, cloud backup remotes, and API security</p>
+    <div>
+      <div class="page-header">
+        <div class="page-header-title">
+          <h2>System Settings</h2>
+          <p>Configure automated alerts, cloud storage providers, and security keys</p>
         </div>
-        <button class="btn btn-primary" onclick="saveAllSettings()">💾 Save Settings</button>
+        <button class="btn btn-primary" onclick="saveAllSettings()">
+          ${I.get('save', { size: 14, color: '#ffffff' })}
+          <span>Save Changes</span>
+        </button>
       </div>
 
-      <div class="grid-2">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(340px, 1fr));gap:20px;margin-bottom:24px;">
         <!-- Notifications Card -->
-        <div class="card animate-in stagger-1">
+        <div class="card">
           <div class="card-header">
-            <h3 class="card-title">🔔 Notifications</h3>
+            <h3 class="card-title">
+              ${I.get('bell', { size: 16 })}
+              <span>Automated Alert Channels</span>
+            </h3>
           </div>
+          <div class="card-body">
+            <!-- Discord -->
+            <div style="margin-bottom:20px;border-bottom:1px solid var(--border-secondary);padding-bottom:18px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  ${I.get('messageSquare', { size: 16, color: 'var(--text-secondary)' })}
+                  <strong style="font-size:13px;">Discord Webhook</strong>
+                </div>
+                <label class="form-check">
+                  <input type="checkbox" id="discord-enabled">
+                  <span style="font-size:12px;color:var(--text-secondary);">Enabled</span>
+                </label>
+              </div>
+              <div class="form-group" style="margin-bottom:10px;">
+                <label class="form-label">Webhook URL</label>
+                <input type="url" id="discord-webhook" class="form-input" placeholder="https://discord.com/api/webhooks/...">
+              </div>
+              <button class="btn btn-sm btn-secondary" onclick="testNotification('discord')">
+                ${I.get('zap', { size: 12 })}
+                <span>Send Test Ping</span>
+              </button>
+            </div>
 
-          <!-- Discord -->
-          <div style="margin-bottom:24px;border-bottom:1px solid var(--border-primary);padding-bottom:20px;">
-            <div class="flex justify-between items-center mb-3">
-              <div class="flex items-center gap-2">
-                <span style="font-size:18px;">💬</span>
-                <strong>Discord Webhook</strong>
+            <!-- Email / msmtp -->
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  ${I.get('mail', { size: 16, color: 'var(--text-secondary)' })}
+                  <strong style="font-size:13px;">Email Alerts (msmtp)</strong>
+                </div>
+                <label class="form-check">
+                  <input type="checkbox" id="email-enabled">
+                  <span style="font-size:12px;color:var(--text-secondary);">Enabled</span>
+                </label>
               </div>
-              <label class="switch">
-                <input type="checkbox" id="discord-enabled">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="form-group mb-2">
-              <label class="form-label">Webhook URL</label>
-              <input type="url" id="discord-webhook" class="form-input" placeholder="https://discord.com/api/webhooks/...">
-            </div>
-            <button class="btn btn-sm btn-secondary" onclick="testNotification('discord')">🧪 Test Discord</button>
-          </div>
-
-          <!-- Email / msmtp -->
-          <div>
-            <div class="flex justify-between items-center mb-3">
-              <div class="flex items-center gap-2">
-                <span style="font-size:18px;">📧</span>
-                <strong>Email Alert (msmtp)</strong>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Recipient (To)</label>
+                  <input type="email" id="email-to" class="form-input" placeholder="alerts@domain.com">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Sender (From)</label>
+                  <input type="email" id="email-from" class="form-input" placeholder="vps@domain.com">
+                </div>
               </div>
-              <label class="switch">
-                <input type="checkbox" id="email-enabled">
-                <span class="slider"></span>
-              </label>
+              <button class="btn btn-sm btn-secondary" onclick="testNotification('email')">
+                ${I.get('zap', { size: 12 })}
+                <span>Send Test Email</span>
+              </button>
             </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Recipient Email (To)</label>
-                <input type="email" id="email-to" class="form-input" placeholder="alerts@example.com">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Sender Email (From)</label>
-                <input type="email" id="email-from" class="form-input" placeholder="vps-backup@example.com">
-              </div>
-            </div>
-            <button class="btn btn-sm btn-secondary" onclick="testNotification('email')">🧪 Test Email</button>
           </div>
         </div>
 
         <!-- Security / API Key -->
-        <div class="card animate-in stagger-2">
+        <div class="card">
           <div class="card-header">
-            <h3 class="card-title">🔐 Authentication & API Key</h3>
+            <h3 class="card-title">
+              ${I.get('lock', { size: 16 })}
+              <span>API Authentication & Keys</span>
+            </h3>
           </div>
-          <p style="font-size:12px;color:var(--text-tertiary);margin-bottom:16px;">
-            Your API key secures dashboard management endpoints. It must be provided in the <code>X-API-Key</code> HTTP header or saved in your browser session.
-          </p>
+          <div class="card-body">
+            <p style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;line-height:1.5;">
+              API endpoints require authentication via Bearer token or the <code>X-API-Key</code> HTTP header.
+            </p>
 
-          <div class="form-group">
-            <label class="form-label">Current API Key</label>
-            <div class="flex gap-2">
-              <input type="password" id="current-api-key" class="form-input" readonly>
-              <button class="btn btn-secondary" onclick="toggleApiKeyVisibility()" id="toggle-key-btn">👁️</button>
-              <button class="btn btn-secondary" onclick="copyCurrentApiKey()">📋</button>
+            <div class="form-group">
+              <label class="form-label">Active API Key</label>
+              <div style="display:flex;gap:6px;">
+                <input type="password" id="current-api-key" class="form-input" readonly style="font-family:var(--font-mono);font-size:12px;">
+                <button class="btn btn-secondary btn-icon-only" onclick="toggleApiKeyVisibility()" id="toggle-key-btn" title="Toggle visibility">
+                  ${I.get('eye', { size: 14 })}
+                </button>
+                <button class="btn btn-secondary btn-icon-only" onclick="copyCurrentApiKey()" title="Copy API Key">
+                  ${I.get('copy', { size: 14 })}
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div class="btn-group mt-4">
-            <button class="btn btn-sm btn-secondary" onclick="regenerateApiKey()">🔑 Generate New Key</button>
-            <button class="btn btn-sm btn-primary" onclick="applyApiKeyFromInput()">💾 Apply to Session</button>
+            <div style="display:flex;gap:8px;margin-top:16px;">
+              <button class="btn btn-sm btn-secondary" onclick="regenerateApiKey()">
+                ${I.get('key', { size: 12 })}
+                <span>Generate New Key</span>
+              </button>
+              <button class="btn btn-sm btn-primary" onclick="applyApiKeyFromInput()">
+                ${I.get('check', { size: 12, color: '#ffffff' })}
+                <span>Save to Session</span>
+              </button>
+            </div>
           </div>
         </div>
+      </div>
 
-        <!-- Backup Retention & Targets -->
-        <div class="card animate-in stagger-3" style="grid-column:1/-1;">
-          <div class="card-header">
-            <h3 class="card-title">☁️ Backup Targets & Cloud Remotes</h3>
-          </div>
-
-          <div class="form-row mb-4">
-            <div class="form-group">
+      <!-- Backup Retention & Targets -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">
+            ${I.get('cloud', { size: 16 })}
+            <span>Backup Retention & Cloud Targets</span>
+          </h3>
+        </div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:16px;margin-bottom:20px;">
+            <div class="form-group" style="margin-bottom:0;">
               <label class="form-label">Retention Policy (Days)</label>
               <input type="number" id="retention-days" class="form-input" min="1" max="365" value="30">
-              <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px;">Backups older than this will be pruned on cleanup</div>
+              <div class="form-hint">Snapshots older than this limit are pruned on cleanup</div>
             </div>
-            <div class="form-group">
-              <label class="form-label">Default Target Remote</label>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Default Target Destination</label>
               <select id="default-target" class="form-select">
                 <option value="gdrive">Google Drive (rclone)</option>
                 <option value="s3">Amazon S3</option>
@@ -111,28 +146,28 @@ function renderSettings(container) {
           </div>
 
           <!-- Tabs for Cloud Remotes -->
-          <div style="display:flex;gap:8px;border-bottom:1px solid var(--border-primary);margin-bottom:16px;padding-bottom:8px;">
-            <button class="btn btn-sm btn-secondary active" id="tab-btn-gdrive" onclick="switchTargetTab('gdrive')">Google Drive</button>
+          <div style="display:flex;gap:6px;border-bottom:1px solid var(--border-primary);margin-bottom:16px;padding-bottom:10px;">
+            <button class="btn btn-sm btn-secondary" id="tab-btn-gdrive" onclick="switchTargetTab('gdrive')">Google Drive</button>
             <button class="btn btn-sm btn-secondary" id="tab-btn-s3" onclick="switchTargetTab('s3')">Amazon S3</button>
-            <button class="btn btn-sm btn-secondary" id="tab-btn-sftp" onclick="switchTargetTab('sftp')">SFTP Remote</button>
+            <button class="btn btn-sm btn-secondary" id="tab-btn-sftp" onclick="switchTargetTab('sftp')">SFTP Server</button>
           </div>
 
           <!-- GDrive Tab -->
           <div id="target-tab-gdrive">
-            <div class="flex justify-between items-center mb-3">
-              <strong>Google Drive (via rclone)</strong>
-              <label class="switch">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <strong style="font-size:13px;">Google Drive (rclone remote)</strong>
+              <label class="form-check">
                 <input type="checkbox" id="gdrive-enabled" checked>
-                <span class="slider"></span>
+                <span style="font-size:12px;color:var(--text-secondary);">Enabled</span>
               </label>
             </div>
-            <div class="form-row">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
               <div class="form-group">
                 <label class="form-label">rclone Remote Name</label>
                 <input type="text" id="gdrive-remote" class="form-input" placeholder="gdrive-backup" value="gdrive-backup">
               </div>
               <div class="form-group">
-                <label class="form-label">Base Path in Drive</label>
+                <label class="form-label">Drive Folder Base Path</label>
                 <input type="text" id="gdrive-base-path" class="form-input" placeholder="backups" value="backups">
               </div>
             </div>
@@ -140,55 +175,55 @@ function renderSettings(container) {
 
           <!-- S3 Tab -->
           <div id="target-tab-s3" style="display:none;">
-            <div class="flex justify-between items-center mb-3">
-              <strong>Amazon S3 Bucket</strong>
-              <label class="switch">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <strong style="font-size:13px;">Amazon S3 Bucket</strong>
+              <label class="form-check">
                 <input type="checkbox" id="s3-enabled">
-                <span class="slider"></span>
+                <span style="font-size:12px;color:var(--text-secondary);">Enabled</span>
               </label>
             </div>
-            <div class="form-row">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
               <div class="form-group">
-                <label class="form-label">S3 Bucket</label>
-                <input type="text" id="s3-bucket" class="form-input" placeholder="my-vps-backups">
+                <label class="form-label">S3 Bucket Name</label>
+                <input type="text" id="s3-bucket" class="form-input" placeholder="vps-backups-bucket">
               </div>
               <div class="form-group">
                 <label class="form-label">AWS Region</label>
-                <input type="text" id="s3-region" class="form-input" placeholder="eu-west-2">
+                <input type="text" id="s3-region" class="form-input" placeholder="us-east-1">
               </div>
             </div>
-            <div class="form-row">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
               <div class="form-group">
                 <label class="form-label">Access Key ID</label>
                 <input type="text" id="s3-access-key" class="form-input" placeholder="AKIA...">
               </div>
               <div class="form-group">
                 <label class="form-label">Secret Access Key</label>
-                <input type="password" id="s3-secret-key" class="form-input" placeholder="Secret Key">
+                <input type="password" id="s3-secret-key" class="form-input" placeholder="••••••••">
               </div>
             </div>
           </div>
 
           <!-- SFTP Tab -->
           <div id="target-tab-sftp" style="display:none;">
-            <div class="flex justify-between items-center mb-3">
-              <strong>SFTP Server Remote</strong>
-              <label class="switch">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <strong style="font-size:13px;">Remote SFTP Server</strong>
+              <label class="form-check">
                 <input type="checkbox" id="sftp-enabled">
-                <span class="slider"></span>
+                <span style="font-size:12px;color:var(--text-secondary);">Enabled</span>
               </label>
             </div>
-            <div class="form-row">
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;">
               <div class="form-group">
-                <label class="form-label">Host / IP</label>
-                <input type="text" id="sftp-host" class="form-input" placeholder="backup.myserver.com">
+                <label class="form-label">Host / IP Address</label>
+                <input type="text" id="sftp-host" class="form-input" placeholder="backup.remote.com">
               </div>
               <div class="form-group">
                 <label class="form-label">Port</label>
                 <input type="number" id="sftp-port" class="form-input" value="22">
               </div>
               <div class="form-group">
-                <label class="form-label">Username</label>
+                <label class="form-label">SSH Username</label>
                 <input type="text" id="sftp-user" class="form-input" placeholder="backupuser">
               </div>
             </div>
@@ -248,7 +283,7 @@ async function loadSettings() {
     }
 
   } catch (err) {
-    Toast.error('Failed to load settings: ' + err.message);
+    toast.error('Failed', 'Failed to load settings: ' + err.message);
   }
 }
 
@@ -294,19 +329,19 @@ async function saveAllSettings() {
     };
 
     await api.updateSettings(payload);
-    Toast.success('Settings saved successfully!');
+    toast.success('Saved', 'Settings saved successfully');
   } catch (err) {
-    Toast.error(err.message || 'Failed to save settings');
+    toast.error('Failed', err.message || 'Failed to save settings');
   }
 }
 
 async function testNotification(type) {
-  Toast.info(`Sending test ${type} alert...`);
+  toast.info('Testing', `Sending test ${type} alert...`);
   try {
     const res = await api.testNotification(type);
-    Toast.success(res.results?.[type]?.message || 'Test notification dispatched!');
+    toast.success('Dispatched', res.results?.[type]?.message || 'Test notification dispatched');
   } catch (err) {
-    Toast.error(err.message || `Test ${type} notification failed`);
+    toast.error('Failed', err.message || `Test ${type} notification failed`);
   }
 }
 
@@ -316,22 +351,28 @@ function switchTargetTab(target) {
     const btn = document.getElementById(`tab-btn-${t}`);
     if (el) el.style.display = t === target ? 'block' : 'none';
     if (btn) {
-      if (t === target) btn.classList.add('active');
-      else btn.classList.remove('active');
+      if (t === target) {
+        btn.classList.add('btn-primary');
+        btn.classList.remove('btn-secondary');
+      } else {
+        btn.classList.add('btn-secondary');
+        btn.classList.remove('btn-primary');
+      }
     }
   });
 }
 
 function toggleApiKeyVisibility() {
+  const I = window.Icons;
   const el = document.getElementById('current-api-key');
   const btn = document.getElementById('toggle-key-btn');
-  if (!el) return;
+  if (!el || !btn) return;
   if (el.type === 'password') {
     el.type = 'text';
-    btn.textContent = '🔒';
+    btn.innerHTML = I.get('eyeOff', { size: 14 });
   } else {
     el.type = 'password';
-    btn.textContent = '👁️';
+    btn.innerHTML = I.get('eye', { size: 14 });
   }
 }
 
@@ -339,26 +380,29 @@ function copyCurrentApiKey() {
   const el = document.getElementById('current-api-key');
   if (!el || !el.value) return;
   navigator.clipboard.writeText(el.value).then(() => {
-    Toast.success('API Key copied!');
+    toast.success('Copied', 'API Key copied to clipboard');
   });
 }
 
 async function regenerateApiKey() {
-  if (!confirm('Generating a new API key will require all clients to re-authenticate. Proceed?')) return;
-  try {
-    const res = await api.generateApiKey();
-    api.setApiKey(res.apiKey);
-    document.getElementById('current-api-key').value = res.apiKey;
-    Toast.success('New API key generated and stored in session!');
-  } catch (err) {
-    Toast.error(err.message || 'Failed to generate key');
-  }
+  Modal.confirm('Regenerate API Key', 'Generating a new API key will replace your active key. Are you sure you want to proceed?', async () => {
+    try {
+      const res = await api.generateApiKey();
+      api.setApiKey(res.apiKey);
+      document.getElementById('current-api-key').value = res.apiKey;
+      toast.success('Generated', 'New API key generated and applied to session');
+    } catch (err) {
+      toast.error('Failed', err.message || 'Failed to generate key');
+    }
+  });
 }
 
 function applyApiKeyFromInput() {
   const el = document.getElementById('current-api-key');
   if (el && el.value) {
     api.setApiKey(el.value);
-    Toast.success('API key saved to browser session');
+    toast.success('Applied', 'API key saved to browser session');
   }
 }
+
+window.renderSettings = renderSettings;

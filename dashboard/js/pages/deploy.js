@@ -1,69 +1,87 @@
 /**
  * Deploy & Git Management Page
+ * Clean white theme with vector icons and deep black text
  */
 function renderDeploy(container) {
+  const I = window.Icons;
+
   container.innerHTML = `
-    <div class="animate-in">
-      <div class="flex justify-between items-center mb-6">
-        <div>
-          <h2 style="font-size:20px;font-weight:700;">Deploy & Git Manager</h2>
-          <p style="font-size:13px;color:var(--text-tertiary);margin-top:4px;">Clone repositories, configure builds, and control application processes</p>
+    <div>
+      <div class="page-header">
+        <div class="page-header-title">
+          <h2>Deploy & Git</h2>
+          <p>Clone repositories, pull latest commits, and manage live processes</p>
         </div>
-        <div class="btn-group">
-          <button class="btn btn-secondary" onclick="loadDeployStatuses()">🔄 Refresh Status</button>
-          <button class="btn btn-primary" onclick="showCloneModal()">⚡ Clone & Deploy</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" onclick="loadDeployStatuses()">
+            ${I.get('refresh', { size: 13 })}
+            <span>Refresh Status</span>
+          </button>
+          <button class="btn btn-primary" onclick="showCloneModal()">
+            ${I.get('rocket', { size: 13, color: '#ffffff' })}
+            <span>Clone & Register</span>
+          </button>
         </div>
       </div>
 
       <!-- Quick Deploy Card -->
-      <div class="card mb-6 animate-in stagger-1">
+      <div class="card" style="margin-bottom:24px;">
         <div class="card-header">
-          <h3 class="card-title">🚀 Git Clone & Auto Deploy</h3>
+          <h3 class="card-title">
+            ${I.get('download', { size: 16 })}
+            <span>Quick Git Clone</span>
+          </h3>
         </div>
-        <form id="clone-form" onsubmit="handleCloneSubmit(event)" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:16px;align-items:end;">
-          <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label">Git Repository URL</label>
-            <input type="text" class="form-input" id="git-url" placeholder="https://github.com/org/repo.git" required>
-          </div>
-          <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label">Branch</label>
-            <input type="text" class="form-input" id="git-branch" placeholder="main" value="main">
-          </div>
-          <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label">Destination Path</label>
-            <input type="text" class="form-input" id="git-path" placeholder="/var/www/my-app" required>
-          </div>
-          <div>
-            <button type="submit" class="btn btn-primary" id="clone-btn" style="width:100%;height:38px;">
-              <span>📥</span> Clone Repository
-            </button>
-          </div>
-        </form>
+        <div class="card-body">
+          <form id="clone-form" onsubmit="handleCloneSubmit(event)" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;align-items:end;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Git Repository URL</label>
+              <input type="text" class="form-input" id="git-url" placeholder="https://github.com/org/repo.git" required>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Branch</label>
+              <input type="text" class="form-input" id="git-branch" placeholder="main" value="main">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Destination Path</label>
+              <input type="text" class="form-input" id="git-path" placeholder="/var/www/my-app" required>
+            </div>
+            <div>
+              <button type="submit" class="btn btn-primary" id="clone-btn" style="width:100%;height:37px;">
+                ${I.get('download', { size: 14, color: '#ffffff' })}
+                <span>Clone Repo</span>
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
 
       <!-- Deployed Applications Process Table -->
-      <div class="card animate-in stagger-2">
+      <div class="card">
         <div class="card-header">
-          <h3 class="card-title">Managed Processes & Applications</h3>
+          <h3 class="card-title">
+            ${I.get('server', { size: 16 })}
+            <span>Managed Applications & Daemons</span>
+          </h3>
           <span class="badge badge-neutral" id="deploy-count-badge">0 Projects</span>
         </div>
-        <div class="table-container">
+        <div class="table-container" style="border:none;border-radius:0;">
           <table class="table">
             <thead>
               <tr>
                 <th>Project</th>
-                <th>Type</th>
+                <th>Stack</th>
                 <th>Branch</th>
-                <th>Deploy Path</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th>Server Path</th>
+                <th>Process State</th>
+                <th style="text-align:right">Controls</th>
               </tr>
             </thead>
             <tbody id="deploy-table-body">
               <tr>
                 <td colspan="6" style="text-align:center;padding:40px;">
                   <div class="spinner spinner-lg" style="margin:0 auto 12px;"></div>
-                  <div style="color:var(--text-tertiary);">Loading project statuses...</div>
+                  <div style="color:var(--text-tertiary);font-size:13px;">Checking process status...</div>
                 </td>
               </tr>
             </tbody>
@@ -79,6 +97,7 @@ function renderDeploy(container) {
 async function loadDeployStatuses() {
   const tbody = document.getElementById('deploy-table-body');
   const countBadge = document.getElementById('deploy-count-badge');
+  const I = window.Icons;
   if (!tbody) return;
 
   try {
@@ -95,8 +114,12 @@ async function loadDeployStatuses() {
     if (projects.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="6" style="text-align:center;padding:40px;color:var(--text-tertiary);">
-            No projects registered yet. Go to <a href="#projects" onclick="window.app.navigate('projects')">Projects</a> to add one, or use Clone above.
+          <td colspan="6">
+            <div class="empty-state" style="padding:36px 20px;">
+              <div class="empty-state-icon">${I.get('package', { size: 20 })}</div>
+              <div class="empty-state-title">No Applications Configured</div>
+              <div class="empty-state-desc">Use the Quick Git Clone tool above or create a project to manage builds and services.</div>
+            </div>
           </td>
         </tr>
       `;
@@ -108,29 +131,53 @@ async function loadDeployStatuses() {
       const isOnline = pStatus?.status === 'online' || pStatus?.status === 'active';
       const statusBadge = isOnline
         ? '<span class="badge badge-success"><span class="badge-dot"></span> Online</span>'
-        : (pStatus ? '<span class="badge badge-danger"><span class="badge-dot"></span> Stopped</span>' : '<span class="badge badge-neutral">Inactive</span>');
+        : (pStatus ? '<span class="badge badge-danger"><span class="badge-dot"></span> Stopped</span>' : '<span class="badge badge-neutral"><span class="badge-dot"></span> Inactive</span>');
 
       return `
         <tr>
           <td>
-            <strong>${escapeHtml(p.name)}</strong>
+            <div style="font-weight:600;color:var(--text-primary);font-size:13px;">${escapeHtml(p.name)}</div>
             <div style="font-size:11px;color:var(--text-tertiary);">${escapeHtml(p.description || '')}</div>
           </td>
-          <td><span class="badge badge-purple">${p.type || 'node'}</span></td>
-          <td><code>${escapeHtml(p.branch || 'main')}</code></td>
-          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(p.deployPath || '')}">
-            <span style="font-family:var(--font-mono);font-size:12px;">${escapeHtml(p.deployPath || '—')}</span>
+          <td><span class="badge badge-neutral" style="text-transform:uppercase;font-size:10px;">${escapeHtml(p.type || 'node')}</span></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:4px;font-size:12px;">
+              ${I.get('gitBranch', { size: 13, color: 'var(--text-tertiary)' })}
+              <code>${escapeHtml(p.branch || 'main')}</code>
+            </div>
+          </td>
+          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);">${escapeHtml(p.deployPath || '—')}</span>
           </td>
           <td>${statusBadge}</td>
-          <td>
-            <div class="btn-group">
-              <button class="btn btn-sm btn-secondary" onclick="pullProject('${p.id}')" title="Git Pull Latest">⬇️ Pull</button>
-              <button class="btn btn-sm btn-secondary" onclick="configureProject('${p.id}')" title="Install Deps & Build">⚙️ Build</button>
+          <td style="text-align:right">
+            <div style="display:inline-flex;gap:6px;">
+              <button class="btn btn-sm btn-secondary" onclick="pullProject('${p.id}')" title="Git Pull Latest">
+                ${I.get('download', { size: 12 })}
+                <span>Pull</span>
+              </button>
+              <button class="btn btn-sm btn-secondary" onclick="configureProject('${p.id}')" title="Run Build / Install">
+                ${I.get('settings', { size: 12 })}
+                <span>Build</span>
+              </button>
               ${isOnline
-          ? `<button class="btn btn-sm btn-danger" onclick="stopProject('${p.id}')" title="Stop Process">⏹️ Stop</button>
-                   <button class="btn btn-sm btn-secondary" onclick="restartProject('${p.id}')" title="Restart">🔄 Restart</button>`
-          : `<button class="btn btn-sm btn-primary" onclick="startProject('${p.id}')" title="Start Process">▶️ Start</button>`
-        }
+                ? `
+                  <button class="btn btn-sm btn-secondary" onclick="restartProject('${p.id}')" title="Restart Process">
+                    ${I.get('refresh', { size: 12 })}
+                    <span>Restart</span>
+                  </button>
+                  <button class="btn btn-sm btn-danger" onclick="stopProject('${p.id}')" title="Stop Process">
+                    ${I.get('xCircle', { size: 12 })}
+                    <span>Stop</span>
+                  </button>
+                `
+                : `
+                  <button class="btn btn-sm btn-primary" onclick="startProject('${p.id}')" title="Start Process">
+                    ${I.get('play', { size: 12, color: '#ffffff' })}
+                    <span>Start</span>
+                  </button>
+                `
+              }
             </div>
           </td>
         </tr>
@@ -145,6 +192,7 @@ async function loadDeployStatuses() {
 
 async function handleCloneSubmit(e) {
   e.preventDefault();
+  const I = window.Icons;
   const gitUrl = document.getElementById('git-url').value.trim();
   const branch = document.getElementById('git-branch').value.trim() || 'main';
   const deployPath = document.getElementById('git-path').value.trim();
@@ -153,101 +201,101 @@ async function handleCloneSubmit(e) {
   if (!gitUrl || !deployPath) return;
 
   btn.disabled = true;
-  btn.innerHTML = `<span class="spinner spinner-sm"></span> Cloning...`;
+  btn.innerHTML = `<span class="spinner spinner-sm" style="margin-right:6px;"></span> Cloning...`;
 
   try {
     const res = await api.cloneRepo(gitUrl, branch, deployPath);
-    Toast.success(res.message || 'Repository cloned successfully!');
+    toast.success('Cloned', res.message || 'Repository cloned successfully');
     document.getElementById('clone-form').reset();
     loadDeployStatuses();
   } catch (err) {
-    Toast.error(err.message || 'Failed to clone repository');
+    toast.error('Clone Failed', err.message || 'Failed to clone repository');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = `<span>📥</span> Clone Repository`;
+    btn.innerHTML = `${I.get('download', { size: 14, color: '#ffffff' })} <span>Clone Repo</span>`;
   }
 }
 
 async function pullProject(projectId) {
-  Toast.info('Pulling latest git changes...');
+  toast.info('Git Pull', 'Pulling latest git changes...');
   try {
     const res = await api.pullLatest(projectId);
-    Toast.success(res.output || 'Latest changes pulled!');
+    toast.success('Git Pulled', res.output || 'Latest commits pulled');
     loadDeployStatuses();
   } catch (err) {
-    Toast.error(err.message || 'Git pull failed');
+    toast.error('Pull Failed', err.message || 'Git pull failed');
   }
 }
 
 async function configureProject(projectId) {
-  Toast.info('Running build / dependency install...');
+  toast.info('Build Started', 'Installing dependencies and compiling...');
   try {
     const res = await api.configureProject(projectId, {});
-    Toast.success(res.message || 'Build and configuration completed!');
+    toast.success('Build Complete', res.message || 'Project configured successfully');
     loadDeployStatuses();
   } catch (err) {
-    Toast.error(err.message || 'Configuration failed');
+    toast.error('Build Failed', err.message || 'Configuration failed');
   }
 }
 
 async function startProject(projectId) {
   try {
     const res = await api.startProject(projectId);
-    Toast.success(res.message || 'Project started!');
+    toast.success('Started', res.message || 'Application process started');
     loadDeployStatuses();
   } catch (err) {
-    Toast.error(err.message || 'Start failed');
+    toast.error('Start Failed', err.message || 'Start failed');
   }
 }
 
 async function stopProject(projectId) {
   try {
     const res = await api.stopProject(projectId);
-    Toast.success(res.message || 'Project stopped');
+    toast.success('Stopped', res.message || 'Application process stopped');
     loadDeployStatuses();
   } catch (err) {
-    Toast.error(err.message || 'Stop failed');
+    toast.error('Stop Failed', err.message || 'Stop failed');
   }
 }
 
 async function restartProject(projectId) {
   try {
     const res = await api.restartProject(projectId);
-    Toast.success(res.message || 'Project restarted');
+    toast.success('Restarted', res.message || 'Application process restarted');
     loadDeployStatuses();
   } catch (err) {
-    Toast.error(err.message || 'Restart failed');
+    toast.error('Restart Failed', err.message || 'Restart failed');
   }
 }
 
 function showCloneModal() {
   Modal.show('Clone & Register New Project', `
     <div class="form-group">
-      <label class="form-label">Project Name</label>
-      <input type="text" id="modal-project-name" class="form-input" placeholder="e.g. nhs-patient-portal" required>
+      <label class="form-label">Project Name *</label>
+      <input type="text" id="modal-project-name" class="form-input" placeholder="e.g. store-api" required>
     </div>
     <div class="form-group">
-      <label class="form-label">Git URL</label>
-      <input type="text" id="modal-project-git" class="form-input" placeholder="https://github.com/user/repo.git" required>
+      <label class="form-label">Git URL *</label>
+      <input type="text" id="modal-project-git" class="form-input" placeholder="https://github.com/org/repo.git" required>
     </div>
-    <div class="form-row">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="form-group">
         <label class="form-label">Branch</label>
         <input type="text" id="modal-project-branch" class="form-input" value="main">
       </div>
       <div class="form-group">
-        <label class="form-label">Project Type</label>
+        <label class="form-label">Stack</label>
         <select id="modal-project-type" class="form-select">
           <option value="node">Node.js</option>
-          <option value="php">PHP / Apache / Nginx</option>
+          <option value="php">PHP / Apache</option>
           <option value="static">Static Web</option>
           <option value="python">Python</option>
         </select>
       </div>
     </div>
     <div class="form-group">
-      <label class="form-label">Deploy Path on Server</label>
-      <input type="text" id="modal-project-path" class="form-input" placeholder="/var/www/my-app" required>
+      <label class="form-label">Deploy Path on Server *</label>
+      <input type="text" id="modal-project-path" class="form-input" placeholder="/var/www/store-api" required>
     </div>
   `, {
     submitText: 'Clone & Register',
@@ -259,28 +307,24 @@ function showCloneModal() {
       const deployPath = document.getElementById('modal-project-path').value.trim();
 
       if (!name || !gitUrl || !deployPath) {
-        Toast.error('Please fill in all required fields');
-        return false;
+        toast.error('Required', 'Please fill in all required fields');
+        throw new Error('Please fill in all required fields');
       }
 
-      Toast.info('Cloning and creating project...');
-      try {
-        await api.cloneRepo(gitUrl, branch, deployPath);
-        await api.createProject({
-          name,
-          gitUrl,
-          branch,
-          type,
-          deployPath,
-          backupDirs: [deployPath]
-        });
-        Toast.success(`Project ${name} created and cloned!`);
-        loadDeployStatuses();
-        return true;
-      } catch (err) {
-        Toast.error(err.message || 'Clone failed');
-        return false;
-      }
+      toast.info('Cloning', 'Cloning repository to server...');
+      await api.cloneRepo(gitUrl, branch, deployPath);
+      await api.createProject({
+        name,
+        gitUrl,
+        branch,
+        type,
+        deployPath,
+        backupDirs: [deployPath]
+      });
+      toast.success('Project Created', `${name} cloned and registered`);
+      loadDeployStatuses();
     }
   });
 }
+
+window.renderDeploy = renderDeploy;

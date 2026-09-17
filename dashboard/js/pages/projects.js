@@ -1,20 +1,24 @@
 /**
  * Projects management page
+ * Clean white theme with vector icons and deep black text
  */
 function renderProjects(container) {
+  const I = window.Icons;
+
   container.innerHTML = `
-    <div class="animate-in">
-      <div class="flex justify-between items-center mb-6">
-        <div>
-          <h2 style="font-size:20px;font-weight:700;">Projects</h2>
-          <p style="font-size:13px;color:var(--text-tertiary);margin-top:4px;">Manage your VPS projects</p>
+    <div>
+      <div class="page-header">
+        <div class="page-header-title">
+          <h2>Projects</h2>
+          <p>Manage and configure multi-tenant applications on this VPS</p>
         </div>
         <button class="btn btn-primary" onclick="showAddProjectModal()">
-          <span>➕</span> Add Project
+          ${I.get('plus', { size: 14 })}
+          <span>Add Project</span>
         </button>
       </div>
-      <div id="projects-grid" class="grid-auto">
-        <div class="loading-overlay"><div class="spinner spinner-lg"></div></div>
+      <div id="projects-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:16px;">
+        <div style="text-align:center;padding:40px;grid-column:1/-1;"><div class="spinner spinner-lg"></div></div>
       </div>
     </div>
   `;
@@ -23,16 +27,23 @@ function renderProjects(container) {
 
 async function loadProjects() {
   const grid = document.getElementById('projects-grid');
+  const I = window.Icons;
+
   try {
     const { projects } = await api.getProjects();
 
     if (projects.length === 0) {
       grid.innerHTML = `
-        <div class="empty-state" style="grid-column:1/-1;">
-          <div class="empty-state-icon">📦</div>
-          <div class="empty-state-title">No projects yet</div>
-          <div class="empty-state-desc">Add your first project to start managing backups and deployments.</div>
-          <button class="btn btn-primary" onclick="showAddProjectModal()">➕ Add Project</button>
+        <div class="card" style="grid-column:1/-1;">
+          <div class="empty-state">
+            <div class="empty-state-icon">${I.get('package', { size: 22 })}</div>
+            <div class="empty-state-title">No Projects Configured</div>
+            <div class="empty-state-desc">Add your first project to start managing automated backups and Git deployments.</div>
+            <button class="btn btn-primary" onclick="showAddProjectModal()">
+              ${I.get('plus', { size: 14 })}
+              <span>Add Project</span>
+            </button>
+          </div>
         </div>
       `;
       return;
@@ -45,46 +56,87 @@ async function loadProjects() {
       statuses = result.statuses || [];
     } catch {}
 
-    grid.innerHTML = projects.map((p, i) => {
+    grid.innerHTML = projects.map(p => {
       const status = statuses.find(s => s.name === p.name);
       const statusBadge = status
         ? (status.status === 'online'
           ? '<span class="badge badge-success"><span class="badge-dot"></span> Online</span>'
           : '<span class="badge badge-danger"><span class="badge-dot"></span> Stopped</span>')
-        : '<span class="badge badge-neutral">Unknown</span>';
+        : '<span class="badge badge-neutral"><span class="badge-dot"></span> Inactive</span>';
 
       return `
-        <div class="project-card animate-in stagger-${Math.min(i + 1, 6)}">
-          <div class="project-card-header">
-            <span class="project-card-name">${escapeHtml(p.name)}</span>
-            <span class="project-card-type">${p.type || 'node'}</span>
+        <div class="card" style="display:flex;flex-direction:column;justify-content:space-between;">
+          <div>
+            <div class="card-header" style="background:#fafafa;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:700;color:var(--text-primary);font-size:14px;">${escapeHtml(p.name)}</span>
+                <span class="badge badge-neutral" style="text-transform:uppercase;font-size:10px;">${escapeHtml(p.type || 'node')}</span>
+              </div>
+              ${statusBadge}
+            </div>
+
+            <div class="card-body" style="padding:16px;">
+              <p style="font-size:13px;color:var(--text-secondary);min-height:36px;margin-bottom:14px;">
+                ${escapeHtml(p.description || 'No description provided')}
+              </p>
+
+              <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--text-secondary);padding:10px 12px;background:#f8fafc;border-radius:var(--radius-sm);border:1px solid var(--border-primary);">
+                <div style="display:flex;align-items:center;gap:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                  ${I.get('folder', { size: 14, color: 'var(--text-tertiary)' })}
+                  <span style="font-family:var(--font-mono);">${escapeHtml(p.deployPath || '—')}</span>
+                </div>
+
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <div style="display:flex;align-items:center;gap:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                    ${I.get('gitBranch', { size: 14, color: 'var(--text-tertiary)' })}
+                    <span>${escapeHtml(p.branch || 'main')}</span>
+                  </div>
+                  ${p.gitUrl ? `
+                    <a href="${p.gitUrl.replace('.git', '')}" target="_blank" style="display:flex;align-items:center;gap:4px;color:var(--text-primary);font-size:11px;">
+                      ${I.get('externalLink', { size: 12 })}
+                      <span>Repo</span>
+                    </a>
+                  ` : ''}
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="project-card-desc">${escapeHtml(p.description || 'No description')}</div>
-          <div class="project-card-meta">
-            ${statusBadge}
-            <span>📁 ${p.deployPath || '—'}</span>
-          </div>
-          <div class="project-card-meta" style="margin-top:6px;">
-            <span>🔗 ${p.gitUrl ? p.gitUrl.replace('https://github.com/', '') : 'No repo'}</span>
-            <span>🌿 ${p.branch || 'main'}</span>
-          </div>
-          <div class="project-card-actions">
-            <button class="btn btn-sm btn-secondary" onclick="showEditProjectModal('${p.id}')">✏️ Edit</button>
-            <button class="btn btn-sm btn-success" onclick="backupProject('${p.id}', '${p.name}')">💾 Backup</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteProject('${p.id}', '${escapeHtml(p.name)}')">🗑️</button>
+
+          <div style="padding:12px 16px;border-top:1px solid var(--border-primary);display:flex;justify-content:space-between;align-items:center;background:#ffffff;">
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-sm btn-secondary" onclick="showEditProjectModal('${p.id}')">
+                ${I.get('edit', { size: 12 })}
+                <span>Edit</span>
+              </button>
+              <button class="btn btn-sm btn-secondary" onclick="backupProject('${p.id}', '${escapeHtml(p.name)}')">
+                ${I.get('database', { size: 12 })}
+                <span>Backup</span>
+              </button>
+            </div>
+            <button class="btn btn-sm btn-danger" onclick="deleteProject('${p.id}', '${escapeHtml(p.name)}')" title="Delete Project">
+              ${I.get('trash', { size: 12 })}
+            </button>
           </div>
         </div>
       `;
     }).join('');
   } catch (err) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">⚠️</div><div class="empty-state-desc">${err.message}</div></div>`;
+    grid.innerHTML = `
+      <div class="card" style="grid-column:1/-1;">
+        <div class="empty-state">
+          <div class="empty-state-icon" style="color:var(--color-red);">${I.get('alertTriangle', { size: 22 })}</div>
+          <div class="empty-state-title">Failed to load projects</div>
+          <div class="empty-state-desc">${escapeHtml(err.message)}</div>
+        </div>
+      </div>
+    `;
   }
 }
 
 function showAddProjectModal() {
   Modal.show('Add Project', projectFormHtml(), {
     submitText: 'Create Project',
-    width: 600,
+    width: 580,
     onSubmit: async (overlay) => {
       const data = getProjectFormData(overlay);
       await api.createProject(data);
@@ -97,8 +149,8 @@ function showAddProjectModal() {
 async function showEditProjectModal(id) {
   const project = await api.getProject(id);
   Modal.show('Edit Project', projectFormHtml(project), {
-    submitText: 'Update Project',
-    width: 600,
+    submitText: 'Save Changes',
+    width: 580,
     onSubmit: async (overlay) => {
       const data = getProjectFormData(overlay);
       await api.updateProject(id, data);
@@ -109,7 +161,7 @@ async function showEditProjectModal(id) {
 }
 
 async function deleteProject(id, name) {
-  Modal.confirm('Delete Project', `Are you sure you want to delete <strong>${name}</strong>? This only removes it from the manager — no files are deleted from the server.`, async () => {
+  Modal.confirm('Delete Project', `Are you sure you want to delete <strong>${name}</strong>? This only removes it from the manager registry — no server files are deleted.`, async () => {
     await api.deleteProject(id);
     toast.success('Project Deleted', `${name} has been removed`);
     loadProjects();
@@ -118,9 +170,9 @@ async function deleteProject(id, name) {
 
 async function backupProject(id, name) {
   try {
-    toast.info('Backup Started', `Backing up ${name}...`);
+    toast.info('Backup Queued', `Starting backup for ${name}...`);
     await api.triggerBackup(id);
-    toast.success('Backup Triggered', `${name} backup is running in the background`);
+    toast.success('Backup Running', `${name} snapshot is in progress`);
   } catch (err) {
     toast.error('Backup Failed', err.message);
   }
@@ -130,65 +182,65 @@ function projectFormHtml(project = {}) {
   return `
     <div class="form-group">
       <label class="form-label">Project Name *</label>
-      <input class="form-input" id="pf-name" placeholder="my-app" value="${project.name || ''}" required>
+      <input class="form-input" id="pf-name" placeholder="e.g. store-backend" value="${escapeHtml(project.name || '')}" required>
     </div>
     <div class="form-group">
       <label class="form-label">Description</label>
-      <input class="form-input" id="pf-desc" placeholder="Short description" value="${project.description || ''}">
+      <input class="form-input" id="pf-desc" placeholder="Production API service" value="${escapeHtml(project.description || '')}">
     </div>
-    <div class="form-row">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="form-group">
         <label class="form-label">Git URL</label>
-        <input class="form-input" id="pf-git" placeholder="https://github.com/user/repo.git" value="${project.gitUrl || ''}">
+        <input class="form-input" id="pf-git" placeholder="https://github.com/org/repo.git" value="${escapeHtml(project.gitUrl || '')}">
       </div>
       <div class="form-group">
         <label class="form-label">Branch</label>
-        <input class="form-input" id="pf-branch" placeholder="main" value="${project.branch || 'main'}">
+        <input class="form-input" id="pf-branch" placeholder="main" value="${escapeHtml(project.branch || 'main')}">
       </div>
     </div>
-    <div class="form-row">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="form-group">
         <label class="form-label">Deploy Path</label>
-        <input class="form-input" id="pf-path" placeholder="/var/www/my-app" value="${project.deployPath || ''}">
+        <input class="form-input" id="pf-path" placeholder="/var/www/my-app" value="${escapeHtml(project.deployPath || '')}">
       </div>
       <div class="form-group">
-        <label class="form-label">Type</label>
+        <label class="form-label">Application Stack</label>
         <select class="form-select" id="pf-type">
-          <option value="node" ${project.type === 'node' ? 'selected' : ''}>Node.js</option>
-          <option value="php" ${project.type === 'php' ? 'selected' : ''}>PHP</option>
-          <option value="static" ${project.type === 'static' ? 'selected' : ''}>Static</option>
+          <option value="node" ${project.type === 'node' ? 'selected' : ''}>Node.js / Express / Nest</option>
+          <option value="php" ${project.type === 'php' ? 'selected' : ''}>PHP / Laravel / WordPress</option>
+          <option value="static" ${project.type === 'static' ? 'selected' : ''}>Static HTML / Nginx</option>
         </select>
       </div>
     </div>
     <hr style="border:none;border-top:1px solid var(--border-primary);margin:16px 0;">
-    <h4 style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text-secondary);">Database Configuration</h4>
-    <div class="form-row">
+    <h4 style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--text-primary);">Database Configuration</h4>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="form-group">
-        <label class="form-label">DB Type</label>
+        <label class="form-label">DB Engine</label>
         <select class="form-select" id="pf-dbtype">
           <option value="mysql" ${project.database?.type === 'mysql' ? 'selected' : ''}>MySQL / MariaDB</option>
           <option value="postgres" ${project.database?.type === 'postgres' ? 'selected' : ''}>PostgreSQL</option>
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">DB Name</label>
-        <input class="form-input" id="pf-dbname" placeholder="my_db" value="${project.database?.name || ''}">
+        <label class="form-label">Database Name</label>
+        <input class="form-input" id="pf-dbname" placeholder="app_db" value="${escapeHtml(project.database?.name || '')}">
       </div>
     </div>
-    <div class="form-row">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="form-group">
-        <label class="form-label">DB User</label>
-        <input class="form-input" id="pf-dbuser" placeholder="db_user" value="${project.database?.user || ''}">
+        <label class="form-label">DB Username</label>
+        <input class="form-input" id="pf-dbuser" placeholder="app_user" value="${escapeHtml(project.database?.user || '')}">
       </div>
       <div class="form-group">
         <label class="form-label">DB Password</label>
-        <input class="form-input" id="pf-dbpass" type="password" placeholder="••••••" value="${project.database?.password || ''}">
+        <input class="form-input" id="pf-dbpass" type="password" placeholder="••••••••" value="${escapeHtml(project.database?.password || '')}">
       </div>
     </div>
     <div class="form-group">
-      <label class="form-label">Backup Directories</label>
-      <textarea class="form-textarea" id="pf-dirs" placeholder="One path per line, e.g.:\n/var/www/my-app/uploads\n/var/www/my-app/storage">${(project.backupDirs || []).join('\n')}</textarea>
-      <div class="form-hint">One directory path per line</div>
+      <label class="form-label">Directory Paths to Backup</label>
+      <textarea class="form-textarea" id="pf-dirs" rows="3" placeholder="/var/www/my-app/uploads&#10;/var/www/my-app/storage">${(project.backupDirs || []).join('\n')}</textarea>
+      <div class="form-hint">One absolute directory path per line</div>
     </div>
   `;
 }
@@ -209,12 +261,6 @@ function getProjectFormData(overlay) {
     },
     backupDirs: overlay.querySelector('#pf-dirs').value.split('\n').map(d => d.trim()).filter(Boolean)
   };
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 window.renderProjects = renderProjects;

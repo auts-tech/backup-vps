@@ -1,6 +1,7 @@
 /**
  * VPS Deploy & Backup Manager — Main Application Router & Controller
  * Includes login gate — all pages require authentication
+ * Clean light theme with vector icons
  */
 
 // Global Utility Functions
@@ -46,14 +47,13 @@ class App {
       backups: { title: 'Backups', render: renderBackups },
       deploy: { title: 'Deploy & Git', render: renderDeploy },
       cron: { title: 'Cron Automation', render: renderCron },
-      monitor: { title: 'Server Monitor', render: renderMonitor },
+      monitor: { title: 'Resource Monitor', render: renderMonitor },
       logs: { title: 'System Logs', render: renderLogs },
       settings: { title: 'Settings', render: renderSettings }
     };
   }
 
   async init() {
-    // Check if user has a valid session
     if (api.isLoggedIn()) {
       const authStatus = await api.checkAuth();
       if (authStatus.authenticated) {
@@ -62,11 +62,9 @@ class App {
         this.showApp();
         return;
       }
-      // Token expired or invalid
       api.clearToken();
     }
 
-    // Not authenticated — show login
     this.showLogin();
   }
 
@@ -74,18 +72,21 @@ class App {
   showLogin() {
     this.isAuthenticated = false;
     const appEl = document.getElementById('app-root');
+    const shieldIcon = window.Icons ? window.Icons.get('shield', { size: 28, color: '#09090b', strokeWidth: 2 }) : '';
+
     appEl.innerHTML = `
       <div class="login-screen">
-        <div class="login-backdrop"></div>
-        <div class="login-card animate-in">
+        <div class="login-card">
           <div class="login-logo">
-            <div class="sidebar-logo-icon" style="width:56px;height:56px;font-size:26px;margin:0 auto 16px;">🛡️</div>
-            <h1 style="font-size:22px;font-weight:700;color:var(--text-primary);margin:0;">VPS Manager</h1>
-            <p style="font-size:13px;color:var(--text-tertiary);margin-top:4px;">Deploy & Backup Suite</p>
+            <div style="width:52px;height:52px;margin:0 auto 16px;background:#f4f4f5;border:1px solid #e4e4e7;border-radius:10px;display:flex;align-items:center;justify-content:center;">
+              ${shieldIcon}
+            </div>
+            <h1 style="font-size:20px;font-weight:700;color:var(--text-primary);margin:0;letter-spacing:-0.02em;">VPS Manager</h1>
+            <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Deploy & Backup Suite</p>
           </div>
 
           <form id="login-form" onsubmit="window.app.handleLogin(event)" autocomplete="on">
-            <div id="login-error" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--color-red);padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:16px;"></div>
+            <div id="login-error" style="display:none;background:var(--color-red-bg);border:1px solid var(--color-red-border);color:var(--color-red);padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:16px;"></div>
 
             <div class="form-group">
               <label class="form-label">Email Address</label>
@@ -112,13 +113,13 @@ class App {
               >
             </div>
 
-            <button type="submit" class="btn btn-primary" id="login-btn" style="width:100%;height:42px;font-size:14px;margin-top:8px;">
+            <button type="submit" class="btn btn-primary" id="login-btn" style="width:100%;height:40px;font-size:14px;margin-top:8px;">
               Sign In
             </button>
           </form>
 
-          <div style="text-align:center;margin-top:20px;font-size:11px;color:var(--text-tertiary);">
-            Credentials are configured in the server's <code>.env</code> file
+          <div style="text-align:center;margin-top:20px;font-size:12px;color:var(--text-tertiary);">
+            Configured in the server's <code>.env</code> file
           </div>
         </div>
       </div>
@@ -154,12 +155,16 @@ class App {
   // ── Main App Shell ────────────────────────────────────────
   showApp() {
     const appEl = document.getElementById('app-root');
+    const I = window.Icons;
+
     appEl.innerHTML = `
       <div class="app">
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
           <div class="sidebar-logo">
-            <div class="sidebar-logo-icon">🛡️</div>
+            <div class="sidebar-logo-icon">
+              ${I.get('shield', { size: 16, color: '#ffffff' })}
+            </div>
             <div class="sidebar-logo-text">
               <h1>VPS Manager</h1>
               <span>Deploy & Backup Suite</span>
@@ -170,7 +175,7 @@ class App {
             <div class="sidebar-section">
               <div class="sidebar-section-title">Overview</div>
               <a class="sidebar-link active" data-page="dashboard" href="#dashboard">
-                <span class="sidebar-link-icon">📊</span>
+                <span class="sidebar-link-icon">${I.get('dashboard', { size: 16 })}</span>
                 <span>Dashboard</span>
               </a>
             </div>
@@ -178,19 +183,19 @@ class App {
             <div class="sidebar-section">
               <div class="sidebar-section-title">Operations</div>
               <a class="sidebar-link" data-page="projects" href="#projects">
-                <span class="sidebar-link-icon">📦</span>
+                <span class="sidebar-link-icon">${I.get('package', { size: 16 })}</span>
                 <span>Projects</span>
               </a>
               <a class="sidebar-link" data-page="backups" href="#backups">
-                <span class="sidebar-link-icon">💾</span>
+                <span class="sidebar-link-icon">${I.get('database', { size: 16 })}</span>
                 <span>Backups</span>
               </a>
               <a class="sidebar-link" data-page="deploy" href="#deploy">
-                <span class="sidebar-link-icon">🚀</span>
+                <span class="sidebar-link-icon">${I.get('rocket', { size: 16 })}</span>
                 <span>Deploy & Git</span>
               </a>
               <a class="sidebar-link" data-page="cron" href="#cron">
-                <span class="sidebar-link-icon">⏱️</span>
+                <span class="sidebar-link-icon">${I.get('clock', { size: 16 })}</span>
                 <span>Cron Automation</span>
               </a>
             </div>
@@ -198,15 +203,15 @@ class App {
             <div class="sidebar-section">
               <div class="sidebar-section-title">System</div>
               <a class="sidebar-link" data-page="monitor" href="#monitor">
-                <span class="sidebar-link-icon">📈</span>
+                <span class="sidebar-link-icon">${I.get('activity', { size: 16 })}</span>
                 <span>Resource Monitor</span>
               </a>
               <a class="sidebar-link" data-page="logs" href="#logs">
-                <span class="sidebar-link-icon">📜</span>
+                <span class="sidebar-link-icon">${I.get('fileText', { size: 16 })}</span>
                 <span>Logs</span>
               </a>
               <a class="sidebar-link" data-page="settings" href="#settings">
-                <span class="sidebar-link-icon">⚙️</span>
+                <span class="sidebar-link-icon">${I.get('settings', { size: 16 })}</span>
                 <span>Settings</span>
               </a>
             </div>
@@ -214,35 +219,43 @@ class App {
 
           <div class="sidebar-footer">
             <div class="sidebar-footer-info">
-              <div style="font-size:12px;color:var(--text-secondary);">👤 ${escapeHtml(this.userEmail)}</div>
-              <button class="btn btn-ghost" onclick="window.app.handleLogout()" style="font-size:11px;color:var(--color-red);margin-top:6px;padding:4px 8px;">🚪 Sign Out</button>
+              <div style="font-size:12px;color:var(--text-primary);font-weight:500;display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                ${I.get('user', { size: 14, color: 'var(--text-secondary)' })}
+                <span>${escapeHtml(this.userEmail)}</span>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="window.app.handleLogout()" style="font-size:12px;color:var(--color-red);padding:4px 6px;justify-content:flex-start;margin-top:2px;">
+                ${I.get('logOut', { size: 13, color: 'var(--color-red)' })}
+                <span>Sign Out</span>
+              </button>
             </div>
           </div>
         </aside>
 
         <!-- Main Content Area -->
-        <div class="app-main">
-          <header class="header">
-            <div class="header-left">
-              <button class="btn btn-ghost" onclick="window.app.toggleSidebar()" style="display:none;" id="mobile-menu-btn">☰</button>
+        <div class="main-wrapper">
+          <header class="topbar">
+            <div class="topbar-title">
+              <button class="btn btn-ghost btn-icon-only" onclick="window.app.toggleSidebar()" style="display:none;" id="mobile-menu-btn">
+                ${I.get('layers', { size: 16 })}
+              </button>
               <div>
-                <div class="header-breadcrumb" id="header-breadcrumb">VPS Manager / Dashboard</div>
-                <h1 class="header-title" id="header-title" style="margin:0;font-size:16px;">Dashboard</h1>
+                <h2 id="header-title">Dashboard</h2>
               </div>
             </div>
 
-            <div class="header-right">
-              <div class="header-status">
-                <span class="header-status-dot" id="server-status-dot"></span>
-                <span id="server-status-text">Connecting...</span>
+            <div class="topbar-actions">
+              <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--border-primary);border-radius:var(--radius-sm);background:#fafafa;font-size:12px;">
+                <span class="badge-dot" id="server-status-dot" style="background:var(--color-green);"></span>
+                <span id="server-status-text" style="color:var(--text-secondary);font-weight:500;">VPS Online</span>
               </div>
               <button class="btn btn-secondary btn-sm" onclick="window.app.handleLogout()">
-                <span>🚪</span> Logout
+                ${I.get('logOut', { size: 13 })}
+                <span>Logout</span>
               </button>
             </div>
           </header>
 
-          <main class="app-content" id="app-content">
+          <main class="page-content" id="app-content">
             <div style="display:flex;align-items:center;justify-content:center;height:300px;">
               <div class="spinner spinner-lg"></div>
             </div>
@@ -254,7 +267,6 @@ class App {
     // Cache DOM refs
     this.contentEl = document.getElementById('app-content');
     this.pageTitleEl = document.getElementById('header-title');
-    this.breadcrumbEl = document.getElementById('header-breadcrumb');
     this.statusDotEl = document.getElementById('server-status-dot');
     this.statusTextEl = document.getElementById('server-status-text');
 
@@ -303,7 +315,6 @@ class App {
     // Update Header
     const route = this.routes[page];
     if (this.pageTitleEl) this.pageTitleEl.textContent = route.title;
-    if (this.breadcrumbEl) this.breadcrumbEl.textContent = `VPS Manager / ${route.title}`;
 
     // Render Page
     if (this.contentEl && typeof route.render === 'function') {
@@ -324,7 +335,6 @@ class App {
 
   async checkHealth() {
     try {
-      // Use a raw fetch for health — it's a public endpoint
       const res = await fetch('/api/v1/health');
       if (res.ok) {
         if (this.statusDotEl) this.statusDotEl.style.background = 'var(--color-green)';
