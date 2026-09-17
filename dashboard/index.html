@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VPS Deploy & Backup Manager</title>
+  <meta name="description" content="Multi-project VPS deployment and backup management dashboard">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+</head>
+<body>
+  <!-- App root — login screen or app shell rendered here by app.js -->
+  <div id="app-root">
+    <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg-primary);">
+      <div class="spinner spinner-lg"></div>
+    </div>
+  </div>
+
+  <!-- Components -->
+  <script src="/js/components/toast.js"></script>
+  <script src="/js/components/modal.js"></script>
+
+  <!-- API Layer -->
+  <script src="/js/api.js"></script>
+
+  <!-- Pages -->
+  <script src="/js/pages/dashboard.js"></script>
+  <script src="/js/pages/projects.js"></script>
+  <script src="/js/pages/backups.js"></script>
+  <script src="/js/pages/deploy.js"></script>
+  <script src="/js/pages/cron.js"></script>
+  <script src="/js/pages/monitor.js"></script>
+  <script src="/js/pages/logs.js"></script>
+  <script src="/js/pages/settings.js"></script>
+
+  <!-- Main App Controller (must load last) -->
+  <script src="/js/app.js"></script>
+</body>
+</html>

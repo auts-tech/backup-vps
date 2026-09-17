@@ -1,0 +1,47 @@
+{
+  "apiKey": "",
+  "server": {
+    "port": 9090,
+    "host": "0.0.0.0"
+  },
+  "notifications": {
+    "discord": {
+      "enabled": false,
+      "webhookUrl": ""
+    },
+    "email": {
+      "enabled": false,
+      "to": "",
+      "from": "",
+      "msmtpConfigured": false
+    }
+  },
+  "backup": {
+    "retentionDays": 30,
+    "defaultTarget": "gdrive",
+    "targets": {
+      "gdrive": {
+        "enabled": true,
+        "remoteName": "gdrive-backup",
+        "basePath": "backups"
+      },
+      "s3": {
+        "enabled": false,
+        "bucket": "",
+        "region": "",
+        "accessKey": "",
+        "secretKey": "",
+        "basePath": "backups"
+      },
+      "sftp": {
+        "enabled": false,
+        "host": "",
+        "port": 22,
+        "user": "",
+        "keyPath": "",
+        "basePath": "/backups"
+      }
+    }
+  },
+  "projects": []
+}

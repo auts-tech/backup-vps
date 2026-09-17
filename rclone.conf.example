@@ -1,0 +1,5 @@
+[gdrive-backup]
+type = drive
+scope = drive
+token = {"access_token":"YOUR_ACCESS_TOKEN","token_type":"Bearer","refresh_token":"YOUR_REFRESH_TOKEN","expiry":"2026-01-01T00:00:00Z"}
+root_folder_id = YOUR_GDRIVE_ROOT_FOLDER_ID

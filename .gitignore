@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Environment (contains secrets)
+.env
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Credentials (exclude real ones, keep .example files)
+service-account.json
+rclone.conf
+msmtprc
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
