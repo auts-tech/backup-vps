@@ -25,6 +25,21 @@ export class BackupEngine {
     return '/var/log/vps-backup-manager.log';
   }
 
+  static getRcloneConfigFlag() {
+    const candidates = [
+      join(__dirname, '..', '..', 'rclone.conf'),
+      '/root/.config/rclone/rclone.conf',
+      process.env.HOME ? join(process.env.HOME, '.config', 'rclone', 'rclone.conf') : null
+    ].filter(Boolean);
+
+    for (const c of candidates) {
+      if (existsSync(c)) {
+        return `--config="${c}"`;
+      }
+    }
+    return '';
+  }
+
   static log(message) {
     const timestamp = new Date().toISOString();
     const line = `[${timestamp}] ${message}\n`;
@@ -220,10 +235,20 @@ export class BackupEngine {
     if (target === 'gdrive') {
       const remotePath = `${targetConfig.remoteName}:${targetConfig.basePath}/${project.name}/${date}/`;
       BackupEngine.log(`Uploading to Google Drive: ${remotePath}`);
-      await execAsync(
-        `rclone copy "${backupDir}" "${remotePath}" --drive-chunk-size=64M --transfers=2 --retries=5 --retries-sleep=10s`,
-        { timeout: 1800000 }
-      );
+      const cfg = BackupEngine.getRcloneConfigFlag();
+      try {
+        await execAsync(
+          `rclone copy "${backupDir}" "${remotePath}" ${cfg} --drive-chunk-size=64M --transfers=2 --retries=3 --retries-sleep=5s --drive-acknowledge-abuse`,
+          { timeout: 1800000 }
+        );
+      } catch (err) {
+        if (err.message && err.message.includes('storageQuotaExceeded')) {
+          const helpfulMsg = 'Google Drive Error 403: Service Accounts do not have storage quota on personal Google Drives. Solution: Go to Settings > Google Drive and use an OAuth Token in rclone.conf instead of a service account, or use a Google Workspace Shared Drive.';
+          BackupEngine.log(`[Error] ${helpfulMsg}`);
+          throw new Error(helpfulMsg);
+        }
+        throw err;
+      }
     } else if (target === 's3') {
       const s3Path = `s3://${targetConfig.bucket}/${targetConfig.basePath}/${project.name}/${date}/`;
       BackupEngine.log(`Uploading to S3: ${s3Path}`);
@@ -271,8 +296,9 @@ export class BackupEngine {
       const targetConfig = config.backup.targets[target];
       if (targetConfig && targetConfig.enabled) {
         if (target === 'gdrive') {
+          const cfg = BackupEngine.getRcloneConfigFlag();
           await execAsync(
-            `rclone copy "${snapshotDir}" "${targetConfig.remoteName}:${targetConfig.basePath}/vps-snapshots/${date}/" --drive-chunk-size=128M --transfers=2 --retries=5`,
+            `rclone copy "${snapshotDir}" "${targetConfig.remoteName}:${targetConfig.basePath}/vps-snapshots/${date}/" ${cfg} --drive-chunk-size=128M --transfers=2 --retries=5 --drive-acknowledge-abuse`,
             { timeout: 7200000 }
           );
         }
@@ -315,8 +341,9 @@ export class BackupEngine {
           : `${targetConfig.remoteName}:${targetConfig.basePath}/`;
       }
 
+      const cfg = BackupEngine.getRcloneConfigFlag();
       const { stdout } = await execAsync(
-        `rclone lsjson "${remotePath}" --dirs-only 2>/dev/null || echo "[]"`,
+        `rclone lsjson "${remotePath}" ${cfg} --dirs-only 2>/dev/null || echo "[]"`,
         { timeout: 30000 }
       );
 
@@ -349,8 +376,9 @@ export class BackupEngine {
 
       // Download backup
       if (target === 'gdrive') {
+        const cfg = BackupEngine.getRcloneConfigFlag();
         const remotePath = `${targetConfig.remoteName}:${targetConfig.basePath}/${project.name}/${backupDate}/`;
-        await execAsync(`rclone copy "${remotePath}" "${restoreDir}" --transfers=4`, { timeout: 1800000 });
+        await execAsync(`rclone copy "${remotePath}" "${restoreDir}" ${cfg} --transfers=4`, { timeout: 1800000 });
       }
 
       // Restore database
@@ -422,7 +450,8 @@ export class BackupEngine {
         ? `${targetConfig.remoteName}:${targetConfig.basePath}/${projectName}/`
         : `${targetConfig.remoteName}:${targetConfig.basePath}/`;
 
-      const { stdout } = await execAsync(`rclone lsd "${remotePath}" 2>/dev/null || echo ""`);
+      const cfg = BackupEngine.getRcloneConfigFlag();
+      const { stdout } = await execAsync(`rclone lsd "${remotePath}" ${cfg} 2>/dev/null || echo ""`);
       const dirs = stdout.trim().split('\n').filter(Boolean);
 
       const cutoffDate = new Date();
@@ -433,7 +462,7 @@ export class BackupEngine {
         const dirName = dirLine.trim().split(/\s+/).pop();
         if (dirName && dirName < cutoff) {
           BackupEngine.log(`Deleting old backup: ${dirName}`);
-          await execAsync(`rclone purge "${remotePath}${dirName}" 2>/dev/null`).catch(() => {});
+          await execAsync(`rclone purge "${remotePath}${dirName}" ${cfg} 2>/dev/null`).catch(() => {});
         }
       }
     } catch (err) {

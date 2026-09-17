@@ -94,6 +94,35 @@ function syncServiceAccount(saData) {
   return true;
 }
 
+function getExistingRcloneContent() {
+  const file = getRcloneConfigFile();
+  if (file) {
+    try {
+      const text = readFileSync(file, 'utf-8');
+      if (text && text.trim()) return text.trim();
+    } catch {}
+  }
+  return '';
+}
+
+function getRcloneConfigFile() {
+  const candidates = [
+    join(projectRoot, 'rclone.conf'),
+    '/root/.config/rclone/rclone.conf',
+    process.env.HOME ? join(process.env.HOME, '.config', 'rclone', 'rclone.conf') : null
+  ].filter(Boolean);
+
+  for (const c of candidates) {
+    if (existsSync(c)) return c;
+  }
+  return null;
+}
+
+function getRcloneConfigFlag() {
+  const f = getRcloneConfigFile();
+  return f ? `--config="${f}"` : '';
+}
+
 /**
  * Write rclone.conf automatically from settings
  */
@@ -101,20 +130,45 @@ function syncRcloneConfig(gdrive) {
   if (!gdrive) return false;
 
   let content = '';
-  if (gdrive.rcloneRaw && gdrive.rcloneRaw.trim()) {
-    content = gdrive.rcloneRaw.trim();
-  } else {
-    const remoteName = gdrive.remoteName || 'gdrive-backup';
-    const saPath = existsSync('/root/.config/backup/service-account.json')
-      ? '/root/.config/backup/service-account.json'
-      : join(projectRoot, 'service-account.json');
 
+  if (gdrive.rcloneRaw && gdrive.rcloneRaw.trim()) {
+    // 1. Explicit raw rclone content (e.g. from UI editor)
+    content = gdrive.rcloneRaw.trim();
+  } else if (gdrive.token && gdrive.token.trim()) {
+    // 2. Explicit OAuth token
+    const remoteName = gdrive.remoteName || 'gdrive-backup';
     content = `[${remoteName}]
+type = drive
+scope = drive
+token = ${gdrive.token.trim()}
+${gdrive.rootFolderId ? `root_folder_id = ${gdrive.rootFolderId.trim()}` : ''}
+`;
+  } else {
+    // 3. Check existing rclone.conf on disk — if it has OAuth token, PRESERVE IT!
+    const existing = getExistingRcloneContent();
+    if (existing && (existing.includes('token =') || existing.includes('refresh_token'))) {
+      content = existing;
+      if (gdrive.rootFolderId) {
+        if (content.includes('root_folder_id =')) {
+          content = content.replace(/root_folder_id\s*=.*$/m, `root_folder_id = ${gdrive.rootFolderId.trim()}`);
+        } else {
+          content += `\nroot_folder_id = ${gdrive.rootFolderId.trim()}\n`;
+        }
+      }
+    } else {
+      // 4. Default to service account
+      const remoteName = gdrive.remoteName || 'gdrive-backup';
+      const saPath = existsSync('/root/.config/backup/service-account.json')
+        ? '/root/.config/backup/service-account.json'
+        : join(projectRoot, 'service-account.json');
+
+      content = `[${remoteName}]
 type = drive
 scope = drive
 ${existsSync(saPath) ? `service_account_file = ${saPath}` : ''}
 ${gdrive.rootFolderId ? `root_folder_id = ${gdrive.rootFolderId}` : ''}
 `;
+    }
   }
 
   const targets = [
@@ -148,6 +202,7 @@ router.get('/', (req, res) => {
   const hasMsmtprc = existsSync(join(projectRoot, 'msmtprc')) ||
     existsSync('/root/.msmtprc');
 
+  const existingRclone = getExistingRcloneContent();
   const smtp = config.notifications?.email?.smtp || {};
 
   const sanitized = {
@@ -179,7 +234,10 @@ router.get('/', (req, res) => {
           basePath: config.backup?.targets?.gdrive?.basePath || 'backups',
           rootFolderId: config.backup?.targets?.gdrive?.rootFolderId || '',
           hasServiceAccount,
-          hasRcloneConf
+          hasRcloneConf,
+          rcloneRaw: existingRclone,
+          isOAuth: existingRclone.includes('token =') || existingRclone.includes('refresh_token'),
+          authType: (existingRclone.includes('token =') || existingRclone.includes('refresh_token')) ? 'oauth' : (hasServiceAccount ? 'service_account' : 'none')
         },
         s3: {
           enabled: config.backup?.targets?.s3?.enabled || false,
@@ -305,18 +363,24 @@ router.post('/test-storage', async (req, res) => {
 
   if (target === 'gdrive') {
     const remote = config.backup.targets?.gdrive?.remoteName || 'gdrive-backup';
+    const cfgFlag = getRcloneConfigFlag();
     try {
-      // Execute rclone lsd or about
-      const { stdout } = await execAsync(`rclone lsd "${remote}:" --max-depth 1`, { timeout: 15000 });
+      // Execute rclone lsd
+      const { stdout } = await execAsync(`rclone lsd "${remote}:" ${cfgFlag} --max-depth 1`, { timeout: 15000 });
       return res.json({
         success: true,
         message: `Successfully connected to Google Drive remote "${remote}"!`,
         output: stdout.trim() || '(Remote connected, root folder accessible)'
       });
     } catch (err) {
+      const stderr = err.stderr || err.message || '';
+      let helpful = stderr;
+      if (stderr.includes('storageQuotaExceeded') || stderr.includes('Service Accounts do not have storage quota')) {
+        helpful = 'Google Drive Error 403: Service Accounts do not have storage quota on personal Google Drive folders. To fix: Switch to the OAuth Token tab and paste your personal account rclone.conf token.';
+      }
       return res.status(400).json({
         success: false,
-        error: `Failed to connect to rclone remote "${remote}": ${err.stderr || err.message}`
+        error: helpful
       });
     }
   }

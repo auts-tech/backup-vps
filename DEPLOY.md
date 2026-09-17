@@ -153,11 +153,14 @@ Navigate to **Settings** from the sidebar:
    - Click **"Send Test Email"** to verify live email delivery.
    - When saved, the server dynamically generates and secures `/root/.msmtprc` automatically!
 
-2. **Google Drive & Service Account**:
-   - Paste your Google Cloud Service Account JSON directly into the text box (or click **"Upload .json File"**).
-   - Enter your **Google Drive Root Folder ID**.
-   - Click **"Save Service Account JSON"** and **"Test Google Drive Connection"**.
-   - The server validates the JSON, writes `service-account.json`, and dynamically configures `rclone.conf` with `chmod 600`.
+2. **Google Drive & Storage Quotas (Important)**:
+   - **Personal Google Drive (@gmail.com)**:
+     - Google **does not allow Service Accounts** to upload files into personal folders (fails with `Error 403: Service Accounts do not have storage quota. Leverage shared drives or use OAuth delegation instead., storageQuotaExceeded`).
+     - **Solution**: In **Settings > Cloud Storage > Google Drive**, select **OAuth Token / rclone.conf (Personal Drive)**.
+     - Paste your `rclone.conf` config block (containing `token = {"access_token": ..., "refresh_token": ...}`) and click **"Save Google Drive Config"**.
+   - **Google Workspace Shared Drive (Team Drive)**:
+     - Select **Service Account JSON (Shared Drive)**, paste your service account JSON file, and enter your Root Folder ID.
+   - Click **"Test Google Drive Connection"** to verify that Google Drive is reachable and writable.
 
 3. **Discord Webhooks**:
    - Paste your Discord webhook URL and click **"Send Test Webhook"**.
@@ -277,5 +280,7 @@ To access your panel at `https://backup.yourdomain.com` with a valid SSL certifi
 
 ### 3. rclone or Google Drive connection issues
 - Go to **Settings > Google Drive** in the dashboard.
-- Paste your Service Account JSON and verify your Root Folder ID.
-- Click **"Test Google Drive Connection"** to see the exact error output returned by rclone.
+- If you see `Error 403: Service Accounts do not have storage quota. Leverage shared drives or use OAuth delegation instead., storageQuotaExceeded`:
+  - **Reason**: Service Accounts have 0 MB storage quota on regular `@gmail.com` drives.
+  - **Fix**: In the dashboard, switch to **OAuth Token / rclone.conf (Personal Drive)**, paste your `rclone.conf` with OAuth access/refresh token, and click **"Save Google Drive Config"**.
+- Click **"Test Google Drive Connection"** to see live verification output returned by rclone.

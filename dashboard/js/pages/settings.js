@@ -201,12 +201,12 @@ function renderSettings(container) {
             <button class="btn btn-sm btn-secondary" id="tab-btn-sftp" onclick="switchTargetTab('sftp')">SFTP Server</button>
           </div>
 
-          <!-- Google Drive Tab (Dynamic Service Account & Folder) -->
+          <!-- Google Drive Tab (Dynamic Service Account, OAuth Token, and Folder) -->
           <div id="target-tab-gdrive">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
               <div>
-                <strong style="font-size:14px;color:var(--text-primary);">Google Drive via rclone</strong>
-                <div style="font-size:12px;color:var(--text-secondary);">Direct cloud upload using GCP Service Account or rclone tokens</div>
+                <strong style="font-size:14px;color:var(--text-primary);">Google Drive Configuration</strong>
+                <div style="font-size:12px;color:var(--text-secondary);">Upload backups to Google Drive using OAuth User Token or Service Account</div>
               </div>
               <div style="display:flex;align-items:center;gap:12px;">
                 <span class="badge badge-neutral" id="gdrive-sa-badge">Checking credentials...</span>
@@ -217,6 +217,11 @@ function renderSettings(container) {
               </div>
             </div>
 
+            <!-- Important Guidance Notice on Error 403 -->
+            <div style="padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:var(--radius-sm);margin-bottom:14px;font-size:12px;color:#92400e;line-height:1.5;">
+              <strong>Important (Storage Quota Error 403):</strong> Regular personal Google Drive accounts (@gmail.com) <strong>do not allow Service Accounts</strong> to upload files because Service Accounts have 0 bytes storage quota. If backing up to personal Google Drive, use <strong>OAuth Token</strong> (your <code>rclone.conf</code> token). Use <strong>Service Account</strong> only if uploading to a Google Workspace Shared Drive (Team Drive).
+            </div>
+
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
               <div class="form-group" style="margin-bottom:0;">
                 <label class="form-label">rclone Remote Name</label>
@@ -225,12 +230,39 @@ function renderSettings(container) {
               <div class="form-group" style="margin-bottom:0;">
                 <label class="form-label">Google Drive Root Folder ID</label>
                 <input type="text" id="gdrive-root-folder" class="form-input" placeholder="e.g. 15rWFqW1kt5hL53LtnlDZ9Uc4KB3Ewy2H">
-                <div class="form-hint">The folder ID from your Google Drive URL</div>
+                <div class="form-hint">Folder ID from your Google Drive URL</div>
               </div>
             </div>
 
-            <!-- Service Account JSON Input Area -->
-            <div class="form-group">
+            <!-- Auth Mode Switch -->
+            <div style="display:flex;gap:6px;margin-bottom:12px;">
+              <button type="button" class="btn btn-xs btn-primary" id="gdrive-subtab-oauth-btn" onclick="switchGdriveSubtab('oauth')">
+                ${I.get('key', { size: 12 })}
+                <span>OAuth Token / rclone.conf (Personal Drive)</span>
+              </button>
+              <button type="button" class="btn btn-xs btn-secondary" id="gdrive-subtab-sa-btn" onclick="switchGdriveSubtab('sa')">
+                ${I.get('server', { size: 12 })}
+                <span>Service Account JSON (Shared Drive)</span>
+              </button>
+            </div>
+
+            <!-- 1. OAuth / Raw rclone.conf Box -->
+            <div id="gdrive-oauth-box" class="form-group" style="margin-bottom:12px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <label class="form-label" style="margin-bottom:0;">Active rclone Configuration (OAuth Token)</label>
+                <button type="button" class="btn btn-xs btn-secondary" onclick="loadRcloneTemplate()">
+                  ${I.get('refresh', { size: 11 })}
+                  <span>Paste Sample Token Template</span>
+                </button>
+              </div>
+              <textarea id="rclone-raw-input" class="form-textarea" rows="6" style="font-family:var(--font-mono);font-size:12px;" placeholder="Paste your rclone.conf configuration block with token here..."></textarea>
+              <div class="form-hint">
+                Contains your personal Google account access and refresh tokens. Backups upload directly using your account's storage quota.
+              </div>
+            </div>
+
+            <!-- 2. Service Account Box -->
+            <div id="gdrive-sa-box" class="form-group" style="display:none;margin-bottom:12px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                 <label class="form-label" style="margin-bottom:0;">Google Service Account JSON Key</label>
                 <div style="display:flex;gap:8px;">
@@ -241,16 +273,13 @@ function renderSettings(container) {
                   <input type="file" id="sa-file-input" accept=".json" style="display:none;" onchange="handleSaFileUpload(event)">
                 </div>
               </div>
-              <textarea id="sa-json-input" class="form-textarea" rows="6" style="font-family:var(--font-mono);font-size:12px;" placeholder='Paste your Google Cloud Service Account JSON content here:&#10;{&#10;  "type": "service_account",&#10;  "project_id": "...",&#10;  "private_key": "-----BEGIN PRIVATE KEY-----..."&#10;}'></textarea>
-              <div class="form-hint">
-                Pasting your JSON here automatically configures <code>service-account.json</code> and connects rclone dynamically.
-              </div>
+              <textarea id="sa-json-input" class="form-textarea" rows="6" style="font-family:var(--font-mono);font-size:12px;" placeholder='Paste Service Account JSON here (Google Workspace Shared Drive required)'></textarea>
             </div>
 
-            <div style="display:flex;gap:8px;">
-              <button class="btn btn-sm btn-secondary" onclick="saveServiceAccountOnly()">
+            <div style="display:flex;gap:8px;padding-top:4px;">
+              <button class="btn btn-sm btn-secondary" onclick="saveGdriveConfigOnly()">
                 ${I.get('save', { size: 12 })}
-                <span>Save Service Account JSON</span>
+                <span>Save Google Drive Config</span>
               </button>
               <button class="btn btn-sm btn-secondary" onclick="testStorageConnection('gdrive')">
                 ${I.get('zap', { size: 12 })}
@@ -377,17 +406,29 @@ async function loadSettings() {
         document.getElementById('gdrive-remote').value = targets.gdrive.remoteName || 'gdrive-backup';
         document.getElementById('gdrive-root-folder').value = targets.gdrive.rootFolderId || '';
 
+        const rcloneInput = document.getElementById('rclone-raw-input');
+        if (rcloneInput && targets.gdrive.rcloneRaw) {
+          rcloneInput.value = targets.gdrive.rcloneRaw;
+        }
+
         const saBadge = document.getElementById('gdrive-sa-badge');
         if (saBadge) {
-          if (targets.gdrive.hasServiceAccount) {
+          if (targets.gdrive.authType === 'oauth' || targets.gdrive.isOAuth) {
             saBadge.className = 'badge badge-success';
-            saBadge.textContent = 'Service Account Active';
+            saBadge.textContent = 'OAuth Token Active (Personal Drive)';
+            switchGdriveSubtab('oauth');
+          } else if (targets.gdrive.hasServiceAccount) {
+            saBadge.className = 'badge badge-info';
+            saBadge.textContent = 'Service Account Active (Shared Drive)';
+            switchGdriveSubtab('sa');
           } else if (targets.gdrive.hasRcloneConf) {
             saBadge.className = 'badge badge-info';
             saBadge.textContent = 'rclone Token Active';
+            switchGdriveSubtab('oauth');
           } else {
             saBadge.className = 'badge badge-neutral';
             saBadge.textContent = 'No Credentials';
+            switchGdriveSubtab('oauth');
           }
         }
       }
@@ -422,9 +463,85 @@ async function loadSettings() {
   }
 }
 
+function switchGdriveSubtab(mode) {
+  const oauthBox = document.getElementById('gdrive-oauth-box');
+  const saBox = document.getElementById('gdrive-sa-box');
+  const oauthBtn = document.getElementById('gdrive-subtab-oauth-btn');
+  const saBtn = document.getElementById('gdrive-subtab-sa-btn');
+
+  if (mode === 'oauth') {
+    if (oauthBox) oauthBox.style.display = 'block';
+    if (saBox) saBox.style.display = 'none';
+    if (oauthBtn) {
+      oauthBtn.className = 'btn btn-xs btn-primary';
+    }
+    if (saBtn) {
+      saBtn.className = 'btn btn-xs btn-secondary';
+    }
+  } else {
+    if (oauthBox) oauthBox.style.display = 'none';
+    if (saBox) saBox.style.display = 'block';
+    if (oauthBtn) {
+      oauthBtn.className = 'btn btn-xs btn-secondary';
+    }
+    if (saBtn) {
+      saBtn.className = 'btn btn-xs btn-primary';
+    }
+  }
+}
+
+function loadRcloneTemplate() {
+  const el = document.getElementById('rclone-raw-input');
+  if (!el) return;
+  const remote = document.getElementById('gdrive-remote')?.value.trim() || 'gdrive-backup';
+  const folderId = document.getElementById('gdrive-root-folder')?.value.trim() || '';
+
+  el.value = `[${remote}]
+type = drive
+scope = drive
+token = {"access_token":"YOUR_ACCESS_TOKEN","token_type":"Bearer","refresh_token":"YOUR_REFRESH_TOKEN","expiry":"2026-09-17T22:00:00.000000+00:00"}
+${folderId ? `root_folder_id = ${folderId}` : '# root_folder_id = YOUR_FOLDER_ID'}`;
+  toast.info('Template Loaded', 'Sample rclone OAuth config loaded. Replace with your actual tokens.');
+}
+
+async function saveGdriveConfigOnly() {
+  try {
+    const remoteName = document.getElementById('gdrive-remote').value.trim() || 'gdrive-backup';
+    const rootFolderId = document.getElementById('gdrive-root-folder').value.trim();
+    const enabled = document.getElementById('gdrive-enabled').checked;
+    const rcloneRaw = document.getElementById('rclone-raw-input')?.value.trim();
+    const saInput = document.getElementById('sa-json-input')?.value.trim();
+
+    const payload = {
+      backup: {
+        targets: {
+          gdrive: {
+            enabled,
+            remoteName,
+            rootFolderId,
+            rcloneRaw: rcloneRaw || undefined
+          }
+        }
+      }
+    };
+
+    if (saInput) {
+      payload.serviceAccount = saInput;
+    }
+
+    toast.info('Saving', 'Saving Google Drive configuration and writing rclone.conf...');
+    const res = await api.updateSettings(payload);
+    toast.success('Saved', res.message || 'Google Drive configuration updated successfully');
+    loadSettings();
+  } catch (err) {
+    toast.error('Save Failed', err.message || 'Failed to save Google Drive configuration');
+  }
+}
+
 async function saveAllSettings() {
   try {
     const saInput = document.getElementById('sa-json-input').value.trim();
+    const rcloneRaw = document.getElementById('rclone-raw-input')?.value.trim();
     const smtpPass = document.getElementById('smtp-pass').value;
 
     const payload = {
@@ -454,7 +571,8 @@ async function saveAllSettings() {
           gdrive: {
             enabled: document.getElementById('gdrive-enabled').checked,
             remoteName: document.getElementById('gdrive-remote').value.trim(),
-            rootFolderId: document.getElementById('gdrive-root-folder').value.trim()
+            rootFolderId: document.getElementById('gdrive-root-folder').value.trim(),
+            rcloneRaw: rcloneRaw || undefined
           },
           s3: {
             enabled: document.getElementById('s3-enabled').checked,
@@ -664,3 +782,6 @@ async function regenerateApiKey() {
 }
 
 window.renderSettings = renderSettings;
+window.switchGdriveSubtab = switchGdriveSubtab;
+window.loadRcloneTemplate = loadRcloneTemplate;
+window.saveGdriveConfigOnly = saveGdriveConfigOnly;
