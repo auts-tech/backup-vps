@@ -37,9 +37,11 @@ Open your browser at:
 
 ---
 
-### Option 2: Deploying on an Ubuntu / Debian VPS
+### Option 2: Deploying on an Ubuntu / Debian VPS (Contabo, etc.)
 
-Clone or upload this repository to your VPS (e.g., in `/opt/vps-backup-manager` or `/root/backup-scripts`):
+> 📖 **Full Guide**: For detailed step-by-step instructions, firewall rules, and SSL configuration, see **[DEPLOY.md](file:///Users/aashishtimalsina/Work/Project/Evereuser/nhs/backup-scripts/DEPLOY.md)**.
+
+Clone or upload this repository to your VPS (e.g., in `/opt/backup-vps`):
 
 ```bash
 # 1. SSH into your VPS
