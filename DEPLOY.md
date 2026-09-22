@@ -210,7 +210,30 @@ The application runs as a native Linux system service named `vps-backup-manager`
 
 ## Step 9: How to Update in the Future
 
-When new features or updates are pushed to GitHub:
+### From the panel (recommended)
+
+When new commits are pushed to the branch the server was cloned from, the panel shows an **Update available** popup right after you log in (and a green *Update available* button in the top bar). It lists what's new; click **Update now** and the panel:
+
+1. Downloads the changes (`git fetch` + fast-forward merge — never a force reset).
+2. Keeps this server's `server/data/config.json` (projects, API key, settings) even if the update touches it.
+3. Runs `npm ci` only if dependencies changed.
+4. Checks every server file for syntax errors — if anything fails, it **rolls back** to the previous version and keeps running.
+5. Restarts itself, signs you out, and shows *"Panel updated to …"* on the login screen.
+
+You can also check manually by clicking the version number (e.g. `v1.0.0 · 9353904`) at the bottom of the sidebar.
+
+**Private GitHub repository?** The server needs read access. Create a deploy key once:
+
+```bash
+ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519 -N "" -C "vps-panel"
+cat /root/.ssh/id_ed25519.pub     # GitHub → repo → Settings → Deploy keys → Add (read-only)
+cd /opt/backup-vps && git remote set-url origin git@github.com:auts-tech/backup-vps.git
+ssh -o StrictHostKeyChecking=accept-new -T git@github.com    # accept GitHub's host key once
+```
+
+If an update changes `setup.sh`, the popup tells you to run `sudo bash setup.sh` afterwards (from the panel's Terminal) to apply system-level changes.
+
+### From SSH
 
 ```bash
 cd /opt/backup-vps
@@ -218,7 +241,7 @@ git pull
 sudo bash setup.sh
 ```
 
-Re-running `setup.sh` is safe: it installs any new system packages and Node dependencies, then restarts the service. Your `.env`, `server/data/config.json`, database and mail credentials are kept.
+Re-running `setup.sh` is safe: it installs any new system packages and Node dependencies (`npm ci`, which never rewrites `package-lock.json`), then restarts the service. Your `.env`, `server/data/config.json`, database and mail credentials are kept.
 
 > **Upgrading from a version before the hosting panel:** backup cron jobs created by the old dashboard never ran (they called the API without the API key). On first start the panel rewrites them to the new task runner automatically — check **Cron Jobs** afterwards. The old *Weekly Snapshot* and *Prune Expired* presets actually ran a normal backup; delete them and re-add from the new presets if you want a real snapshot or cleanup.
 
@@ -229,7 +252,7 @@ Re-running `setup.sh` is safe: it installs any new system packages and Node depe
 The panel includes a root terminal and file manager, so it should not be reachable over plain HTTP on port 9090. You can put it behind HTTPS **using the panel itself**:
 
 1. **DNS**: create an `A` record, e.g. `panel.yourdomain.com` → your server IP.
-2. **Websites & SSL → Install nginx** (if not installed yet).
+2. **Websites & SSL → Install nginx** (if not installed yet), then in the *SSL Certificates* card enter your email and click **Install certbot** — Let's Encrypt sends expiry warnings there, and automatic renewal is enabled.
 3. **Create Website** → Domain `panel.yourdomain.com` → Type **Reverse proxy** → App port `9090` → tick *Enable HTTPS right away* → **Create**.
    (The proxy template already supports the live log stream and the terminal WebSocket.)
 4. Open `https://panel.yourdomain.com` and log in.
@@ -251,8 +274,10 @@ Typical flow for a PHP / Laravel / WordPress site:
 2. **Databases** → *Install MariaDB* (once) → *Connect automatically* → **New Database** (creates the database and a user with a generated password).
 3. **Websites & SSL** → **Create Website** → enter the domain, choose the type (PHP / Laravel / WordPress / Static / Reverse proxy) and the PHP version.
 4. Upload your code with the **File Manager** (drag a `.zip` in, then *Extract*), clone it with **Deploy & Git**, or use the **Terminal**.
-5. Point the domain's DNS `A` record to the server, then click **Enable SSL** on the site.
+5. Point the domain's DNS `A` record to the server, then click **Enable SSL** on the site (the email saved with certbot is pre-filled).
 6. Laravel scheduler: **Cron Jobs → Add Cron Job → Custom command** `/usr/bin/php8.3 /var/www/example.com/artisan schedule:run`, schedule *Every minute*.
+
+**Which app is on which port?** Open **Ports & Processes**: every listening port with its process, whether it's public or local-only, whether UFW allows it, and what it belongs to (project, PM2 app, Docker container, nginx site, systemd service). Use it to spot apps that are exposed directly instead of through nginx.
 
 Switch a site to another PHP version from the dropdown on the Websites page. Every nginx change is validated with `nginx -t` first and rolled back automatically if it would break nginx.
 
@@ -342,3 +367,8 @@ If you choose a provider, you don't need the Email page — add the MX/SPF/DKIM 
 - Open **Email → DNS Records** and fix every red row (PTR and DKIM are the usual culprits).
 - Make sure your provider allows outbound port 25.
 - Check **Email → Logs** for rejection messages from the receiving server.
+
+### 8. "Couldn't check for updates"
+- The server can't reach the git remote. For a private repository add a deploy key (see Step 9), then click the version number in the sidebar to check again.
+- "Files were edited on the server": someone changed tracked files directly on the VPS. Run `cd /opt/backup-vps && git status` and commit or `git checkout -- <file>` them.
+

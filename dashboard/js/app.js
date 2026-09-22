@@ -120,7 +120,7 @@ class App {
               ${shieldIcon}
             </div>
             <h1 style="font-size:20px;font-weight:700;color:var(--text-primary);margin:0;letter-spacing:-0.02em;">VPS Manager</h1>
-            <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Deploy & Backup Suite</p>
+            <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Hosting Control Panel</p>
           </div>
 
           ${this.updatedBanner()}

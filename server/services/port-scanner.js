@@ -58,9 +58,12 @@ function processInfo(pid, users) {
   const uid = parseInt((status.match(/^Uid:\s+(\d+)/m) || [])[1]);
   const cgroup = readProc(pid, 'cgroup');
   let cwd = null;
+  let exe = null;
   try { cwd = readlinkSync(`/proc/${pid}/cwd`); } catch { }
+  try { exe = readlinkSync(`/proc/${pid}/exe`).split('/').pop().replace(/ \(deleted\)$/, ''); } catch { }
   return {
     pid,
+    exe,
     user: Number.isNaN(uid) ? null : (users.get(uid) || String(uid)),
     ppid: parseInt((status.match(/^PPid:\s+(\d+)/m) || [])[1]) || null,
     rssBytes: (parseInt((status.match(/^VmRSS:\s+(\d+)/m) || [])[1]) || 0) * 1024,
@@ -142,14 +145,14 @@ function nginxSitesByPort(sites) {
       const port = parseInt((l.match(/(?:^|:)(\d+)(?:\s|$)/) || [])[1]);
       if (port) {
         if (!listening.has(port)) listening.set(port, []);
-        listening.get(port).push(label);
+        if (!listening.get(port).includes(label)) listening.get(port).push(label); // listen 80 + [::]:80
       }
     }
     const up = site.proxyPass && site.proxyPass.match(/^https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]|0\.0\.0\.0):(\d+)/);
     if (up) {
       const port = parseInt(up[1]);
       if (!proxied.has(port)) proxied.set(port, []);
-      proxied.get(port).push(label);
+      if (!proxied.get(port).includes(label)) proxied.get(port).push(label);
     }
   }
   return { listening, proxied };
@@ -186,7 +189,11 @@ export class PortScanner {
     const entries = [...grouped.values()].map(g => {
       const addresses = [...g.addresses];
       const local = addresses.every(isLocalAddress);
-      const processes = [...g.pids.entries()].map(([pid, name]) => ({ ...info(pid), name }));
+      // ss reports the 15-char kernel name ("node /var/www/s" after a title change); prefer the binary name
+      const processes = [...g.pids.entries()].map(([pid, name]) => {
+        const i = info(pid);
+        return { ...i, name: /[\s/]/.test(name) && i.exe ? i.exe : name };
+      });
       // Collapse worker processes (nginx, php-fpm, apache) to their master for display
       const pidSet = new Set(processes.map(p => p.pid));
       const primary = processes.filter(p => !pidSet.has(p.ppid));
@@ -212,7 +219,8 @@ export class PortScanner {
         for (const project of projects) {
           const path = project.deployPath && project.deployPath !== '/' ? project.deployPath.replace(/\/+$/, '') : null;
           const inPath = path && ((p.cwd && (p.cwd === path || p.cwd.startsWith(path + '/'))) || p.cmdline.includes(path + '/'));
-          if (inPath || (project.port && parseInt(project.port) === g.port)) add('project', project.name, project.type || '');
+          if (project.port && parseInt(project.port) === g.port) add('project', project.name, project.type || '');
+          else if (inPath) add('project', project.name, 'runs in project folder');
         }
         if (p.unit && p.unit !== 'docker.service' && !p.unit.startsWith('session-')) add('service', p.unit);
       }

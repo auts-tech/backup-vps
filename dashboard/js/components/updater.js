@@ -33,7 +33,8 @@ class PanelUpdater {
   static init() {
     PanelUpdater.renderVersion();
     clearInterval(PanelUpdater.timer);
-    setTimeout(() => PanelUpdater.check({ auto: true }), 2500);
+    // Fresh check right after login (so a just-pushed commit shows up); background checks may use the server cache
+    setTimeout(() => PanelUpdater.check({ auto: true, force: true }), 2500);
     PanelUpdater.timer = setInterval(() => PanelUpdater.check({ auto: true }), UPDATE_CHECK_INTERVAL);
   }
 

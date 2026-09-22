@@ -265,6 +265,7 @@ const TOOL_GROUPS = [
     title: 'Advanced',
     tools: [
       ['terminal', 'terminal', 'Terminal', 'Root shell in the browser'],
+      ['ports', 'server', 'Ports & Processes', 'Which app runs on which port'],
       ['cron', 'clock', 'Cron Jobs', 'Scheduled tasks'],
       ['monitor', 'activity', 'Resource Monitor', 'CPU, RAM, disk & processes'],
       ['logs', 'fileText', 'Logs', 'Panel & backup activity']

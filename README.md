@@ -3,17 +3,19 @@
 A self-hosted, cPanel-style control panel for a single Ubuntu/Debian VPS: websites, SSL, PHP, databases, email, files, terminal, cron, Git deploys and cloud backups — all from one web dashboard.
 
 ### Hosting
-- **Websites & SSL** — Create nginx sites from templates (static, PHP, Laravel, WordPress, reverse proxy for Node/Python apps), edit configs with automatic `nginx -t` validation and rollback, one-click free Let's Encrypt HTTPS, per-site access/error logs.
+- **Websites & SSL** — Create nginx sites from templates (static, PHP, Laravel, WordPress, reverse proxy for Node/Python apps), edit configs with automatic `nginx -t` validation and rollback, per-site access/error logs. Install certbot with your Let's Encrypt email, one-click free HTTPS, automatic renewal status and renewal test.
 - **PHP Versions** — Install several PHP-FPM versions side by side (5.6 – 8.5 via the ondrej/sury repositories), switch a site's PHP version from a dropdown, manage extensions, edit common `php.ini` settings, choose the default CLI version.
 - **Databases** — Install MariaDB, create databases/users/privileges, browse tables, run SQL in a console, export (`.sql.gz`) and import dumps.
 - **Email Hosting** — Mailboxes, forwarders and quotas on your own domains using docker-mailserver (Postfix, Dovecot, Rspamd, Fail2ban) with Roundcube webmail, automatic DKIM keys, and a live DNS checker for MX/SPF/DKIM/DMARC/PTR.
 - **File Manager** — Browse, edit (syntax-highlighted editor), upload (drag & drop), download (folders as `.tar.gz`), zip/unzip, permissions & ownership, search.
 - **Terminal** — Full root shell in the browser (xterm.js over an authenticated WebSocket).
+- **Ports & Processes** — Every listening port with its process, public/local exposure, firewall status, and the project, PM2 app, Docker container, nginx site or service it belongs to.
 
 ### Operations
 - **Projects, Backups & Deploy** — Back up databases, directories and `.env` files to Google Drive (rclone), S3 or SFTP; clone/pull Git repositories and restart apps.
 - **Cron Jobs** — Schedule panel tasks (backups, VPS snapshots, retention cleanup) or any command; live schedule preview with next run times, pause/resume, “run now” with output, and an output log.
 - **Monitoring & Alerts** — Live CPU/RAM/disk/network, top processes, live logs, Discord and email notifications.
+- **One-click updates** — When new commits are pushed, the panel shows what's new and updates itself (fast-forward pull, dependency install, syntax check with automatic rollback, restart, re-login).
 
 ---
 
@@ -32,7 +34,7 @@ sudo bash setup.sh
 
 `setup.sh` installs Node.js 20, rclone, msmtp, cron, zip/unzip and build tools (for the web terminal), installs dependencies, creates the `vps-backup-manager` systemd service and enables log rotation. Then open **`http://YOUR_SERVER_IP:9090`**.
 
-**Updating an existing install:** `cd /opt/backup-vps && git pull && sudo bash setup.sh` — re-running setup is safe and installs any new dependencies.
+**Updating:** click **Update now** when the panel shows the *Update available* popup — or from SSH: `cd /opt/backup-vps && git pull && sudo bash setup.sh` (safe to re-run).
 
 ### Locally (development)
 

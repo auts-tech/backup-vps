@@ -37,7 +37,8 @@ echo "  NPM version:     $(npm -v)"
 
 # 4. Install backend dependencies
 echo "[4/7] Installing Node dependencies in server/..."
-(cd "$INSTALL_DIR/server" && npm install --omit=dev)
+# npm ci installs exactly what package-lock.json lists and never rewrites it (keeps git pull clean)
+(cd "$INSTALL_DIR/server" && git -C "$INSTALL_DIR" checkout -- server/package-lock.json 2>/dev/null; npm ci --omit=dev --no-audit --no-fund)
 if ! (cd "$INSTALL_DIR/server" && node -e "require('node-pty')" 2>/dev/null); then
   echo "  ⚠️  node-pty did not build — the web terminal will run in basic mode (no resize / full-screen apps)."
 fi

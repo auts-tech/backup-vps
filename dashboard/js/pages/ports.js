@@ -26,7 +26,7 @@ function renderPorts(container) {
         <button class="btn btn-secondary" onclick="loadPorts()">${I.get('refresh', { size: 13 })}<span>Refresh</span></button>
       </div>
 
-      <div class="stats-grid" id="ports-stats"></div>
+      <div class="stats-grid" id="ports-stats" style="grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));"></div>
 
       <div class="card">
         <div class="fm-toolbar" style="background:#fff;">
@@ -40,12 +40,12 @@ function renderPorts(container) {
           <table class="table">
             <thead>
               <tr>
-                <th style="width:120px;">Port</th>
-                <th style="width:170px;">Exposure</th>
-                <th>Process</th>
+                <th style="width:100px;">Port</th>
+                <th style="width:140px;">Exposure</th>
+                <th style="min-width:180px;">Process</th>
                 <th>Belongs to</th>
                 <th>Command</th>
-                <th style="text-align:right;">Actions</th>
+                <th style="text-align:right;width:120px;">Actions</th>
               </tr>
             </thead>
             <tbody id="ports-body"><tr><td colspan="6" style="text-align:center;padding:30px;"><div class="spinner"></div></td></tr></tbody>
@@ -156,12 +156,13 @@ function renderPortsTable() {
         <td><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;">${portExposure(p)}</div></td>
         <td>
           ${proc ? `
-            <div style="font-weight:600;">${escapeHtml(proc.name)}</div>
-            <div class="muted" style="font-size:11px;">pid ${proc.pid}${proc.user ? ` · ${escapeHtml(proc.user)}` : ''}${proc.rssBytes ? ` · ${formatBytes(proc.rssBytes)}` : ''}${p.workerCount > p.processes.length ? ` · +${p.workerCount - p.processes.length} workers` : ''}</div>`
+            <div style="font-weight:600;white-space:nowrap;">${escapeHtml(proc.name)}</div>
+            <div class="muted" style="font-size:11px;white-space:nowrap;">pid ${proc.pid}${proc.user ? ` · ${escapeHtml(proc.user)}` : ''}${proc.rssBytes ? ` · ${formatBytes(proc.rssBytes)}` : ''}</div>
+            ${p.workerCount > p.processes.length ? `<div class="muted" style="font-size:11px;">+${p.workerCount - p.processes.length} worker processes</div>` : ''}`
             : '<span class="muted">—</span>'}
         </td>
         <td><div class="owner-list">${portOwnerChips(p)}</div></td>
-        <td style="max-width:320px;">
+        <td style="max-width:230px;">
           ${proc ? `<div class="mono-sm truncate" title="${escapeHtml(proc.cmdline)}">${escapeHtml(proc.cmdline || proc.name)}</div>${proc.cwd && proc.cwd !== '/' ? `<div class="muted truncate" style="font-size:11px;" title="${escapeHtml(proc.cwd)}">in ${escapeHtml(proc.cwd)}</div>` : ''}` : ''}
         </td>
         <td style="text-align:right;white-space:nowrap;">

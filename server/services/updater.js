@@ -9,6 +9,8 @@ import { BackupEngine } from './backup-engine.js';
 
 // Files that hold this server's own state: local copies always win over upstream
 const STATE_FILES = ['server/data/config.json'];
+// Generated files that older installs may have rewritten locally: upstream always wins
+const GENERATED_FILES = ['server/package-lock.json'];
 const CHECK_TTL = 10 * 60 * 1000;
 const GIT_ENV = { GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: 'ssh -o BatchMode=yes -o ConnectTimeout=15' };
 
@@ -96,7 +98,7 @@ export class Updater {
     // Tracked files edited on this server that the update would also change
     const status = await git(['status', '--porcelain', '--untracked-files=no']);
     const localChanges = status.stdout.split('\n').filter(Boolean).map(l => l.slice(3).trim());
-    const conflicts = localChanges.filter(f => changedFiles.includes(f) && !STATE_FILES.includes(f));
+    const conflicts = localChanges.filter(f => changedFiles.includes(f) && !STATE_FILES.includes(f) && !GENERATED_FILES.includes(f));
 
     let blocked = null;
     if (ahead > 0) blocked = `This server has ${ahead} local commit(s) that are not on ${ref}. Update manually with git.`;
@@ -154,6 +156,7 @@ for f in ${STATE_FILES.map(q).join(' ')}; do
     echo "Keeping this server's copy of $f"
   fi
 done
+for f in ${GENERATED_FILES.map(q).join(' ')}; do ${G} checkout -- "$f" 2>/dev/null || true; done
 restore_state() { (cd "$STATE_DIR" && find . -type f) | while read -r f; do cp -p "$STATE_DIR/$f" "$f"; done; rm -rf "$STATE_DIR"; }
 if ! ${G} merge --ff-only ${q(info.upstream)}; then restore_state; echo "Update could not be applied cleanly."; exit 1; fi
 restore_state
@@ -163,14 +166,14 @@ ${G} log --format='  %h %s' "$OLD..$NEW"
 rollback() {
   echo "Rolling back to $OLD..."
   ${G} reset --keep "$OLD"
-  (cd server && npm install --omit=dev --no-audit --no-fund) || true
+  (cd server && npm ci --omit=dev --no-audit --no-fund) || true
   exit 1
 }
 
 echo "::step deps"
 if ! ${G} diff --quiet "$OLD" "$NEW" -- server/package.json server/package-lock.json || [ ! -d server/node_modules ]; then
-  echo "Dependencies changed — running npm install..."
-  (cd server && npm install --omit=dev --no-audit --no-fund) || rollback
+  echo "Dependencies changed — running npm ci..."
+  (cd server && npm ci --omit=dev --no-audit --no-fund) || rollback
 else
   echo "Dependencies unchanged."
 fi
