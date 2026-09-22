@@ -23,6 +23,8 @@ import filesRouter from './routes/files.js';
 import databasesRouter from './routes/databases.js';
 import phpRouter from './routes/php.js';
 import mailRouter from './routes/mail.js';
+import systemRouter from './routes/system.js';
+import { BOOT_ID } from './services/updater.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -95,6 +97,7 @@ app.get('/api/v1/health', (req, res) => {
   res.json({
     status: 'ok',
     version: '1.0.0',
+    bootId: BOOT_ID, // changes on every restart — the dashboard uses it to detect a finished update
     uptime: process.uptime(),
     timestamp: new Date().toISOString()
   });
@@ -191,6 +194,7 @@ app.use('/api/v1/files', protect, filesRouter);
 app.use('/api/v1/databases', protect, databasesRouter);
 app.use('/api/v1/php', protect, phpRouter);
 app.use('/api/v1/mail', protect, mailRouter);
+app.use('/api/v1/system', protect, systemRouter);
 
 // SPA fallback — serve index.html for all non-API routes
 app.use((req, res) => {

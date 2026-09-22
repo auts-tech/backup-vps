@@ -180,6 +180,18 @@ class API {
   getSiteLogs(name, type) { return this.get(`/nginx/sites/${encodeURIComponent(name)}/logs?type=${type}&lines=300`); }
   issueSsl(name, data) { return this.post(`/nginx/sites/${encodeURIComponent(name)}/ssl`, data); }
   getCertificates() { return this.get('/nginx/certificates'); }
+  getCertbot() { return this.get('/nginx/certbot'); }
+  installCertbot(email) { return this.post('/nginx/certbot/install', { email }); }
+  setCertbotEmail(email) { return this.put('/nginx/certbot/email', { email }); }
+  testCertbotRenewal() { return this.post('/nginx/certbot/test', {}); }
+
+  // ── System: ports, processes, updates ──────────────────
+  getPorts() { return this.get('/system/ports'); }
+  killProcess(pid, signal) { return this.post(`/system/processes/${pid}/kill`, { signal }); }
+  restartService(unit) { return this.post(`/system/services/${encodeURIComponent(unit)}/restart`, {}); }
+  getVersion() { return this.get('/system/version'); }
+  checkUpdate(force) { return this.get(`/system/update${force ? '?force=1' : ''}`); }
+  applyUpdate() { return this.post('/system/update', {}); }
   renewCertificates() { return this.post('/nginx/certificates/renew', {}); }
   deleteCertificate(name) { return this.delete(`/nginx/certificates/${encodeURIComponent(name)}`); }
 
