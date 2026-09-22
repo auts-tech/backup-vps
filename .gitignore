@@ -22,3 +22,8 @@ msmtprc
 *.swp
 *.swo
 *~
+
+# Panel secrets (database + mail credentials)
+server/data/mysql.json
+server/data/.panel-my.cnf
+server/data/mail.json

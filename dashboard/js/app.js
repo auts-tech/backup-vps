@@ -7,9 +7,24 @@
 // Global Utility Functions
 function escapeHtml(text) {
   if (text === null || text === undefined) return '';
-  const div = document.createElement('div');
-  div.textContent = String(text);
-  return div.innerHTML;
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Safe value for an inline handler argument: onclick="fn(${jsArg(name)})"
+function jsArg(value) {
+  return escapeHtml(JSON.stringify(value));
+}
+
+// Random password without look-alike characters (for DB users, mailboxes)
+function generatePassword(length = 20) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return [...bytes].map(b => chars[b % chars.length]).join('');
 }
 
 function formatBytes(bytes) {
@@ -41,16 +56,38 @@ class App {
     this.isAuthenticated = false;
     this.userEmail = '';
 
+    this.leaveHandlers = [];
+
     this.routes = {
       dashboard: { title: 'Dashboard', render: renderDashboard },
+      websites: { title: 'Websites & Domains', render: renderWebsites },
+      files: { title: 'File Manager', render: renderFiles },
+      databases: { title: 'Databases', render: renderDatabases },
+      php: { title: 'PHP Versions', render: renderPhp },
+      mail: { title: 'Email Hosting', render: renderMail },
       projects: { title: 'Projects', render: renderProjects },
       backups: { title: 'Backups', render: renderBackups },
       deploy: { title: 'Deploy & Git', render: renderDeploy },
-      cron: { title: 'Cron Automation', render: renderCron },
+      cron: { title: 'Cron Jobs', render: renderCron },
+      terminal: { title: 'Terminal', render: renderTerminal },
       monitor: { title: 'Resource Monitor', render: renderMonitor },
       logs: { title: 'System Logs', render: renderLogs },
       settings: { title: 'Settings', render: renderSettings }
     };
+  }
+
+  /**
+   * Register cleanup to run when the user navigates away from the current page
+   * (closing WebSockets, timers, ...).
+   */
+  onLeave(fn) {
+    this.leaveHandlers.push(fn);
+  }
+
+  runLeaveHandlers() {
+    const handlers = this.leaveHandlers;
+    this.leaveHandlers = [];
+    handlers.forEach(fn => { try { fn(); } catch (err) { console.error(err); } });
   }
 
   async init() {
@@ -152,6 +189,14 @@ class App {
     }
   }
 
+  navLink(page, icon, label) {
+    return `
+      <a class="sidebar-link" data-page="${page}" href="#${page}">
+        <span class="sidebar-link-icon">${window.Icons.get(icon, { size: 16 })}</span>
+        <span>${label}</span>
+      </a>`;
+  }
+
   // ── Main App Shell ────────────────────────────────────────
   showApp() {
     const appEl = document.getElementById('app-root');
@@ -174,46 +219,32 @@ class App {
           <nav class="sidebar-nav">
             <div class="sidebar-section">
               <div class="sidebar-section-title">Overview</div>
-              <a class="sidebar-link active" data-page="dashboard" href="#dashboard">
-                <span class="sidebar-link-icon">${I.get('dashboard', { size: 16 })}</span>
-                <span>Dashboard</span>
-              </a>
+              ${this.navLink('dashboard', 'dashboard', 'Dashboard')}
+            </div>
+
+            <div class="sidebar-section">
+              <div class="sidebar-section-title">Hosting</div>
+              ${this.navLink('websites', 'globe', 'Websites & SSL')}
+              ${this.navLink('files', 'folder', 'File Manager')}
+              ${this.navLink('databases', 'database', 'Databases')}
+              ${this.navLink('php', 'code', 'PHP Versions')}
+              ${this.navLink('mail', 'mail', 'Email')}
             </div>
 
             <div class="sidebar-section">
               <div class="sidebar-section-title">Operations</div>
-              <a class="sidebar-link" data-page="projects" href="#projects">
-                <span class="sidebar-link-icon">${I.get('package', { size: 16 })}</span>
-                <span>Projects</span>
-              </a>
-              <a class="sidebar-link" data-page="backups" href="#backups">
-                <span class="sidebar-link-icon">${I.get('database', { size: 16 })}</span>
-                <span>Backups</span>
-              </a>
-              <a class="sidebar-link" data-page="deploy" href="#deploy">
-                <span class="sidebar-link-icon">${I.get('rocket', { size: 16 })}</span>
-                <span>Deploy & Git</span>
-              </a>
-              <a class="sidebar-link" data-page="cron" href="#cron">
-                <span class="sidebar-link-icon">${I.get('clock', { size: 16 })}</span>
-                <span>Cron Automation</span>
-              </a>
+              ${this.navLink('projects', 'package', 'Projects')}
+              ${this.navLink('backups', 'archive', 'Backups')}
+              ${this.navLink('deploy', 'rocket', 'Deploy & Git')}
+              ${this.navLink('cron', 'clock', 'Cron Jobs')}
             </div>
 
             <div class="sidebar-section">
               <div class="sidebar-section-title">System</div>
-              <a class="sidebar-link" data-page="monitor" href="#monitor">
-                <span class="sidebar-link-icon">${I.get('activity', { size: 16 })}</span>
-                <span>Resource Monitor</span>
-              </a>
-              <a class="sidebar-link" data-page="logs" href="#logs">
-                <span class="sidebar-link-icon">${I.get('fileText', { size: 16 })}</span>
-                <span>Logs</span>
-              </a>
-              <a class="sidebar-link" data-page="settings" href="#settings">
-                <span class="sidebar-link-icon">${I.get('settings', { size: 16 })}</span>
-                <span>Settings</span>
-              </a>
+              ${this.navLink('terminal', 'terminal', 'Terminal')}
+              ${this.navLink('monitor', 'activity', 'Resource Monitor')}
+              ${this.navLink('logs', 'fileText', 'Logs')}
+              ${this.navLink('settings', 'settings', 'Settings')}
             </div>
           </nav>
 
@@ -319,6 +350,10 @@ class App {
     // Update Header
     const route = this.routes[page];
     if (this.pageTitleEl) this.pageTitleEl.textContent = route.title;
+
+    // Leave the previous page cleanly
+    this.runLeaveHandlers();
+    Modal.closeAll();
 
     // Render Page
     if (this.contentEl && typeof route.render === 'function') {

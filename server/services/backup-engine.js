@@ -15,6 +15,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  */
 export class BackupEngine {
   static runningBackups = new Map(); // projectId -> { status, startTime, progress }
+  static pending = new Map(); // backupId -> promise resolving when the backup finishes
 
   static getConfig() {
     const configPath = join(__dirname, '..', 'data', 'config.json');
@@ -62,49 +63,72 @@ export class BackupEngine {
       return { success: false, error: 'Project not found' };
     }
 
-    if (BackupEngine.runningBackups.has(projectId)) {
+    // Finished entries stay visible for 5 minutes; only a *running* one blocks a new backup
+    if (BackupEngine.runningBackups.get(projectId)?.status === 'running') {
       return { success: false, error: 'Backup already running for this project' };
     }
 
     const backupId = `${project.name}-${Date.now()}`;
     const target = targetOverride || config.backup.defaultTarget;
+    const startTime = Date.now();
 
     BackupEngine.runningBackups.set(projectId, {
       backupId,
       status: 'running',
-      startTime: Date.now(),
+      startTime,
       progress: 'Starting...',
       project: project.name
     });
 
+    // Clear this backup's status entry later, unless a newer backup replaced it
+    const clearLater = () => setTimeout(() => {
+      if (BackupEngine.runningBackups.get(projectId)?.backupId === backupId) {
+        BackupEngine.runningBackups.delete(projectId);
+      }
+    }, 300000).unref();
+
     // Run backup asynchronously
-    BackupEngine._executeBackup(project, backupId, target, config)
+    const promise = BackupEngine._executeBackup(project, backupId, target, config)
       .then(result => {
         BackupEngine.runningBackups.set(projectId, {
           backupId,
           status: 'completed',
-          startTime: BackupEngine.runningBackups.get(projectId)?.startTime,
+          startTime,
           endTime: Date.now(),
           result,
           project: project.name
         });
-
-        // Auto-clear after 5 minutes
-        setTimeout(() => BackupEngine.runningBackups.delete(projectId), 300000);
+        clearLater();
+        return { success: true, result };
       })
       .catch(err => {
         BackupEngine.runningBackups.set(projectId, {
           backupId,
           status: 'failed',
-          startTime: BackupEngine.runningBackups.get(projectId)?.startTime,
+          startTime,
           endTime: Date.now(),
           error: err.message,
           project: project.name
         });
-        setTimeout(() => BackupEngine.runningBackups.delete(projectId), 300000);
+        clearLater();
+        return { success: false, error: err.message };
       });
+    BackupEngine.pending.set(backupId, promise);
+    promise.finally(() => BackupEngine.pending.delete(backupId));
 
     return { success: true, backupId, message: 'Backup started' };
+  }
+
+  /**
+   * Wait for every backup started in this process to finish (used by the CLI).
+   */
+  static async waitForAll() {
+    return Promise.all([...BackupEngine.pending.values()]);
+  }
+
+  static setProgress(projectId, progress) {
+    const entry = BackupEngine.runningBackups.get(projectId);
+    if (entry) entry.progress = progress;
   }
 
   /**
@@ -134,18 +158,19 @@ export class BackupEngine {
       // 1. Database dump
       if (project.database && project.database.name) {
         BackupEngine.log(`[${project.name}] Dumping database: ${project.database.name}`);
-        BackupEngine.runningBackups.get(project.id).progress = 'Dumping database...';
+        BackupEngine.setProgress(project.id, 'Dumping database...');
 
         const dbType = project.database.type || 'mysql';
         let dumpCmd;
         if (dbType === 'mysql' || dbType === 'mariadb') {
-          dumpCmd = `mysqldump -u"${project.database.user}" -p"${project.database.password}" --single-transaction --routines --triggers --events "${project.database.name}" 2>/dev/null | gzip > "${backupDir}/db_${date}.sql.gz"`;
+          dumpCmd = `mysqldump -u"${project.database.user}" -p"${project.database.password}" --single-transaction --routines --triggers --events "${project.database.name}" | gzip > "${backupDir}/db_${date}.sql.gz"`;
         } else if (dbType === 'postgres') {
-          dumpCmd = `PGPASSWORD="${project.database.password}" pg_dump -U "${project.database.user}" -h localhost "${project.database.name}" 2>/dev/null | gzip > "${backupDir}/db_${date}.sql.gz"`;
+          dumpCmd = `PGPASSWORD="${project.database.password}" pg_dump -U "${project.database.user}" -h localhost "${project.database.name}" | gzip > "${backupDir}/db_${date}.sql.gz"`;
         }
 
         if (dumpCmd) {
-          await execAsync(dumpCmd, { timeout: 300000 });
+          // pipefail: a failed dump must fail the backup instead of uploading an empty .gz
+          await execAsync(`set -o pipefail; ${dumpCmd}`, { timeout: 300000, shell: '/bin/bash' });
           const { stdout: dbSize } = await execAsync(`du -sh "${backupDir}/db_${date}.sql.gz" | cut -f1`);
           sizes.database = dbSize.trim();
           BackupEngine.log(`[${project.name}] DB dump complete: ${sizes.database}`);
@@ -155,7 +180,7 @@ export class BackupEngine {
       // 2. Backup directories
       if (project.backupDirs && project.backupDirs.length > 0) {
         BackupEngine.log(`[${project.name}] Archiving directories...`);
-        BackupEngine.runningBackups.get(project.id).progress = 'Archiving files...';
+        BackupEngine.setProgress(project.id, 'Archiving files...');
 
         for (const dir of project.backupDirs) {
           if (existsSync(dir)) {
@@ -182,7 +207,7 @@ export class BackupEngine {
       }
 
       // 4. Upload to target
-      BackupEngine.runningBackups.get(project.id).progress = 'Uploading...';
+      BackupEngine.setProgress(project.id, 'Uploading...');
       await BackupEngine._uploadToTarget(backupDir, project, date, target, config);
 
       // 5. Cleanup
@@ -444,6 +469,14 @@ export class BackupEngine {
     const retentionDays = config.backup.retentionDays || 30;
 
     if (target !== 'gdrive' || !targetConfig.enabled) return;
+
+    // Backups are stored as <basePath>/<project>/<date>/ — prune every project's dated folders
+    if (!projectName) {
+      for (const project of config.projects || []) {
+        await BackupEngine.cleanupOldBackups(project.name);
+      }
+      return;
+    }
 
     try {
       const remotePath = projectName

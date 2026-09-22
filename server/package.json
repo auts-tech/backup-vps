@@ -13,8 +13,13 @@
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
+    "mysql2": "^3.24.4",
     "simple-git": "^3.27.0",
     "systeminformation": "^5.25.11",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "ws": "^8.21.3"
+  },
+  "optionalDependencies": {
+    "node-pty": "^1.1.0"
   }
 }

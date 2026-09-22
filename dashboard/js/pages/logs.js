@@ -81,6 +81,7 @@ function renderLogs(container) {
 
   loadLogMeta();
   loadLogs(1);
+  window.app.onLeave(stopLiveLogStream);
 }
 
 // Cleanup SSE on page navigation
@@ -180,7 +181,7 @@ function startLiveLogStream() {
 
   try {
     const token = api.token;
-    const url = `/api/v1/logs/stream${token ? `?apiKey=${token}` : ''}`;
+    const url = `/api/v1/logs/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`;
     logEventSource = new EventSource(url);
 
     if (dot) dot.style.background = 'var(--color-green)';

@@ -5,8 +5,9 @@ import helmet from 'helmet';
 import crypto from 'crypto';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { authMiddleware } from './middleware/auth.js';
+import { attachTerminal } from './services/terminal.js';
 
 // Routes
 import projectsRouter from './routes/projects.js';
@@ -16,6 +17,12 @@ import cronRouter from './routes/cron.js';
 import monitorRouter from './routes/monitor.js';
 import logsRouter from './routes/logs.js';
 import settingsRouter from './routes/settings.js';
+import jobsRouter from './routes/jobs.js';
+import nginxRouter from './routes/nginx.js';
+import filesRouter from './routes/files.js';
+import databasesRouter from './routes/databases.js';
+import phpRouter from './routes/php.js';
+import mailRouter from './routes/mail.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -30,7 +37,15 @@ function getConfig() {
 }
 
 const app = express();
+// Behind an nginx reverse proxy on the same host, take the client IP from X-Forwarded-For
+app.set('trust proxy', 'loopback');
 const config = getConfig();
+
+// Cron jobs and the CLI authenticate with the API key, so make sure one exists
+if (!config.apiKey) {
+  config.apiKey = crypto.randomBytes(24).toString('hex');
+  writeFileSync(configPath, JSON.stringify(config, null, 2));
+}
 const PORT = process.env.PORT || config.server?.port || 9090;
 const HOST = process.env.HOST || config.server?.host || '0.0.0.0';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'fallback-dev-secret';
@@ -38,6 +53,23 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'fallback-dev-secret';
 // In-memory session token store (survives until server restarts)
 // Maps token -> { email, createdAt }
 const activeSessions = new Map();
+const SESSION_TTL = 24 * 60 * 60 * 1000;
+
+function isValidSession(token) {
+  const session = token && activeSessions.get(token);
+  return !!session && Date.now() - session.createdAt < SESSION_TTL;
+}
+
+// Login brute-force protection: 10 failed attempts per IP per 15 minutes
+const loginFailures = new Map(); // ip -> { count, first }
+const LOGIN_WINDOW = 15 * 60 * 1000;
+const LOGIN_MAX_FAILURES = 10;
+
+function safeEqual(a, b) {
+  const ba = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
+}
 
 // Middleware
 app.use(helmet({
@@ -45,8 +77,13 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true }));
+// Express 5 leaves req.body undefined when a request has no body (e.g. `curl -X POST`)
+app.use((req, res, next) => {
+  if (req.body === undefined) req.body = {};
+  next();
+});
 
 // Serve dashboard frontend as static files
 app.use(express.static(join(__dirname, '..', 'dashboard')));
@@ -76,6 +113,7 @@ app.get('/api/v1/auth/status', (req, res) => {
 // Login endpoint — validates email + password from .env
 app.post('/api/v1/auth/login', (req, res) => {
   const { email, password } = req.body;
+  const ip = req.ip;
 
   const adminEmail = process.env.ADMIN_EMAIL;
   const adminPassword = process.env.ADMIN_PASSWORD;
@@ -87,9 +125,19 @@ app.post('/api/v1/auth/login', (req, res) => {
     });
   }
 
-  if (email !== adminEmail || password !== adminPassword) {
+  const failures = loginFailures.get(ip);
+  if (failures && Date.now() - failures.first < LOGIN_WINDOW && failures.count >= LOGIN_MAX_FAILURES) {
+    const minutes = Math.ceil((LOGIN_WINDOW - (Date.now() - failures.first)) / 60000);
+    return res.status(429).json({ error: `Too many failed logins. Try again in ${minutes} minute(s).` });
+  }
+
+  if (!safeEqual(email, adminEmail) || !safeEqual(password, adminPassword)) {
+    const entry = failures && Date.now() - failures.first < LOGIN_WINDOW ? failures : { count: 0, first: Date.now() };
+    entry.count++;
+    loginFailures.set(ip, entry);
     return res.status(401).json({ error: 'Invalid email or password' });
   }
+  loginFailures.delete(ip);
 
   // Generate a secure session token
   const token = crypto.randomBytes(48).toString('hex');
@@ -99,9 +147,8 @@ app.post('/api/v1/auth/login', (req, res) => {
   });
 
   // Cleanup tokens older than 24 hours
-  const DAY = 24 * 60 * 60 * 1000;
   for (const [t, s] of activeSessions.entries()) {
-    if (Date.now() - s.createdAt > DAY) activeSessions.delete(t);
+    if (Date.now() - s.createdAt > SESSION_TTL) activeSessions.delete(t);
   }
 
   res.json({
@@ -130,13 +177,20 @@ app.get('/api/v1/setup-status', (req, res) => {
 
 // ── Protected API routes ────────────────────────────────────
 // Pass activeSessions to middleware so it can validate bearer tokens
-app.use('/api/v1/projects', (req, res, next) => { req.activeSessions = activeSessions; next(); }, authMiddleware, projectsRouter);
-app.use('/api/v1/backups', (req, res, next) => { req.activeSessions = activeSessions; next(); }, authMiddleware, backupsRouter);
-app.use('/api/v1/deploy', (req, res, next) => { req.activeSessions = activeSessions; next(); }, authMiddleware, deployRouter);
-app.use('/api/v1/cron', (req, res, next) => { req.activeSessions = activeSessions; next(); }, authMiddleware, cronRouter);
-app.use('/api/v1/monitor', (req, res, next) => { req.activeSessions = activeSessions; next(); }, authMiddleware, monitorRouter);
-app.use('/api/v1/logs', (req, res, next) => { req.activeSessions = activeSessions; next(); }, authMiddleware, logsRouter);
-app.use('/api/v1/settings', (req, res, next) => { req.activeSessions = activeSessions; next(); }, authMiddleware, settingsRouter);
+const protect = (req, res, next) => { req.activeSessions = activeSessions; authMiddleware(req, res, next); };
+app.use('/api/v1/projects', protect, projectsRouter);
+app.use('/api/v1/backups', protect, backupsRouter);
+app.use('/api/v1/deploy', protect, deployRouter);
+app.use('/api/v1/cron', protect, cronRouter);
+app.use('/api/v1/monitor', protect, monitorRouter);
+app.use('/api/v1/logs', protect, logsRouter);
+app.use('/api/v1/settings', protect, settingsRouter);
+app.use('/api/v1/jobs', protect, jobsRouter);
+app.use('/api/v1/nginx', protect, nginxRouter);
+app.use('/api/v1/files', protect, filesRouter);
+app.use('/api/v1/databases', protect, databasesRouter);
+app.use('/api/v1/php', protect, phpRouter);
+app.use('/api/v1/mail', protect, mailRouter);
 
 // SPA fallback — serve index.html for all non-API routes
 app.use((req, res) => {
@@ -147,13 +201,15 @@ app.use((req, res) => {
   }
 });
 
-// Error handler
+// Error handler — errors may carry an HTTP status (see httpError in lib/config.js)
 app.use((err, req, res, next) => {
-  console.error('[Server Error]', err.message);
-  res.status(500).json({ error: 'Internal server error', message: err.message });
+  const status = err.status || err.statusCode || 500;
+  if (status >= 500) console.error('[Server Error]', err.message);
+  if (res.headersSent) return res.end();
+  res.status(status).json({ error: err.message || 'Internal server error' });
 });
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log('');
   console.log('╔═══════════════════════════════════════════════╗');
   console.log('║   VPS Deploy & Backup Manager                ║');
@@ -169,5 +225,8 @@ app.listen(PORT, HOST, () => {
   console.log('╚═══════════════════════════════════════════════╝');
   console.log('');
 });
+
+// Web terminal over WebSocket (authenticated with the session token)
+attachTerminal(server, isValidSession);
 
 export default app;

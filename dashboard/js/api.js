@@ -150,9 +150,137 @@ class API {
 
   // ── Cron ────────────────────────────────────────────────
   getCronJobs() { return this.get('/cron'); }
-  addCronJob(schedule, command) { return this.post('/cron', { schedule, command }); }
-  updateCronJob(id, schedule, command) { return this.put(`/cron/${id}`, { schedule, command }); }
+  getCronTasks() { return this.get('/cron/tasks'); }
+  previewCron(schedule) { return this.post('/cron/preview', { schedule }); }
+  addCronJob(job) { return this.post('/cron', job); }
+  updateCronJob(id, job) { return this.put(`/cron/${id}`, job); }
+  toggleCronJob(id, enabled) { return this.post(`/cron/${id}/toggle`, { enabled }); }
+  runCronJob(id) { return this.post(`/cron/${id}/run`, {}); }
   deleteCronJob(id) { return this.delete(`/cron/${id}`); }
+  getCronLog(lines) { return this.get(`/cron/log?lines=${lines || 200}`); }
+  startCronDaemon() { return this.post('/cron/daemon/start', {}); }
+
+  // ── Background jobs ─────────────────────────────────────
+  getJob(id, offset) { return this.get(`/jobs/${id}?offset=${offset || 0}`); }
+  getJobs() { return this.get('/jobs'); }
+  cancelJob(id) { return this.post(`/jobs/${id}/cancel`, {}); }
+
+  // ── Nginx / Websites ────────────────────────────────────
+  getNginxStatus() { return this.get('/nginx/status'); }
+  installNginx() { return this.post('/nginx/install', {}); }
+  nginxControl(action) { return this.post('/nginx/control', { action }); }
+  nginxTest() { return this.post('/nginx/test', {}); }
+  getSites() { return this.get('/nginx/sites'); }
+  createSite(data) { return this.post('/nginx/sites', data); }
+  getSite(name) { return this.get(`/nginx/sites/${encodeURIComponent(name)}`); }
+  saveSite(name, content) { return this.put(`/nginx/sites/${encodeURIComponent(name)}`, { content }); }
+  enableSite(name, enabled) { return this.post(`/nginx/sites/${encodeURIComponent(name)}/enable`, { enabled }); }
+  setSitePhp(name, version) { return this.post(`/nginx/sites/${encodeURIComponent(name)}/php`, { version }); }
+  deleteSite(name) { return this.delete(`/nginx/sites/${encodeURIComponent(name)}`); }
+  getSiteLogs(name, type) { return this.get(`/nginx/sites/${encodeURIComponent(name)}/logs?type=${type}&lines=300`); }
+  issueSsl(name, data) { return this.post(`/nginx/sites/${encodeURIComponent(name)}/ssl`, data); }
+  getCertificates() { return this.get('/nginx/certificates'); }
+  renewCertificates() { return this.post('/nginx/certificates/renew', {}); }
+  deleteCertificate(name) { return this.delete(`/nginx/certificates/${encodeURIComponent(name)}`); }
+
+  // ── File manager ────────────────────────────────────────
+  listFiles(path) { return this.get(`/files/list?path=${encodeURIComponent(path)}`); }
+  readFile(path) { return this.get(`/files/read?path=${encodeURIComponent(path)}`); }
+  writeFile(path, content) { return this.put('/files/write', { path, content }); }
+  mkdir(path) { return this.post('/files/mkdir', { path }); }
+  createFile(path) { return this.post('/files/create', { path }); }
+  renameFile(from, to) { return this.post('/files/rename', { from, to }); }
+  copyFile(from, to) { return this.post('/files/copy', { from, to }); }
+  deleteFiles(paths) { return this.post('/files/delete', { paths }); }
+  chmodFile(path, mode, recursive) { return this.post('/files/chmod', { path, mode, recursive }); }
+  chownFile(path, owner, group, recursive) { return this.post('/files/chown', { path, owner, group, recursive }); }
+  extractFile(path, dest) { return this.post('/files/extract', { path, dest }); }
+  compressFiles(paths, dest, format) { return this.post('/files/compress', { paths, dest, format }); }
+  folderSize(path) { return this.get(`/files/size?path=${encodeURIComponent(path)}`); }
+  searchFiles(path, q) { return this.get(`/files/search?path=${encodeURIComponent(path)}&q=${encodeURIComponent(q)}`); }
+  downloadUrl(path) { return `${this.baseUrl}/files/download?path=${encodeURIComponent(path)}&token=${encodeURIComponent(this.token)}`; }
+
+  /**
+   * Upload a File/Blob as a raw body with progress (XHR, so progress events work).
+   */
+  upload(path, file, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${this.baseUrl}${path}`);
+      xhr.setRequestHeader('Authorization', `Bearer ${this.token}`);
+      xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+      if (onProgress) xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+      xhr.onload = () => {
+        let data = {};
+        try { data = JSON.parse(xhr.responseText); } catch { }
+        if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+        else reject(new Error(data.error || `Upload failed (HTTP ${xhr.status})`));
+      };
+      xhr.onerror = () => reject(new Error('Upload failed — connection lost'));
+      xhr.send(file);
+    });
+  }
+  uploadFile(dir, file, overwrite, onProgress) {
+    return this.upload(`/files/upload?dir=${encodeURIComponent(dir)}&name=${encodeURIComponent(file.name)}${overwrite ? '&overwrite=1' : ''}`, file, onProgress);
+  }
+
+  // ── Databases ───────────────────────────────────────────
+  getDbStatus() { return this.get('/databases/status'); }
+  installDbServer() { return this.post('/databases/install', {}); }
+  connectDb() { return this.post('/databases/connect', {}); }
+  setDbCredentials(data) { return this.post('/databases/credentials', data); }
+  getDatabases() { return this.get('/databases'); }
+  createDatabase(data) { return this.post('/databases', data); }
+  dropDatabase(name) { return this.delete(`/databases/${encodeURIComponent(name)}`); }
+  runQuery(sql, database) { return this.post('/databases/query', { sql, database }); }
+  getTables(db) { return this.get(`/databases/${encodeURIComponent(db)}/tables`); }
+  getTableStructure(db, table) { return this.get(`/databases/${encodeURIComponent(db)}/tables/${encodeURIComponent(table)}/structure`); }
+  getTableRows(db, table, page, perPage) { return this.get(`/databases/${encodeURIComponent(db)}/tables/${encodeURIComponent(table)}/rows?page=${page || 1}&perPage=${perPage || 50}`); }
+  createDbUser(data) { return this.post('/databases/users', data); }
+  dropDbUser(user, host) { return this.delete(`/databases/users/${encodeURIComponent(user)}/${encodeURIComponent(host)}`); }
+  setDbUserPassword(user, host, password) { return this.post(`/databases/users/${encodeURIComponent(user)}/${encodeURIComponent(host)}/password`, { password }); }
+  grantDbUser(user, host, database, privileges) { return this.post(`/databases/users/${encodeURIComponent(user)}/${encodeURIComponent(host)}/grant`, { database, privileges }); }
+  revokeDbUser(user, host, database) { return this.post(`/databases/users/${encodeURIComponent(user)}/${encodeURIComponent(host)}/revoke`, { database }); }
+  getDbUserGrants(user, host) { return this.get(`/databases/users/${encodeURIComponent(user)}/${encodeURIComponent(host)}/grants`); }
+  exportDbUrl(db) { return `${this.baseUrl}/databases/${encodeURIComponent(db)}/export?token=${encodeURIComponent(this.token)}`; }
+  importDb(db, file, onProgress) { return this.upload(`/databases/${encodeURIComponent(db)}/import?name=${encodeURIComponent(file.name)}`, file, onProgress); }
+
+  // ── PHP ─────────────────────────────────────────────────
+  getPhp() { return this.get('/php'); }
+  getPhpAvailable() { return this.get('/php/available'); }
+  addPhpRepo() { return this.post('/php/repository', {}); }
+  installPhp(version, extensions) { return this.post('/php/install', { version, extensions }); }
+  uninstallPhp(version) { return this.post(`/php/${version}/uninstall`, {}); }
+  phpControl(version, action) { return this.post(`/php/${version}/control`, { action }); }
+  setPhpDefault(version) { return this.post(`/php/${version}/default`, {}); }
+  getPhpExtensions(version) { return this.get(`/php/${version}/extensions`); }
+  phpExtension(version, name, action) { return this.post(`/php/${version}/extensions`, { name, action }); }
+  getPhpIni(version, sapi) { return this.get(`/php/${version}/ini?sapi=${sapi || 'fpm'}`); }
+  savePhpIni(version, sapi, settings) { return this.put(`/php/${version}/ini`, { sapi, settings }); }
+
+  // ── Email ───────────────────────────────────────────────
+  getMailStatus() { return this.get('/mail/status'); }
+  getMailChecks() { return this.get('/mail/checks'); }
+  installMail(data) { return this.post('/mail/install', data); }
+  mailControl(action) { return this.post('/mail/control', { action }); }
+  getMailLogs() { return this.get('/mail/logs'); }
+  getMailboxes() { return this.get('/mail/accounts'); }
+  addMailbox(email, password) { return this.post('/mail/accounts', { email, password }); }
+  setMailboxPassword(email, password) { return this.post(`/mail/accounts/${encodeURIComponent(email)}/password`, { password }); }
+  setMailboxQuota(email, quota) { return this.post(`/mail/accounts/${encodeURIComponent(email)}/quota`, { quota }); }
+  deleteMailbox(email) { return this.delete(`/mail/accounts/${encodeURIComponent(email)}`); }
+  getMailAliases() { return this.get('/mail/aliases'); }
+  addMailAlias(alias, target) { return this.post('/mail/aliases', { alias, target }); }
+  deleteMailAlias(alias, target) { return this.post('/mail/aliases/delete', { alias, target }); }
+  getMailDns(domain) { return this.get(`/mail/dns/${encodeURIComponent(domain)}`); }
+  generateDkim(domain) { return this.post(`/mail/dkim/${encodeURIComponent(domain)}`, {}); }
+
+  // ── Terminal ────────────────────────────────────────────
+  terminalUrl(params = {}) {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const q = new URLSearchParams({ token: this.token, ...params });
+    return `${proto}//${location.host}${this.baseUrl}/terminal/ws?${q}`;
+  }
 
   // ── Monitor ─────────────────────────────────────────────
   getStats() { return this.get('/monitor/stats'); }

@@ -50,6 +50,10 @@ class Modal {
     return { overlay, close };
   }
 
+  static closeAll() {
+    document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+  }
+
   static confirm(title, message, onConfirm) {
     return Modal.show(title, `<p style="color:var(--text-secondary);font-size:14px;">${message}</p>`, {
       onSubmit: onConfirm,

@@ -18,8 +18,12 @@ echo "[1/7] Updating package index..."
 apt-get update -y
 
 # 2. Install required CLI utilities
-echo "[2/7] Installing rclone, jq, curl, git, gzip, msmtp, tar..."
-apt-get install -y rclone jq curl git gzip msmtp msmtp-mta tar ca-certificates
+#    build-essential + python3 compile node-pty (web terminal); zip/unzip for the file manager
+echo "[2/7] Installing rclone, jq, curl, git, gzip, msmtp, tar, cron, zip, build tools..."
+apt-get install -y rclone jq curl git gzip msmtp msmtp-mta tar ca-certificates cron zip unzip build-essential python3
+
+# Scheduled backups depend on the cron daemon
+if [ -d /run/systemd/system ]; then systemctl enable --now cron; else service cron start || true; fi
 
 # 3. Install Node.js 20 LTS if not present
 echo "[3/7] Checking Node.js installation..."
@@ -33,15 +37,30 @@ echo "  NPM version:     $(npm -v)"
 
 # 4. Install backend dependencies
 echo "[4/7] Installing Node dependencies in server/..."
-(cd "$INSTALL_DIR/server" && npm install --production)
+(cd "$INSTALL_DIR/server" && npm install --omit=dev)
+if ! (cd "$INSTALL_DIR/server" && node -e "require('node-pty')" 2>/dev/null); then
+  echo "  ⚠️  node-pty did not build — the web terminal will run in basic mode (no resize / full-screen apps)."
+fi
 
 # 5. Setup config & log directories
 echo "[5/7] Creating system directories & setting permissions..."
 mkdir -p /root/.config/backup
 mkdir -p /root/.config/rclone
 mkdir -p /var/log
-touch /var/log/vps-backup-manager.log
-chmod 664 /var/log/vps-backup-manager.log
+touch /var/log/vps-backup-manager.log /var/log/vps-panel-cron.log
+chmod 664 /var/log/vps-backup-manager.log /var/log/vps-panel-cron.log
+
+# Rotate panel logs weekly so they don't grow forever
+cat <<'EOF' > /etc/logrotate.d/vps-panel
+/var/log/vps-backup-manager.log /var/log/vps-panel-cron.log {
+    weekly
+    rotate 8
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
+EOF
 
 # Set UK timezone
 timedatectl set-timezone Europe/London || true

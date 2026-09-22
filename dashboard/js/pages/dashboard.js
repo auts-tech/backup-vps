@@ -54,6 +54,19 @@ function renderDashboard(container) {
         </div>
       </div>
 
+      <!-- cPanel-style tools -->
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-header">
+          <h3 class="card-title">
+            ${I.get('grid', { size: 16 })}
+            <span>Hosting Tools</span>
+          </h3>
+        </div>
+        <div class="card-body">
+          ${renderToolGroups()}
+        </div>
+      </div>
+
       <!-- Quick Actions Bar -->
       <div class="card" style="margin-bottom:24px;">
         <div class="card-header">
@@ -219,6 +232,62 @@ async function loadDashboardData() {
   } catch (err) {
     console.error('Dashboard load error:', err);
   }
+}
+
+const TOOL_GROUPS = [
+  {
+    title: 'Domains & Files',
+    tools: [
+      ['websites', 'globe', 'Websites', 'Domains, nginx sites & reverse proxies'],
+      ['websites', 'shieldCheck', 'SSL / HTTPS', 'Free Let\'s Encrypt certificates'],
+      ['files', 'folder', 'File Manager', 'Browse, edit, upload & extract'],
+      ['backups', 'archive', 'Backups', 'Cloud backups & restores']
+    ]
+  },
+  {
+    title: 'Databases & Software',
+    tools: [
+      ['databases', 'database', 'MySQL Databases', 'Databases, users & privileges'],
+      ['databases', 'table', 'Database Browser', 'Tables and SQL console'],
+      ['php', 'code', 'PHP Versions', 'Multiple PHP-FPM versions & php.ini'],
+      ['deploy', 'rocket', 'Git Deploy', 'Clone, pull & restart apps']
+    ]
+  },
+  {
+    title: 'Email',
+    tools: [
+      ['mail', 'inbox', 'Email Accounts', 'Mailboxes on your domains'],
+      ['mail', 'send', 'Forwarders', 'Aliases & forwarding'],
+      ['mail', 'key', 'Email Deliverability', 'SPF, DKIM, DMARC & PTR checks']
+    ]
+  },
+  {
+    title: 'Advanced',
+    tools: [
+      ['terminal', 'terminal', 'Terminal', 'Root shell in the browser'],
+      ['cron', 'clock', 'Cron Jobs', 'Scheduled tasks'],
+      ['monitor', 'activity', 'Resource Monitor', 'CPU, RAM, disk & processes'],
+      ['logs', 'fileText', 'Logs', 'Panel & backup activity']
+    ]
+  }
+];
+
+function renderToolGroups() {
+  const I = window.Icons;
+  return TOOL_GROUPS.map(group => `
+    <div class="tool-group">
+      <div class="tool-group-title">${group.title}</div>
+      <div class="tool-grid">
+        ${group.tools.map(([page, icon, name, desc]) => `
+          <button class="tool-tile" onclick="window.app.navigate('${page}')">
+            <span class="tool-tile-icon">${I.get(icon, { size: 17 })}</span>
+            <span>
+              <span class="tool-tile-name" style="display:block;">${name}</span>
+              <span class="tool-tile-desc" style="display:block;margin-top:2px;">${desc}</span>
+            </span>
+          </button>`).join('')}
+      </div>
+    </div>`).join('');
 }
 
 function renderMiniBar(label, percent, detail) {
