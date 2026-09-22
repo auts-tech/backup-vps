@@ -11,7 +11,7 @@ const DEFAULTS_FILE = join(DATA_DIR, '.panel-my.cnf');
 const PANEL_USER = 'vpspanel';
 
 export const SYSTEM_DATABASES = new Set(['information_schema', 'mysql', 'performance_schema', 'sys']);
-const PROTECTED_USERS = new Set(['root', 'mariadb.sys', 'mysql.sys', 'mysql.session', 'mysql.infoschema', 'debian-sys-maint', PANEL_USER]);
+const PROTECTED_USERS = new Set(['root', 'mysql', 'mariadb.sys', 'mysql.sys', 'mysql.session', 'mysql.infoschema', 'debian-sys-maint', PANEL_USER]);
 const SOCKETS = ['/run/mysqld/mysqld.sock', '/var/run/mysqld/mysqld.sock', '/var/lib/mysql/mysql.sock', '/tmp/mysql.sock'];
 
 const DB_NAME = /^[A-Za-z0-9_$-]{1,64}$/;
