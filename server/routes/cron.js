@@ -29,9 +29,14 @@ function panelTasks() {
 }
 
 async function cronDaemonStatus() {
-  const { code } = await run('sh', ['-c', 'pgrep -x cron || pgrep -x crond || pgrep -x cronie'], { timeout: 5000 });
+  // Ignore zombie (defunct) processes left behind by a stopped daemon
+  const { stdout } = await run('ps', ['-eo', 'stat=,comm='], { timeout: 5000 });
+  const running = stdout.split('\n').some(line => {
+    const [stat, comm] = line.trim().split(/\s+/);
+    return stat && !stat.startsWith('Z') && ['cron', 'crond', 'cronie'].includes(comm);
+  });
   const installed = !!(await which('crontab'));
-  return { running: code === 0, installed };
+  return { running, installed };
 }
 
 /**

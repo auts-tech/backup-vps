@@ -68,8 +68,8 @@ function renderFiles(container) {
                 <th>Name</th>
                 <th style="width:110px;">Size</th>
                 <th style="width:170px;">Modified</th>
-                <th style="width:130px;">Permissions</th>
-                <th style="width:150px;">Owner</th>
+                <th style="width:150px;">Permissions</th>
+                <th style="width:160px;">Owner</th>
                 <th style="width:170px;text-align:right;">Actions</th>
               </tr>
             </thead>
@@ -168,8 +168,8 @@ function fmRenderTable() {
       </td>
       <td class="mono-sm">${e.type === 'dir' ? `<a style="cursor:pointer;color:var(--text-tertiary);" onclick="fmCalcSize(${e.i}, this)">calc</a>` : formatBytes(e.size)}</td>
       <td style="font-size:12px;color:var(--text-secondary);">${escapeHtml(formatDate(e.modified))}</td>
-      <td><a style="cursor:pointer;" onclick="fmChmod(${e.i})" title="Change permissions"><code>${escapeHtml(e.mode)}</code> <span class="mono-sm">${escapeHtml(e.perms)}</span></a></td>
-      <td><a style="cursor:pointer;" class="mono-sm" onclick="fmChown(${e.i})" title="Change owner">${escapeHtml(e.owner)}:${escapeHtml(e.group)}</a></td>
+      <td class="nowrap"><a style="cursor:pointer;" onclick="fmChmod(${e.i})" title="Change permissions"><code>${escapeHtml(e.mode)}</code> <span class="mono-sm">${escapeHtml(e.perms)}</span></a></td>
+      <td class="nowrap"><a style="cursor:pointer;" class="mono-sm" onclick="fmChown(${e.i})" title="Change owner">${escapeHtml(e.owner)}:${escapeHtml(e.group)}</a></td>
       <td style="text-align:right;">
         <span class="row-actions">
           ${e.type === 'file' ? `<button class="btn btn-sm btn-secondary" onclick="fmEdit(${e.i})" title="Edit">${I.get('edit', { size: 12 })}</button>` : ''}

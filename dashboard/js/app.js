@@ -212,7 +212,7 @@ class App {
             </div>
             <div class="sidebar-logo-text">
               <h1>VPS Manager</h1>
-              <span>Deploy & Backup Suite</span>
+              <span>Hosting Control Panel</span>
             </div>
           </div>
 

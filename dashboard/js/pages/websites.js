@@ -133,8 +133,11 @@ function renderSitesTable() {
            ${[...new Set([site.phpVersion, ...websitesState.phpVersions])].map(v => `<option value="${v}" ${v === site.phpVersion ? 'selected' : ''}>PHP ${v}</option>`).join('')}
          </select>`
       : '<span class="muted">—</span>';
+    const catchAll = names.length === 0;
     let sslCell;
-    if (site.ssl) {
+    if (catchAll) {
+      sslCell = '<span class="muted" title="Catch-all site without a domain">—</span>';
+    } else if (site.ssl) {
       const days = site.sslExpires ? Math.floor((new Date(site.sslExpires) - Date.now()) / 86400000) : null;
       sslCell = `<span class="badge ${days !== null && days < 14 ? 'badge-warning' : 'badge-success'}">${I.get('lock', { size: 11 })} HTTPS${days !== null ? ` · ${days}d` : ''}</span>`;
     } else {
@@ -147,7 +150,7 @@ function renderSitesTable() {
         <td style="max-width:340px;">
           <div style="font-weight:600;display:flex;align-items:center;gap:6px;">
             <span class="truncate">${escapeHtml(primary)}</span>
-            ${primary.includes('*') || primary === '_' ? '' : `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Open site">${I.get('externalLink', { size: 12, color: 'var(--text-tertiary)' })}</a>`}
+            ${catchAll || primary.includes('*') ? '<span class="badge badge-neutral">catch-all</span>' : `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Open site">${I.get('externalLink', { size: 12, color: 'var(--text-tertiary)' })}</a>`}
           </div>
           ${names.length > 1 ? `<div class="muted" style="font-size:11px;">+ ${escapeHtml(names.slice(1).join(', '))}</div>` : ''}
           <div class="mono-sm truncate" title="${escapeHtml(target)}">${escapeHtml(target)}</div>
