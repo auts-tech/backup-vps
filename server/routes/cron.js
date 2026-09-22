@@ -28,6 +28,27 @@ function panelTasks() {
   return tasks;
 }
 
+/**
+ * Earlier versions scheduled `curl -X POST http://127.0.0.1:9090/api/v1/backups/trigger`
+ * without an API key, which the API always rejected (401), so those jobs never ran.
+ * Rewrite them to the authenticated CLI task runner. Runs once at startup.
+ */
+export async function migrateLegacyCronJobs() {
+  const lines = await CronManager.readLines();
+  const cli = `"${process.execPath}" "${join(SERVER_DIR, 'cli.js')}"`;
+  const legacy = /^(#off# )?(@\w+|\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s+curl\s.*127\.0\.0\.1:\d+\/api\/v1\/backups\/(trigger-vps|trigger)\b.*$/;
+  let migrated = 0;
+  const out = lines.map(line => {
+    const m = line.match(legacy);
+    if (!m || /x-api-key/i.test(line)) return line;
+    migrated++;
+    const task = m[3] === 'trigger-vps' ? 'vps-snapshot' : 'backup-all';
+    return `${m[1] || ''}${m[2]} ${cli} ${task} >> ${CRON_LOG} 2>&1`;
+  });
+  if (migrated) await CronManager.writeLines(out);
+  return migrated;
+}
+
 async function cronDaemonStatus() {
   // Ignore zombie (defunct) processes left behind by a stopped daemon
   const { stdout } = await run('ps', ['-eo', 'stat=,comm='], { timeout: 5000 });

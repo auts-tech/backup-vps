@@ -1,84 +1,69 @@
-# 🛡️ VPS Deploy & Backup Manager
+# 🛡️ VPS Hosting Panel — Deploy, Backup & Hosting Manager
 
-A dynamic, multi-project VPS deployment and backup management platform with a dark-mode web dashboard.
+A self-hosted, cPanel-style control panel for a single Ubuntu/Debian VPS: websites, SSL, PHP, databases, email, files, terminal, cron, Git deploys and cloud backups — all from one web dashboard.
 
-- **Dynamic Multi-Project Support**: Manage any number of applications (Node.js, PHP, Python, Static) on a single VPS.
-- **Automated Backups**: Back up MySQL/MariaDB databases, file directories, `.env` configs, or take full VPS snapshots.
-- **Multiple Cloud Storage Targets**: Google Drive (via rclone), Amazon S3, and remote SFTP servers.
-- **One-Click Git Deploy**: Clone repositories, pull latest commits, install dependencies, build, and control processes.
-- **Visual Cron Automation**: Schedule automated backups (e.g. daily at 12:00 PM UK time) with human-readable previews.
-- **Live System Monitor**: Real-time CPU, RAM, disk usage, network I/O, load averages, and top process inspection.
-- **Live Log Streaming**: Real-time SSE (Server-Sent Events) log viewer with search and error filtering.
-- **Alerts & Notifications**: Automated failure/success alerts via Discord webhooks and Email (msmtp).
+### Hosting
+- **Websites & SSL** — Create nginx sites from templates (static, PHP, Laravel, WordPress, reverse proxy for Node/Python apps), edit configs with automatic `nginx -t` validation and rollback, one-click free Let's Encrypt HTTPS, per-site access/error logs.
+- **PHP Versions** — Install several PHP-FPM versions side by side (5.6 – 8.5 via the ondrej/sury repositories), switch a site's PHP version from a dropdown, manage extensions, edit common `php.ini` settings, choose the default CLI version.
+- **Databases** — Install MariaDB, create databases/users/privileges, browse tables, run SQL in a console, export (`.sql.gz`) and import dumps.
+- **Email Hosting** — Mailboxes, forwarders and quotas on your own domains using docker-mailserver (Postfix, Dovecot, Rspamd, Fail2ban) with Roundcube webmail, automatic DKIM keys, and a live DNS checker for MX/SPF/DKIM/DMARC/PTR.
+- **File Manager** — Browse, edit (syntax-highlighted editor), upload (drag & drop), download (folders as `.tar.gz`), zip/unzip, permissions & ownership, search.
+- **Terminal** — Full root shell in the browser (xterm.js over an authenticated WebSocket).
+
+### Operations
+- **Projects, Backups & Deploy** — Back up databases, directories and `.env` files to Google Drive (rclone), S3 or SFTP; clone/pull Git repositories and restart apps.
+- **Cron Jobs** — Schedule panel tasks (backups, VPS snapshots, retention cleanup) or any command; live schedule preview with next run times, pause/resume, “run now” with output, and an output log.
+- **Monitoring & Alerts** — Live CPU/RAM/disk/network, top processes, live logs, Discord and email notifications.
 
 ---
 
 ## 🚀 How to Run
 
-### Option 1: Running Locally (For Testing / Development)
+### On an Ubuntu / Debian VPS (production)
 
-Make sure you have **Node.js 18+** installed.
-
-#### Quick Start:
-```bash
-cd /Users/aashishtimalsina/Work/Project/Evereuser/nhs/backup-scripts
-./start.sh
-```
-
-#### Or run manually:
-```bash
-cd /Users/aashishtimalsina/Work/Project/Evereuser/nhs/backup-scripts/server
-npm install
-npm start
-```
-
-Open your browser at:
-👉 **[http://localhost:9090](http://localhost:9090)**
-
----
-
-### Option 2: Deploying on an Ubuntu / Debian VPS (Contabo, etc.)
-
-> 📖 **Full Guide**: For detailed step-by-step instructions, firewall rules, and SSL configuration, see **[DEPLOY.md](file:///Users/aashishtimalsina/Work/Project/Evereuser/nhs/backup-scripts/DEPLOY.md)**.
-
-Clone or upload this repository to your VPS (e.g., in `/opt/backup-vps`):
+> 📖 **Full guide**: firewall, HTTPS for the panel, website hosting and email hosting — see **[DEPLOY.md](DEPLOY.md)**.
 
 ```bash
-# 1. SSH into your VPS
 ssh root@YOUR_SERVER_IP
-
-# 2. Navigate to the project directory
-cd /path/to/backup-scripts
-
-# 3. Run the automated installer
+cd /opt && git clone https://github.com/auts-tech/backup-vps.git backup-vps && cd backup-vps
+cp .env.example .env && nano .env      # set ADMIN_EMAIL, ADMIN_PASSWORD, SESSION_SECRET
 sudo bash setup.sh
 ```
 
-`setup.sh` automatically:
-1. Installs Node.js 20 LTS, rclone, msmtp, jq, curl, git
-2. Installs all server dependencies
-3. Creates a systemd service (`vps-backup-manager`) that runs persistently and restarts on boot
-4. Configures credentials and log files
+`setup.sh` installs Node.js 20, rclone, msmtp, cron, zip/unzip and build tools (for the web terminal), installs dependencies, creates the `vps-backup-manager` systemd service and enables log rotation. Then open **`http://YOUR_SERVER_IP:9090`**.
 
-Once setup finishes, visit:
-👉 **`http://YOUR_SERVER_IP:9090`**
+**Updating an existing install:** `cd /opt/backup-vps && git pull && sudo bash setup.sh` — re-running setup is safe and installs any new dependencies.
+
+### Locally (development)
+
+Requires **Node.js 18+**. Hosting features (nginx, PHP, MariaDB, mail) need a Debian/Ubuntu server; everything else runs locally.
+
+```bash
+./start.sh           # or: cd server && npm install && npm start
+```
+
+Open **http://localhost:9090**.
 
 ---
 
-## 🛠️ Management via Systemd (on VPS)
+## 🔐 Security
+
+- The panel runs as **root**: the terminal, file manager and installers have full control of the server. Treat the admin password like the root password.
+- **Serve the panel over HTTPS and close port 9090** (see DEPLOY.md → *Secure the panel*). Logins are rate-limited (10 failures per IP per 15 minutes).
+- All API routes under `/api/v1/` require a session token (from login) or the API key (`X-API-Key` header). Cron jobs use the API key automatically.
+- Database and mail credentials are stored in `server/data/mysql.json` and `server/data/mail.json` (mode `0600`, git-ignored).
+
+---
+
+## 🛠️ Service Management
 
 ```bash
-# Check service status
-sudo systemctl status vps-backup-manager
-
-# Restart the manager
-sudo systemctl restart vps-backup-manager
-
-# View live system logs
-sudo journalctl -u vps-backup-manager -f
-
-# View backup operation logs
-tail -f /var/log/vps-backup-manager.log
+sudo systemctl status vps-backup-manager     # status
+sudo systemctl restart vps-backup-manager    # restart
+sudo journalctl -u vps-backup-manager -f     # panel logs
+tail -f /var/log/vps-backup-manager.log      # backup / job activity
+tail -f /var/log/vps-panel-cron.log          # output of scheduled tasks
+node server/cli.js backup-all                # run a backup from the shell
 ```
 
 ---
@@ -87,37 +72,24 @@ tail -f /var/log/vps-backup-manager.log
 
 ```
 backup-scripts/
-├── dashboard/                  # Single Page Application (SPA)
-│   ├── index.html             # Shell with sidebar & layout
-│   ├── css/
-│   │   └── styles.css         # Glassmorphism dark design system
+├── dashboard/                 # Single Page Application (vanilla JS)
+│   ├── index.html
+│   ├── css/styles.css
 │   └── js/
-│       ├── app.js             # SPA Router & controller
-│       ├── api.js             # API HTTP client
-│       ├── components/        # Toast & Modal components
-│       └── pages/             # Page modules (Dashboard, Projects, Backups, Deploy, Cron, Monitor, Logs, Settings)
-│
-├── server/                     # Backend API (Node.js + Express)
-│   ├── index.js               # Express entry point (Port 9090)
-│   ├── package.json
-│   ├── data/
-│   │   └── config.json        # Projects registry & credentials
-│   ├── middleware/
-│   │   └── auth.js            # API key authentication
-│   ├── routes/                # REST API endpoints
-│   └── services/              # BackupEngine, DeployEngine, CronManager, Monitor, Notifier
-│
-├── start.sh                   # 1-click startup script
-├── setup.sh                   # Production VPS setup script (systemd)
-├── rclone.conf                # rclone cloud remote configuration
-├── service-account.json       # Google Drive service account credentials
-└── msmtprc                    # SMTP email client configuration
+│       ├── app.js             # Router, sidebar, shared helpers
+│       ├── api.js             # API client
+│       ├── components/        # Toast, Modal, JobConsole (live job output), CodeEditor (Ace)
+│       └── pages/             # dashboard, websites, files, databases, php, mail, terminal,
+│                              # projects, backups, deploy, cron, monitor, logs, settings
+├── server/                    # Node.js + Express API (port 9090)
+│   ├── index.js               # Entry point, auth, WebSocket terminal
+│   ├── cli.js                 # Task runner used by cron (backup-all, vps-snapshot, cleanup, backup <id>)
+│   ├── lib/                   # shell (safe process spawning), config helpers
+│   ├── routes/                # REST endpoints per module
+│   ├── services/              # BackupEngine, CronManager, NginxManager, PhpManager,
+│   │                          # MysqlManager, MailManager, JobRunner, Terminal, ...
+│   └── data/config.json       # Projects & settings
+├── setup.sh                   # Production installer (systemd)
+├── start.sh                   # Local development start
+└── backup.sh                  # Manual backup (wraps server/cli.js)
 ```
-
----
-
-## 🔐 Security & API Authentication
-
-- All API routes under `/api/v1/` require an API key passed in the `X-API-Key` HTTP header or `?apiKey=` query parameter.
-- On your first run, the dashboard prompts you to configure initial settings and automatically generates and saves your API key in browser storage.
-- You can inspect or regenerate your key anytime under **Settings > Authentication & API Key**.

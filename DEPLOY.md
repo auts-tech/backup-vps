@@ -17,8 +17,10 @@ This guide walks you through deploying and managing the **VPS Deploy & Backup Ma
 8. [Step 7: 1-Click Instant Backup & Health Checks](#step-7-1-click-instant-backup--health-checks)
 9. [Step 8: Service Management Commands](#step-8-service-management-commands)
 10. [Step 9: How to Update in the Future](#step-9-how-to-update-in-the-future)
-11. [Step 10: (Optional) Nginx Reverse Proxy with Free SSL](#step-10-optional-nginx-reverse-proxy-with-free-ssl)
-12. [Troubleshooting](#troubleshooting)
+11. [Step 10: Secure the Panel with HTTPS (Recommended)](#step-10-secure-the-panel-with-https-recommended)
+12. [Step 11: Host a Website](#step-11-host-a-website)
+13. [Step 12: Email Hosting](#step-12-email-hosting)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -51,8 +53,12 @@ Ensure SSH access and the manager port (`9090`) are permitted:
 # Allow SSH
 ufw allow 22/tcp
 
-# Allow Web Dashboard Port
+# Allow Web Dashboard Port (close it again after Step 10)
 ufw allow 9090/tcp
+
+# Allow websites (HTTP + HTTPS)
+ufw allow 80/tcp
+ufw allow 443/tcp
 
 # Enable Firewall
 ufw --force enable
@@ -61,7 +67,7 @@ ufw --force enable
 ufw status
 ```
 
-> **Note for Contabo Users**: If you have a custom firewall enabled in the Contabo Customer Control Panel (Cloud VPS > Manage > Security / Firewall), ensure port `9090` TCP inbound traffic is also allowed there.
+> **Note for Contabo Users**: If you have a custom firewall enabled in the Contabo Customer Control Panel (Cloud VPS > Manage > Security / Firewall), ensure ports `80`, `443` and `9090` TCP inbound are also allowed there. The panel opens mail ports (25, 465, 587, 993) in UFW automatically when you set up email, but a provider-level firewall must be opened by you.
 
 ---
 
@@ -126,11 +132,14 @@ sudo bash setup.sh
 ```
 
 ### What `setup.sh` automatically configures:
-1. Installs system packages: `rclone`, `jq`, `curl`, `git`, `gzip`, `msmtp`, `tar`, `ca-certificates`.
-2. Installs **Node.js 20 LTS** & npm if not present.
-3. Installs backend production dependencies (`server/package.json`).
-4. Creates necessary log and config directories (`/root/.config/backup`, `/root/.config/rclone`, `/var/log`).
-5. Creates and enables the systemd background daemon (`vps-backup-manager.service`) with auto-restart on boot.
+1. Installs system packages: `rclone`, `jq`, `curl`, `git`, `gzip`, `msmtp`, `tar`, `ca-certificates`, `cron`, `zip`, `unzip`, `build-essential`, `python3`.
+2. Enables the **cron** service (required for scheduled backups).
+3. Installs **Node.js 20 LTS** & npm if not present.
+4. Installs backend dependencies (`server/package.json`), including `node-pty` for the web terminal.
+5. Creates log files and weekly log rotation (`/etc/logrotate.d/vps-panel`).
+6. Creates and enables the systemd background daemon (`vps-backup-manager.service`) with auto-restart on boot.
+
+nginx, PHP, MariaDB, certbot and Docker are **not** installed up front — each has an *Install* button in the panel, so you only install what you use.
 
 ---
 
@@ -206,60 +215,92 @@ When new features or updates are pushed to GitHub:
 ```bash
 cd /opt/backup-vps
 git pull
-cd server && npm install --production
-sudo systemctl restart vps-backup-manager
+sudo bash setup.sh
 ```
+
+Re-running `setup.sh` is safe: it installs any new system packages and Node dependencies, then restarts the service. Your `.env`, `server/data/config.json`, database and mail credentials are kept.
+
+> **Upgrading from a version before the hosting panel:** backup cron jobs created by the old dashboard never ran (they called the API without the API key). On first start the panel rewrites them to the new task runner automatically — check **Cron Jobs** afterwards. The old *Weekly Snapshot* and *Prune Expired* presets actually ran a normal backup; delete them and re-add from the new presets if you want a real snapshot or cleanup.
 
 ---
 
-## Step 10: (Optional) Nginx Reverse Proxy with Free SSL
+## Step 10: Secure the Panel with HTTPS (Recommended)
 
-To access your panel at `https://backup.yourdomain.com` with a valid SSL certificate:
+The panel includes a root terminal and file manager, so it should not be reachable over plain HTTP on port 9090. You can put it behind HTTPS **using the panel itself**:
 
-1. **Point your domain's DNS A Record** to your server's public IP address.
-2. **Install Nginx and Certbot**:
+1. **DNS**: create an `A` record, e.g. `panel.yourdomain.com` → your server IP.
+2. **Websites & SSL → Install nginx** (if not installed yet).
+3. **Create Website** → Domain `panel.yourdomain.com` → Type **Reverse proxy** → App port `9090` → tick *Enable HTTPS right away* → **Create**.
+   (The proxy template already supports the live log stream and the terminal WebSocket.)
+4. Open `https://panel.yourdomain.com` and log in.
+5. Stop exposing port 9090 publicly:
    ```bash
-   apt install -y nginx certbot python3-certbot-nginx
-   ufw allow 80/tcp
-   ufw allow 443/tcp
+   nano /opt/backup-vps/.env      # set HOST=127.0.0.1
+   sudo systemctl restart vps-backup-manager
+   ufw delete allow 9090/tcp
    ```
-3. **Create Nginx configuration**:
-   ```bash
-   nano /etc/nginx/sites-available/backup-vps
-   ```
-   Paste the following configuration:
-   ```nginx
-   server {
-       listen 80;
-       server_name backup.yourdomain.com;
+   From now on the panel is only reachable through nginx over HTTPS.
 
-       location / {
-           proxy_pass http://127.0.0.1:9090;
-           proxy_http_version 1.1;
-           proxy_set_header Upgrade $http_upgrade;
-           proxy_set_header Connection "upgrade";
-           proxy_set_header Host $host;
-           proxy_cache_bypass $http_upgrade;
-           proxy_set_header X-Real-IP $remote_addr;
-           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-           proxy_set_header X-Forwarded-Proto $scheme;
-           
-           # Disable buffer for real-time SSE logs
-           proxy_buffering off;
-           proxy_read_timeout 86400s;
-       }
-   }
-   ```
-4. **Enable the site**:
-   ```bash
-   ln -s /etc/nginx/sites-available/backup-vps /etc/nginx/sites-enabled/
-   nginx -t && systemctl reload nginx
-   ```
-5. **Issue free Let's Encrypt SSL Certificate**:
-   ```bash
-   certbot --nginx -d backup.yourdomain.com
-   ```
-   Now your panel is securely reachable at **`https://backup.yourdomain.com`**!
+---
+
+## Step 11: Host a Website
+
+Typical flow for a PHP / Laravel / WordPress site:
+
+1. **PHP Versions** → *Add Repository* (once) → **Install PHP Version** (e.g. 8.3). Install more versions any time — they run side by side.
+2. **Databases** → *Install MariaDB* (once) → *Connect automatically* → **New Database** (creates the database and a user with a generated password).
+3. **Websites & SSL** → **Create Website** → enter the domain, choose the type (PHP / Laravel / WordPress / Static / Reverse proxy) and the PHP version.
+4. Upload your code with the **File Manager** (drag a `.zip` in, then *Extract*), clone it with **Deploy & Git**, or use the **Terminal**.
+5. Point the domain's DNS `A` record to the server, then click **Enable SSL** on the site.
+6. Laravel scheduler: **Cron Jobs → Add Cron Job → Custom command** `/usr/bin/php8.3 /var/www/example.com/artisan schedule:run`, schedule *Every minute*.
+
+Switch a site to another PHP version from the dropdown on the Websites page. Every nginx change is validated with `nginx -t` first and rolled back automatically if it would break nginx.
+
+---
+
+## Step 12: Email Hosting
+
+### Should you self-host email?
+
+Receiving mail is easy; **delivering** mail to Gmail/Outlook inboxes is the hard part. It needs open outbound port 25, correct reverse DNS, SPF, DKIM and DMARC, and an IP address with a clean reputation.
+
+| | Self-hosted (this panel) | Email provider (Google Workspace, Microsoft 365, Zoho Mail, Migadu, Fastmail) |
+| :--- | :--- | :--- |
+| Cost | Free, unlimited mailboxes | Per mailbox per month (Zoho has a free tier) |
+| Deliverability | Good once DNS + PTR are right; you monitor it | Handled for you |
+| Requirements | Port 25 open, PTR record, ~1 GB free RAM | Only DNS records |
+| Best for | Many mailboxes, app/notification mail, full control | Business-critical mail |
+
+If you choose a provider, you don't need the Email page — add the MX/SPF/DKIM records the provider gives you at your DNS host. Websites on this server keep working either way.
+
+### Requirements (checked live on the Email page)
+
+- **Outbound port 25 open.** Some providers block it on new accounts — ask support to unblock it if the check fails.
+- **Reverse DNS (PTR)** for the server IP set to your mail hostname (e.g. `mail.example.com`). This is set in your **VPS provider's control panel** (Contabo: *Customer Control Panel → Reverse DNS Management*), not at your domain's DNS host.
+- An **`A` record** for the mail hostname pointing to the server — needed for the TLS certificate.
+- **nginx installed** (Websites page) and about **1 GB free RAM** (2 GB+ total recommended alongside websites).
+- Nothing else listening on port 25 (remove `postfix`/`exim4` if a previous setup installed them).
+
+### Setup
+
+1. Open **Email** and review the pre-flight checks.
+2. Enter your domain (`example.com`), mail hostname (`mail.example.com`), the first mailbox and its password → **Install Email Server**.
+   The panel installs Docker and docker-mailserver in `/opt/vps-mail`, obtains a Let's Encrypt certificate, generates a DKIM key, opens ports 25/465/587/993 and (optionally) serves **Roundcube webmail** at `https://mail.example.com`.
+3. **DNS Records** tab → add each record at your DNS provider. The page checks what is actually published and turns each row green:
+
+   | Type | Name | Value |
+   | :--- | :--- | :--- |
+   | A | `mail.example.com` | server IP |
+   | MX | `example.com` | `10 mail.example.com` |
+   | TXT | `example.com` | `v=spf1 mx ~all` |
+   | TXT | `mail._domainkey.example.com` | DKIM key shown on the page |
+   | TXT | `_dmarc.example.com` | `v=DMARC1; p=quarantine; rua=mailto:postmaster@example.com` |
+   | PTR | server IP | `mail.example.com` (set at your VPS provider) |
+
+4. Send a message to [mail-tester.com](https://www.mail-tester.com) and aim for 10/10.
+5. Add more mailboxes and forwarders from the Email page. Mailboxes on additional domains get their own DKIM key automatically — add that domain's records too.
+
+**Mail client settings:** IMAP `mail.example.com:993` (SSL/TLS), SMTP `mail.example.com:587` (STARTTLS) or `465` (SSL/TLS), username = full email address.
 
 ---
 
@@ -284,3 +325,20 @@ To access your panel at `https://backup.yourdomain.com` with a valid SSL certifi
   - **Reason**: Service Accounts have 0 MB storage quota on regular `@gmail.com` drives.
   - **Fix**: In the dashboard, switch to **OAuth Token / rclone.conf (Personal Drive)**, paste your `rclone.conf` with OAuth access/refresh token, and click **"Save Google Drive Config"**.
 - Click **"Test Google Drive Connection"** to see live verification output returned by rclone.
+
+### 4. Cron jobs don't run
+- **Cron Jobs** page: a warning banner appears if the cron service is stopped — click *Start cron*.
+- Check the **Cron Output Log** on that page (`/var/log/vps-panel-cron.log`). Every built-in task writes a line each time it runs.
+- Click **Run** on a job to execute it immediately and see its output.
+- Custom commands run with cron's minimal `PATH`: use absolute paths (`/usr/bin/php8.3`, not `php`) and write `%` as `\%`.
+
+### 5. A PHP site shows "502 Bad Gateway"
+- That site's PHP-FPM version isn't running: **PHP Versions** → *Start FPM*, or switch the site to an installed version on the Websites page.
+
+### 6. Terminal says "basic terminal mode"
+- `node-pty` did not compile. Run `apt install -y build-essential python3 && cd /opt/backup-vps/server && npm install`, then restart the service.
+
+### 7. Email is not delivered or lands in spam
+- Open **Email → DNS Records** and fix every red row (PTR and DKIM are the usual culprits).
+- Make sure your provider allows outbound port 25.
+- Check **Email → Logs** for rejection messages from the receiving server.

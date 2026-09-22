@@ -13,7 +13,7 @@ import { attachTerminal } from './services/terminal.js';
 import projectsRouter from './routes/projects.js';
 import backupsRouter from './routes/backups.js';
 import deployRouter from './routes/deploy.js';
-import cronRouter from './routes/cron.js';
+import cronRouter, { migrateLegacyCronJobs } from './routes/cron.js';
 import monitorRouter from './routes/monitor.js';
 import logsRouter from './routes/logs.js';
 import settingsRouter from './routes/settings.js';
@@ -228,5 +228,10 @@ const server = app.listen(PORT, HOST, () => {
 
 // Web terminal over WebSocket (authenticated with the session token)
 attachTerminal(server, isValidSession);
+
+// Fix backup cron jobs created by older versions (they called the API without a key)
+migrateLegacyCronJobs()
+  .then(n => n && console.log(`[Cron] Migrated ${n} legacy backup job(s) to the authenticated task runner`))
+  .catch(err => console.error('[Cron] Legacy job migration skipped:', err.message));
 
 export default app;
