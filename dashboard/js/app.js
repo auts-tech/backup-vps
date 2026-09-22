@@ -70,6 +70,7 @@ class App {
       deploy: { title: 'Deploy & Git', render: renderDeploy },
       cron: { title: 'Cron Jobs', render: renderCron },
       terminal: { title: 'Terminal', render: renderTerminal },
+      ports: { title: 'Ports & Processes', render: renderPorts },
       monitor: { title: 'Resource Monitor', render: renderMonitor },
       logs: { title: 'System Logs', render: renderLogs },
       settings: { title: 'Settings', render: renderSettings }
@@ -122,6 +123,7 @@ class App {
             <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Deploy & Backup Suite</p>
           </div>
 
+          ${this.updatedBanner()}
           <form id="login-form" onsubmit="window.app.handleLogin(event)" autocomplete="on">
             <div id="login-error" style="display:none;background:var(--color-red-bg);border:1px solid var(--color-red-border);color:var(--color-red);padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:16px;"></div>
 
@@ -161,6 +163,26 @@ class App {
         </div>
       </div>
     `;
+  }
+
+  /**
+   * Shown once on the login screen right after a panel update.
+   */
+  updatedBanner() {
+    let info = null;
+    try {
+      info = JSON.parse(sessionStorage.getItem('panel_updated') || 'null');
+      sessionStorage.removeItem('panel_updated');
+    } catch { }
+    if (!info) return '';
+    return `
+      <div class="login-updated">
+        ${window.Icons.get('checkCircle', { size: 18, color: 'var(--color-green)' })}
+        <div>
+          <div style="font-weight:600;">Panel updated${info.short ? ` to ${escapeHtml(info.short)}` : ''}</div>
+          <div style="font-size:12px;color:var(--text-secondary);">${escapeHtml(info.subject || 'Sign in to continue with the new version.')}</div>
+        </div>
+      </div>`;
   }
 
   async handleLogin(e) {
@@ -242,6 +264,7 @@ class App {
             <div class="sidebar-section">
               <div class="sidebar-section-title">System</div>
               ${this.navLink('terminal', 'terminal', 'Terminal')}
+              ${this.navLink('ports', 'server', 'Ports & Processes')}
               ${this.navLink('monitor', 'activity', 'Resource Monitor')}
               ${this.navLink('logs', 'fileText', 'Logs')}
               ${this.navLink('settings', 'settings', 'Settings')}
@@ -258,6 +281,7 @@ class App {
                 ${I.get('logOut', { size: 13, color: 'var(--color-red)' })}
                 <span>Sign Out</span>
               </button>
+              <button class="sidebar-version" id="sidebar-version" onclick="PanelUpdater.check({ force: true })" title="Check for updates">v…</button>
             </div>
           </div>
         </aside>
@@ -275,6 +299,10 @@ class App {
             </div>
 
             <div class="topbar-actions">
+              <button class="btn btn-sm update-pill" id="topbar-update-btn" style="display:none;" onclick="PanelUpdater.showPopup()" title="A new version of the panel is available">
+                <span class="update-pill-dot"></span>
+                <span>Update available</span>
+              </button>
               <button class="btn btn-primary btn-sm" id="topbar-instant-backup-btn" onclick="window.app.handleInstantBackup()" title="Trigger immediate backup for all registered projects">
                 ${I.get('database', { size: 13, color: '#ffffff' })}
                 <span>Instant Backup</span>
@@ -322,7 +350,11 @@ class App {
 
     // Health check polling
     this.checkHealth();
-    setInterval(() => this.checkHealth(), 10000);
+    clearInterval(this.healthTimer);
+    this.healthTimer = setInterval(() => this.checkHealth(), 10000);
+
+    // New-version popup (checks the git remote in the background)
+    PanelUpdater.init();
   }
 
   handleHashChange() {

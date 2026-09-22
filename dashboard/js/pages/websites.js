@@ -1,7 +1,7 @@
 /**
  * Websites page — nginx virtual hosts, PHP version per site, Let's Encrypt SSL
  */
-let websitesState = { sites: [], phpVersions: [], status: null, certs: [] };
+let websitesState = { sites: [], phpVersions: [], status: null, certs: [], certbot: null };
 
 const SITE_TYPE_INFO = {
   static: { label: 'Static HTML', desc: 'Plain HTML/CSS/JS files' },
@@ -56,6 +56,7 @@ function renderWebsites(container) {
           <h3 class="card-title">${I.get('shieldCheck', { size: 16 })}<span>SSL Certificates (Let's Encrypt)</span></h3>
           <button class="btn btn-sm btn-secondary" onclick="JobConsole.run(api.renewCertificates(), 'Renew SSL certificates', { onDone: loadWebsites })">${I.get('refresh', { size: 12 })}<span>Renew All</span></button>
         </div>
+        <div id="certbot-area" class="certbot-area"></div>
         <div class="table-container" style="border:none;border-radius:0;">
           <table class="table">
             <thead><tr><th>Certificate</th><th>Domains</th><th>Expires</th><th style="text-align:right;">Actions</th></tr></thead>
@@ -94,7 +95,6 @@ async function loadWebsites() {
         <span class="badge ${status.running ? 'badge-success' : 'badge-danger'}"><span class="badge-dot"></span>${status.running ? 'Running' : 'Stopped'}</span>
         <span class="badge badge-neutral">nginx ${escapeHtml(status.version)}</span>
         <span class="badge ${status.configOk ? 'badge-success' : 'badge-danger'}">${status.configOk ? 'Config OK' : 'Config has errors'}</span>
-        <span class="badge ${status.certbot ? 'badge-success' : 'badge-neutral'}">${status.certbot ? 'certbot ready' : 'certbot installs on first SSL request'}</span>
         <div style="flex:1;"></div>
         ${status.running
           ? `<button class="btn btn-sm btn-secondary" onclick="nginxAction('restart')">${I.get('refresh', { size: 12 })}<span>Restart</span></button>
@@ -104,10 +104,12 @@ async function loadWebsites() {
       ${status.configOk ? '' : `<pre class="job-output" style="margin-top:10px;min-height:0;">${escapeHtml(status.configOutput)}</pre>`}
     `;
 
-    const [{ sites }, { certificates }] = await Promise.all([api.getSites(), api.getCertificates()]);
+    const [{ sites }, { certificates }, certbot] = await Promise.all([api.getSites(), api.getCertificates(), api.getCertbot()]);
     websitesState.sites = sites;
     websitesState.certs = certificates;
+    websitesState.certbot = certbot;
     renderSitesTable();
+    renderCertbotArea();
     renderCertsTable();
   } catch (err) {
     statusArea.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
@@ -166,6 +168,72 @@ function renderSitesTable() {
         </td>
       </tr>`;
   }).join('');
+}
+
+function renderCertbotArea() {
+  const I = window.Icons;
+  const el = document.getElementById('certbot-area');
+  const c = websitesState.certbot;
+  if (!el || !c) return;
+  if (!c.installed) {
+    el.innerHTML = `
+      <div class="certbot-install">
+        <div style="flex:1;min-width:240px;">
+          <div style="font-weight:600;font-size:13px;margin-bottom:2px;">Install certbot to enable free HTTPS</div>
+          <div class="muted" style="font-size:12px;">Let's Encrypt sends certificate expiry warnings to this email. Certificates renew automatically.</div>
+        </div>
+        <input type="email" id="certbot-email" class="form-input" placeholder="you@example.com" value="${escapeHtml(c.defaultEmail || '')}" style="max-width:260px;">
+        <button class="btn btn-primary" onclick="installCertbot()">${I.get('download', { size: 13, color: '#fff' })}<span>Install certbot</span></button>
+      </div>`;
+    return;
+  }
+  const account = c.accountEmail === null
+    ? `<span class="muted">No Let's Encrypt account yet — created with your first certificate</span>`
+    : `Account: <strong>${escapeHtml(c.accountEmail || '(no email)')}</strong>`;
+  el.innerHTML = `
+    <div class="certbot-status">
+      <span class="badge badge-success">${I.get('checkCircle', { size: 11 })} certbot ${escapeHtml(c.version || '')}</span>
+      <span class="badge ${c.nginxPlugin ? 'badge-success' : 'badge-danger'}">${c.nginxPlugin ? 'nginx plugin' : 'nginx plugin missing'}</span>
+      <span class="badge ${c.autoRenew ? 'badge-success' : 'badge-warning'}">${c.autoRenew ? `Auto-renew: ${escapeHtml(c.autoRenew)}` : 'Auto-renew not scheduled'}</span>
+      <span style="font-size:12px;color:var(--text-secondary);">${account}</span>
+      <div style="flex:1;"></div>
+      <span style="font-size:12px;color:var(--text-secondary);">Default email: <strong>${escapeHtml(c.defaultEmail || 'not set')}</strong></span>
+      <button class="btn btn-sm btn-secondary" onclick="changeCertbotEmail()">${I.get('mail', { size: 12 })}<span>Change</span></button>
+      <button class="btn btn-sm btn-secondary" onclick="JobConsole.run(api.testCertbotRenewal(), 'Test certificate renewal')" ${websitesState.certs.length ? '' : 'disabled title="No certificates yet"'}>${I.get('zap', { size: 12 })}<span>Test renewal</span></button>
+      ${c.nginxPlugin && c.autoRenew ? '' : `<button class="btn btn-sm btn-primary" onclick="installCertbot(${jsArg(c.defaultEmail || '')})">Repair</button>`}
+    </div>`;
+}
+
+async function installCertbot(presetEmail) {
+  const email = presetEmail || document.getElementById('certbot-email')?.value.trim();
+  if (!email) {
+    toast.error('Email required', 'Enter the email for Let\'s Encrypt notices');
+    document.getElementById('certbot-email')?.focus();
+    return;
+  }
+  JobConsole.run(api.installCertbot(email), 'Install certbot', { onDone: loadWebsites });
+}
+
+function changeCertbotEmail() {
+  const c = websitesState.certbot || {};
+  Modal.show('Let\'s Encrypt email', `
+    <div class="form-group">
+      <label class="form-label">Email for certificate expiry notices</label>
+      <input type="email" id="certbot-new-email" class="form-input" value="${escapeHtml(c.defaultEmail || '')}" placeholder="you@example.com">
+      <div class="form-hint">${c.accountEmail === null ? 'Used when the first certificate is requested.' : 'Also updates the existing Let\'s Encrypt account.'}</div>
+    </div>
+  `, {
+    submitText: 'Save',
+    onSubmit: async () => {
+      const email = document.getElementById('certbot-new-email').value.trim();
+      const res = await api.setCertbotEmail(email);
+      if (res.jobId) JobConsole.open(res.jobId, 'Update Let\'s Encrypt account email', { onDone: loadWebsites });
+      else {
+        toast.success('Email saved', email);
+        loadWebsites();
+      }
+    }
+  });
 }
 
 function renderCertsTable() {
@@ -369,7 +437,7 @@ function showIssueSslModal(name) {
     </div>
     <div class="form-group">
       <label class="form-label">Contact email (expiry notices)</label>
-      <input type="email" id="ssl-email" class="form-input" placeholder="you@example.com">
+      <input type="email" id="ssl-email" class="form-input" placeholder="you@example.com" value="${escapeHtml(websitesState.certbot?.defaultEmail || '')}">
     </div>
     <label class="form-check"><input type="checkbox" id="ssl-redirect" checked><span style="font-size:13px;">Redirect all HTTP traffic to HTTPS</span></label>
   `, {

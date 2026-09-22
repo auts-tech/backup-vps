@@ -1176,3 +1176,84 @@ code {
   .editor-overlay { padding: 0; }
   .editor-shell { border-radius: 0; }
 }
+
+/* ── Filter chips & owner chips (Ports page) ───────────── */
+.chip-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  padding: 5px 12px; font-size: 12px; font-weight: 500; border-radius: 9999px;
+  border: 1px solid var(--border-primary); background: #fff; color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+.chip:hover { border-color: var(--border-hover); color: var(--text-primary); }
+.chip.active { background: var(--accent-black); border-color: var(--accent-black); color: #fff; }
+.owner-list { display: flex; flex-wrap: wrap; gap: 4px; max-width: 360px; }
+.owner-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px;
+  font-size: 11px; font-weight: 500; border: 1px solid transparent; max-width: 100%;
+}
+.owner-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.owner-project { background: var(--color-blue-bg); color: var(--color-blue); border-color: var(--color-blue-border); }
+.owner-site { background: var(--color-green-bg); color: var(--color-green); border-color: var(--color-green-border); }
+.owner-docker { background: #f5f3ff; color: #7c3aed; border-color: #ddd6fe; }
+.owner-service { background: #f4f4f5; color: var(--text-primary); border-color: var(--border-primary); }
+.owner-panel { background: var(--accent-black); color: #fff; }
+.fw-note { font-size: 11px; font-weight: 500; }
+
+/* ── certbot panel (Websites page) ─────────────────────── */
+.certbot-area:empty { display: none; }
+.certbot-status, .certbot-install {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 12px 18px; border-bottom: 1px solid var(--border-primary); background: #fafafa;
+}
+.certbot-install { gap: 12px; background: var(--color-amber-bg); }
+
+/* ── Panel updates ─────────────────────────────────────── */
+.update-pill {
+  background: var(--color-green-bg); color: #166534; border: 1px solid var(--color-green-border); font-weight: 600;
+}
+.update-pill:hover { background: #dcfce7; }
+.update-pill-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--color-green);
+  box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.6); animation: updatePulse 1.8s infinite;
+}
+@keyframes updatePulse {
+  0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.55); }
+  70% { box-shadow: 0 0 0 7px rgba(22, 163, 74, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+}
+.sidebar-version {
+  margin-top: 6px; padding: 3px 6px; font-size: 11px; color: var(--text-tertiary);
+  text-align: left; border-radius: var(--radius-xs);
+}
+.sidebar-version:hover { background: var(--bg-subtle); color: var(--text-primary); }
+.update-modal { max-width: 580px; }
+.update-hero { display: flex; align-items: center; gap: 14px; padding: 20px 20px 4px; }
+.update-hero-icon { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.update-title { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.update-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+.update-versions {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 16px; border: 1px solid var(--border-primary); border-radius: var(--radius-md); background: #fafafa; margin-bottom: 18px;
+}
+.update-v-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+.update-v-value { font-family: var(--font-mono); font-size: 14px; font-weight: 700; margin-top: 2px; }
+.update-v-date { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.update-section-title { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.update-commits { list-style: none; max-height: 240px; overflow-y: auto; border-left: 2px solid var(--border-primary); margin-left: 5px; padding-left: 0; }
+.update-commit { position: relative; display: flex; gap: 10px; padding: 6px 0 6px 16px; }
+.update-commit-dot { position: absolute; left: -6px; top: 11px; width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 2px solid var(--color-green); }
+.update-commit-subject { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.update-commit-meta { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); margin-top: 1px; }
+.update-steps { list-style: none; display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.update-step { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--radius-sm); font-size: 13px; color: var(--text-tertiary); }
+.update-step.active { background: var(--bg-subtle); color: var(--text-primary); font-weight: 600; }
+.update-step.done { color: var(--text-primary); }
+.update-step.failed { background: var(--color-red-bg); color: var(--color-red); font-weight: 600; }
+.update-step-idle { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border-primary); display: inline-block; margin: 0 2px; }
+.update-detail:empty { display: none; }
+.update-detail { margin-bottom: 12px; }
+.update-log summary { font-size: 12px; color: var(--text-secondary); cursor: pointer; margin-bottom: 8px; }
+.login-updated {
+  display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; margin-bottom: 18px;
+  background: var(--color-green-bg); border: 1px solid var(--color-green-border); border-radius: var(--radius-md); font-size: 13px;
+}

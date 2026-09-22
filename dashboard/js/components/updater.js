@@ -239,6 +239,7 @@ class PanelUpdater {
     // Follow the job output; "::step <name>" lines drive the progress list
     let offset = 0;
     let step = 'download';
+    let partial = ''; // output can arrive mid-line; keep the unfinished tail for the next poll
     const out = PanelUpdater.overlay.querySelector('#update-output');
     while (true) {
       let job;
@@ -251,7 +252,9 @@ class PanelUpdater {
         continue;
       }
       offset = job.nextOffset;
-      for (const line of job.output.split('\n')) {
+      const lines = (partial + job.output).split('\n');
+      partial = job.status === 'running' ? lines.pop() : '';
+      for (const line of lines) {
         const m = line.match(/^::step (\w+)/);
         if (m) {
           step = m[1];
