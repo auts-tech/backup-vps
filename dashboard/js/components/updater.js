@@ -35,6 +35,7 @@ class PanelUpdater {
   static timer = null;
   static overlay = null;
   static busy = false;
+  static checking = false;
 
   static init() {
     PanelUpdater.renderVersion();
@@ -60,14 +61,19 @@ class PanelUpdater {
   }
 
   static async check({ auto = false, force = false } = {}) {
-    if (PanelUpdater.busy) return;
+    if (PanelUpdater.busy || PanelUpdater.checking) return;
+    PanelUpdater.checking = true;
+    PanelUpdater.renderIndicator();
     let info;
     try {
       info = await api.checkUpdate(force || !auto);
     } catch (err) {
       if (!auto) toast.error("Update check failed", err.message);
+      PanelUpdater.checking = false;
+      PanelUpdater.renderIndicator();
       return;
     }
+    PanelUpdater.checking = false;
     PanelUpdater.info = info;
     PanelUpdater.renderIndicator();
     let dismissed = null;
@@ -83,6 +89,15 @@ class PanelUpdater {
       PanelUpdater.showPopup();
   }
 
+  static handleClick() {
+    if (PanelUpdater.busy || PanelUpdater.checking) return;
+    if (PanelUpdater.info?.updateAvailable && PanelUpdater.info.canUpdate) {
+      PanelUpdater.start();
+      return;
+    }
+    PanelUpdater.check({ force: true });
+  }
+
   static renderIndicator() {
     const btn = document.getElementById("topbar-update-btn");
     if (!btn) return;
@@ -90,12 +105,27 @@ class PanelUpdater {
     btn.style.display = "inline-flex";
     const label = btn.querySelector("span:last-child");
     if (!label) return;
+    if (PanelUpdater.checking) {
+      label.textContent = "Checking...";
+      btn.disabled = true;
+      btn.title = "Checking the Git remote for updates";
+      return;
+    }
+    btn.disabled = false;
     label.textContent = info?.updateAvailable
-      ? `Update available (${info.behind})`
-      : "Updates";
+      ? info.canUpdate
+        ? `Update now (${info.behind})`
+        : "Update blocked"
+      : "Check for updates";
     btn.title = info?.updateAvailable
-      ? "A new version of the panel is available"
-      : "Check for panel updates";
+      ? info.canUpdate
+        ? "Install the latest panel version"
+        : "Open update details"
+      : "Check the Git remote for panel updates";
+    btn.onclick =
+      info?.updateAvailable && info.canUpdate
+        ? () => PanelUpdater.start()
+        : () => PanelUpdater.check({ force: true });
   }
 
   // ── Popup ──────────────────────────────────────────────────

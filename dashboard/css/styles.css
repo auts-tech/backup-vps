@@ -1545,6 +1545,9 @@ code {
   #server-status-text {
     display: none;
   }
+  .topbar-actions .update-pill span:last-child {
+    display: inline;
+  }
   .topbar-actions .btn .icon {
     margin-right: 0;
   }
