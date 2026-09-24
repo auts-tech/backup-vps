@@ -6,13 +6,13 @@
 
 // Global Utility Functions
 function escapeHtml(text) {
-  if (text === null || text === undefined) return '';
+  if (text === null || text === undefined) return "";
   return String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 // Safe value for an inline handler argument: onclick="fn(${jsArg(name)})"
@@ -22,28 +22,28 @@ function jsArg(value) {
 
 // Random password without look-alike characters (for DB users, mailboxes)
 function generatePassword(length = 20) {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(length));
-  return [...bytes].map(b => chars[b % chars.length]).join('');
+  return [...bytes].map((b) => chars[b % chars.length]).join("");
 }
 
 function formatBytes(bytes) {
-  if (!bytes || bytes === 0) return '0 B';
+  if (!bytes || bytes === 0) return "0 B";
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
 function formatDate(isoString) {
-  if (!isoString) return '—';
+  if (!isoString) return "—";
   try {
     const d = new Date(isoString);
     return d.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
     return isoString;
@@ -52,28 +52,28 @@ function formatDate(isoString) {
 
 class App {
   constructor() {
-    this.currentPage = 'dashboard';
+    this.currentPage = "dashboard";
     this.isAuthenticated = false;
-    this.userEmail = '';
+    this.userEmail = "";
 
     this.leaveHandlers = [];
 
     this.routes = {
-      dashboard: { title: 'Dashboard', render: renderDashboard },
-      websites: { title: 'Websites & Domains', render: renderWebsites },
-      files: { title: 'File Manager', render: renderFiles },
-      databases: { title: 'Databases', render: renderDatabases },
-      php: { title: 'PHP Versions', render: renderPhp },
-      mail: { title: 'Email Hosting', render: renderMail },
-      projects: { title: 'Projects', render: renderProjects },
-      backups: { title: 'Backups', render: renderBackups },
-      deploy: { title: 'Deploy & Git', render: renderDeploy },
-      cron: { title: 'Cron Jobs', render: renderCron },
-      terminal: { title: 'Terminal', render: renderTerminal },
-      ports: { title: 'Ports & Processes', render: renderPorts },
-      monitor: { title: 'Resource Monitor', render: renderMonitor },
-      logs: { title: 'System Logs', render: renderLogs },
-      settings: { title: 'Settings', render: renderSettings }
+      dashboard: { title: "Dashboard", render: renderDashboard },
+      websites: { title: "Websites & Domains", render: renderWebsites },
+      files: { title: "File Manager", render: renderFiles },
+      databases: { title: "Databases", render: renderDatabases },
+      php: { title: "PHP Versions", render: renderPhp },
+      mail: { title: "Email Hosting", render: renderMail },
+      projects: { title: "Projects", render: renderProjects },
+      backups: { title: "Backups", render: renderBackups },
+      deploy: { title: "Deploy & Git", render: renderDeploy },
+      cron: { title: "Cron Jobs", render: renderCron },
+      terminal: { title: "Terminal", render: renderTerminal },
+      ports: { title: "Ports & Processes", render: renderPorts },
+      monitor: { title: "Resource Monitor", render: renderMonitor },
+      logs: { title: "System Logs", render: renderLogs },
+      settings: { title: "Settings", render: renderSettings },
     };
   }
 
@@ -88,7 +88,13 @@ class App {
   runLeaveHandlers() {
     const handlers = this.leaveHandlers;
     this.leaveHandlers = [];
-    handlers.forEach(fn => { try { fn(); } catch (err) { console.error(err); } });
+    handlers.forEach((fn) => {
+      try {
+        fn();
+      } catch (err) {
+        console.error(err);
+      }
+    });
   }
 
   async init() {
@@ -96,7 +102,7 @@ class App {
       const authStatus = await api.checkAuth();
       if (authStatus.authenticated) {
         this.isAuthenticated = true;
-        this.userEmail = authStatus.email || '';
+        this.userEmail = authStatus.email || "";
         this.showApp();
         return;
       }
@@ -109,8 +115,14 @@ class App {
   // ── Login Screen ──────────────────────────────────────────
   showLogin() {
     this.isAuthenticated = false;
-    const appEl = document.getElementById('app-root');
-    const shieldIcon = window.Icons ? window.Icons.get('shield', { size: 28, color: '#09090b', strokeWidth: 2 }) : '';
+    const appEl = document.getElementById("app-root");
+    const shieldIcon = window.Icons
+      ? window.Icons.get("shield", {
+          size: 28,
+          color: "#09090b",
+          strokeWidth: 2,
+        })
+      : "";
 
     appEl.innerHTML = `
       <div class="login-screen">
@@ -171,32 +183,33 @@ class App {
   updatedBanner() {
     let info = null;
     try {
-      info = JSON.parse(sessionStorage.getItem('panel_updated') || 'null');
-      sessionStorage.removeItem('panel_updated');
-    } catch { }
-    if (!info) return '';
+      info = JSON.parse(sessionStorage.getItem("panel_updated") || "null");
+      sessionStorage.removeItem("panel_updated");
+    } catch {}
+    if (!info) return "";
     return `
       <div class="login-updated">
-        ${window.Icons.get('checkCircle', { size: 18, color: 'var(--color-green)' })}
+        ${window.Icons.get("checkCircle", { size: 18, color: "var(--color-green)" })}
         <div>
-          <div style="font-weight:600;">Panel updated${info.short ? ` to ${escapeHtml(info.short)}` : ''}</div>
-          <div style="font-size:12px;color:var(--text-secondary);">${escapeHtml(info.subject || 'Sign in to continue with the new version.')}</div>
+          <div style="font-weight:600;">Panel updated${info.short ? ` to ${escapeHtml(info.short)}` : ""}</div>
+          <div style="font-size:12px;color:var(--text-secondary);">${escapeHtml(info.subject || "Sign in to continue with the new version.")}</div>
         </div>
       </div>`;
   }
 
   async handleLogin(e) {
     e.preventDefault();
-    const email = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-password').value;
-    const btn = document.getElementById('login-btn');
-    const errorEl = document.getElementById('login-error');
+    const email = document.getElementById("login-email").value.trim();
+    const password = document.getElementById("login-password").value;
+    const btn = document.getElementById("login-btn");
+    const errorEl = document.getElementById("login-error");
 
     if (!email || !password) return;
 
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner spinner-sm" style="margin-right:8px;"></span> Signing in...';
-    errorEl.style.display = 'none';
+    btn.innerHTML =
+      '<span class="spinner spinner-sm" style="margin-right:8px;"></span> Signing in...';
+    errorEl.style.display = "none";
 
     try {
       const res = await api.login(email, password);
@@ -204,10 +217,10 @@ class App {
       this.userEmail = res.email || email;
       this.showApp();
     } catch (err) {
-      errorEl.textContent = err.message || 'Invalid email or password';
-      errorEl.style.display = 'block';
+      errorEl.textContent = err.message || "Invalid email or password";
+      errorEl.style.display = "block";
       btn.disabled = false;
-      btn.innerHTML = 'Sign In';
+      btn.innerHTML = "Sign In";
     }
   }
 
@@ -221,7 +234,7 @@ class App {
 
   // ── Main App Shell ────────────────────────────────────────
   showApp() {
-    const appEl = document.getElementById('app-root');
+    const appEl = document.getElementById("app-root");
     const I = window.Icons;
 
     appEl.innerHTML = `
@@ -230,7 +243,7 @@ class App {
         <aside class="sidebar" id="sidebar">
           <div class="sidebar-logo">
             <div class="sidebar-logo-icon">
-              ${I.get('shield', { size: 16, color: '#ffffff' })}
+              ${I.get("shield", { size: 16, color: "#ffffff" })}
             </div>
             <div class="sidebar-logo-text">
               <h1>VPS Manager</h1>
@@ -241,44 +254,44 @@ class App {
           <nav class="sidebar-nav">
             <div class="sidebar-section">
               <div class="sidebar-section-title">Overview</div>
-              ${this.navLink('dashboard', 'dashboard', 'Dashboard')}
+              ${this.navLink("dashboard", "dashboard", "Dashboard")}
             </div>
 
             <div class="sidebar-section">
               <div class="sidebar-section-title">Hosting</div>
-              ${this.navLink('websites', 'globe', 'Websites & SSL')}
-              ${this.navLink('files', 'folder', 'File Manager')}
-              ${this.navLink('databases', 'database', 'Databases')}
-              ${this.navLink('php', 'code', 'PHP Versions')}
-              ${this.navLink('mail', 'mail', 'Email')}
+              ${this.navLink("websites", "globe", "Websites & SSL")}
+              ${this.navLink("files", "folder", "File Manager")}
+              ${this.navLink("databases", "database", "Databases")}
+              ${this.navLink("php", "code", "PHP Versions")}
+              ${this.navLink("mail", "mail", "Email")}
             </div>
 
             <div class="sidebar-section">
               <div class="sidebar-section-title">Operations</div>
-              ${this.navLink('projects', 'package', 'Projects')}
-              ${this.navLink('backups', 'archive', 'Backups')}
-              ${this.navLink('deploy', 'rocket', 'Deploy & Git')}
-              ${this.navLink('cron', 'clock', 'Cron Jobs')}
+              ${this.navLink("projects", "package", "Projects")}
+              ${this.navLink("backups", "archive", "Backups")}
+              ${this.navLink("deploy", "rocket", "Deploy & Git")}
+              ${this.navLink("cron", "clock", "Cron Jobs")}
             </div>
 
             <div class="sidebar-section">
               <div class="sidebar-section-title">System</div>
-              ${this.navLink('terminal', 'terminal', 'Terminal')}
-              ${this.navLink('ports', 'server', 'Ports & Processes')}
-              ${this.navLink('monitor', 'activity', 'Resource Monitor')}
-              ${this.navLink('logs', 'fileText', 'Logs')}
-              ${this.navLink('settings', 'settings', 'Settings')}
+              ${this.navLink("terminal", "terminal", "Terminal")}
+              ${this.navLink("ports", "server", "Ports & Processes")}
+              ${this.navLink("monitor", "activity", "Resource Monitor")}
+              ${this.navLink("logs", "fileText", "Logs")}
+              ${this.navLink("settings", "settings", "Settings")}
             </div>
           </nav>
 
           <div class="sidebar-footer">
             <div class="sidebar-footer-info">
               <div style="font-size:12px;color:var(--text-primary);font-weight:500;display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                ${I.get('user', { size: 14, color: 'var(--text-secondary)' })}
+                ${I.get("user", { size: 14, color: "var(--text-secondary)" })}
                 <span>${escapeHtml(this.userEmail)}</span>
               </div>
               <button class="btn btn-ghost btn-sm" onclick="window.app.handleLogout()" style="font-size:12px;color:var(--color-red);padding:4px 6px;justify-content:flex-start;margin-top:2px;">
-                ${I.get('logOut', { size: 13, color: 'var(--color-red)' })}
+                ${I.get("logOut", { size: 13, color: "var(--color-red)" })}
                 <span>Sign Out</span>
               </button>
               <button class="sidebar-version" id="sidebar-version" onclick="PanelUpdater.check({ force: true })" title="Check for updates">v…</button>
@@ -291,7 +304,7 @@ class App {
           <header class="topbar">
             <div class="topbar-title">
               <button class="btn btn-ghost btn-icon-only" onclick="window.app.toggleSidebar()" style="display:none;" id="mobile-menu-btn">
-                ${I.get('layers', { size: 16 })}
+                ${I.get("layers", { size: 16 })}
               </button>
               <div>
                 <h2 id="header-title">Dashboard</h2>
@@ -299,12 +312,12 @@ class App {
             </div>
 
             <div class="topbar-actions">
-              <button class="btn btn-sm update-pill" id="topbar-update-btn" style="display:none;" onclick="PanelUpdater.showPopup()" title="A new version of the panel is available">
+              <button class="btn btn-sm update-pill" id="topbar-update-btn" onclick="PanelUpdater.check({ force: true })" title="Check for panel updates">
                 <span class="update-pill-dot"></span>
                 <span>Update available</span>
               </button>
               <button class="btn btn-primary btn-sm" id="topbar-instant-backup-btn" onclick="window.app.handleInstantBackup()" title="Trigger immediate backup for all registered projects">
-                ${I.get('database', { size: 13, color: '#ffffff' })}
+                ${I.get("database", { size: 13, color: "#ffffff" })}
                 <span>Instant Backup</span>
               </button>
               <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--border-primary);border-radius:var(--radius-sm);background:#fafafa;font-size:12px;">
@@ -312,7 +325,7 @@ class App {
                 <span id="server-status-text" style="color:var(--text-secondary);font-weight:500;">VPS Online</span>
               </div>
               <button class="btn btn-secondary btn-sm" onclick="window.app.handleLogout()">
-                ${I.get('logOut', { size: 13 })}
+                ${I.get("logOut", { size: 13 })}
                 <span>Logout</span>
               </button>
             </div>
@@ -328,22 +341,22 @@ class App {
     `;
 
     // Cache DOM refs
-    this.contentEl = document.getElementById('app-content');
-    this.pageTitleEl = document.getElementById('header-title');
-    this.statusDotEl = document.getElementById('server-status-dot');
-    this.statusTextEl = document.getElementById('server-status-text');
+    this.contentEl = document.getElementById("app-content");
+    this.pageTitleEl = document.getElementById("header-title");
+    this.statusDotEl = document.getElementById("server-status-dot");
+    this.statusTextEl = document.getElementById("server-status-text");
 
     // Setup sidebar click handlers
-    document.querySelectorAll('.sidebar-link').forEach(link => {
-      link.addEventListener('click', (e) => {
+    document.querySelectorAll(".sidebar-link").forEach((link) => {
+      link.addEventListener("click", (e) => {
         e.preventDefault();
-        const page = link.getAttribute('data-page');
+        const page = link.getAttribute("data-page");
         if (page) this.navigate(page);
       });
     });
 
     // Setup route listener
-    window.addEventListener('hashchange', () => this.handleHashChange());
+    window.addEventListener("hashchange", () => this.handleHashChange());
 
     // Initial route
     this.handleHashChange();
@@ -358,13 +371,13 @@ class App {
   }
 
   handleHashChange() {
-    const hash = window.location.hash.replace('#', '') || 'dashboard';
+    const hash = window.location.hash.replace("#", "") || "dashboard";
     this.navigate(hash, false);
   }
 
   navigate(page, updateHash = true) {
     if (!this.isAuthenticated) return this.showLogin();
-    if (!this.routes[page]) page = 'dashboard';
+    if (!this.routes[page]) page = "dashboard";
 
     this.currentPage = page;
 
@@ -374,9 +387,9 @@ class App {
     }
 
     // Update active state in sidebar
-    document.querySelectorAll('.sidebar-link').forEach(link => {
-      const linkPage = link.getAttribute('data-page');
-      link.classList.toggle('active', linkPage === page);
+    document.querySelectorAll(".sidebar-link").forEach((link) => {
+      const linkPage = link.getAttribute("data-page");
+      link.classList.toggle("active", linkPage === page);
     });
 
     // Update Header
@@ -388,69 +401,78 @@ class App {
     Modal.closeAll();
 
     // Render Page
-    if (this.contentEl && typeof route.render === 'function') {
+    if (this.contentEl && typeof route.render === "function") {
       route.render(this.contentEl);
     }
 
     // Close mobile sidebar if open
-    document.querySelector('.sidebar')?.classList.remove('open');
+    document.querySelector(".sidebar")?.classList.remove("open");
   }
 
   async handleLogout() {
     await api.logout();
     this.isAuthenticated = false;
-    this.userEmail = '';
-    window.location.hash = '';
+    this.userEmail = "";
+    window.location.hash = "";
     this.showLogin();
   }
 
   async checkHealth() {
     try {
-      const res = await fetch('/api/v1/health');
+      const res = await fetch("/api/v1/health");
       if (res.ok) {
-        if (this.statusDotEl) this.statusDotEl.style.background = 'var(--color-green)';
-        if (this.statusTextEl) this.statusTextEl.textContent = 'VPS Online';
+        if (this.statusDotEl)
+          this.statusDotEl.style.background = "var(--color-green)";
+        if (this.statusTextEl) this.statusTextEl.textContent = "VPS Online";
       }
     } catch {
-      if (this.statusDotEl) this.statusDotEl.style.background = 'var(--color-red)';
-      if (this.statusTextEl) this.statusTextEl.textContent = 'Server Offline';
+      if (this.statusDotEl)
+        this.statusDotEl.style.background = "var(--color-red)";
+      if (this.statusTextEl) this.statusTextEl.textContent = "Server Offline";
     }
   }
 
   async handleInstantBackup() {
-    const btn = document.getElementById('topbar-instant-backup-btn');
+    const btn = document.getElementById("topbar-instant-backup-btn");
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner spinner-sm" style="margin-right:6px;"></span> <span>Running...</span>';
+      btn.innerHTML =
+        '<span class="spinner spinner-sm" style="margin-right:6px;"></span> <span>Running...</span>';
     }
-    toast.info('Instant Backup', 'Snapshot queued for all projects...');
+    toast.info("Instant Backup", "Snapshot queued for all projects...");
 
     try {
       const res = await api.triggerBackupAll();
-      toast.success('Backup Started', res.message || 'All project backups are in progress');
+      toast.success(
+        "Backup Started",
+        res.message || "All project backups are in progress",
+      );
 
       // If already on backups page, reload view to see running task
-      if (this.currentPage === 'backups' && typeof loadBackupPage === 'function') {
+      if (
+        this.currentPage === "backups" &&
+        typeof loadBackupPage === "function"
+      ) {
         setTimeout(loadBackupPage, 1000);
       }
     } catch (err) {
-      toast.error('Backup Failed', err.message || 'Failed to trigger backup');
+      toast.error("Backup Failed", err.message || "Failed to trigger backup");
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = `${window.Icons.get('database', { size: 13, color: '#ffffff' })} <span>Instant Backup</span>`;
+        btn.innerHTML = `${window.Icons.get("database", { size: 13, color: "#ffffff" })} <span>Instant Backup</span>`;
       }
     }
   }
 
   toggleSidebar() {
-    document.querySelector('.sidebar')?.classList.toggle('open');
+    document.querySelector(".sidebar")?.classList.toggle("open");
   }
 }
 
 // Instantiate and export app to window
 window.app = new App();
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   window.app.init();
 });
