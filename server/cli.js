@@ -14,6 +14,7 @@
 import dotenv from "dotenv";
 import { join } from "path";
 import { getConfig, PROJECT_ROOT } from "./lib/config.js";
+import { Notifier } from "./services/notifier.js";
 
 dotenv.config({ path: join(PROJECT_ROOT, ".env"), quiet: true });
 
@@ -71,8 +72,27 @@ async function direct(name, arg) {
   }
 }
 
+async function notifyCron(name, success, detail) {
+  const config = getConfig();
+  if (name === "backup-all" || name === "backup") return;
+  const title = `${success ? "✅" : "❌"} Cron job: ${name}`;
+  const message = success
+    ? `${name} completed successfully.\n${detail || ""}`
+    : `${name} failed.\n${detail || ""}`;
+  const results = await Notifier.notifyAll(config, {
+    title,
+    message,
+    color: success ? 3066993 : 15158332,
+    emailSubject: title,
+    emailBody: message,
+  });
+  log(`Notification results: ${JSON.stringify(results)}`);
+}
+
 async function main() {
-  const [name, arg] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const notify = args.includes("--cron-notify");
+  const [name, arg] = args.filter((value) => value !== "--cron-notify");
   const task = TASKS[name];
   if (!task || (task.needsArg && !arg)) {
     console.error(
@@ -85,16 +105,24 @@ async function main() {
   try {
     const data = await viaApi(task, arg);
     log(`Handed to running panel: ${JSON.stringify(data)}`);
+    if (notify) await notifyCron(name, true, JSON.stringify(data));
   } catch (err) {
     if (err.http) {
       log(`Panel API refused the task: ${err.message}`);
+      if (notify) await notifyCron(name, false, err.message);
       process.exit(1);
     }
     log(
       `Panel not reachable (${err.cause?.code || err.message}) — running task directly`,
     );
-    const data = await direct(name, arg);
-    log(`Finished: ${JSON.stringify(data)}`);
+    try {
+      const data = await direct(name, arg);
+      log(`Finished: ${JSON.stringify(data)}`);
+      if (notify) await notifyCron(name, true, JSON.stringify(data));
+    } catch (directError) {
+      if (notify) await notifyCron(name, false, directError.message);
+      throw directError;
+    }
   }
   process.exit(0);
 }

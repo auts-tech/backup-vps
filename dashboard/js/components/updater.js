@@ -92,7 +92,7 @@ class PanelUpdater {
     if (!label) return;
     label.textContent = info?.updateAvailable
       ? `Update available (${info.behind})`
-      : "Check for updates";
+      : "Updates";
     btn.title = info?.updateAvailable
       ? "A new version of the panel is available"
       : "Check for panel updates";
