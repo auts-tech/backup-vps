@@ -314,7 +314,7 @@ class App {
             <div class="topbar-actions">
               <button class="btn btn-sm update-pill" id="topbar-update-btn" onclick="PanelUpdater.handleClick()" title="Check for panel updates">
                 <span class="update-pill-dot"></span>
-                <span>Check for updates</span>
+                <span>Update VPS Manager</span>
               </button>
               <button class="btn btn-primary btn-sm" id="topbar-instant-backup-btn" onclick="window.app.handleInstantBackup()" title="Trigger immediate backup for all registered projects">
                 ${I.get("database", { size: 13, color: "#ffffff" })}

@@ -30,7 +30,11 @@ async function loadProjects() {
   const I = window.Icons;
 
   try {
-    const { projects } = await api.getProjects();
+    const [{ projects }, sitesResult] = await Promise.all([
+      api.getProjects(),
+      api.getSites().catch(() => ({ sites: [] })),
+    ]);
+    const sites = sitesResult.sites || [];
 
     if (projects.length === 0) {
       grid.innerHTML = `
@@ -64,6 +68,7 @@ async function loadProjects() {
             ? '<span class="badge badge-success"><span class="badge-dot"></span> Online</span>'
             : '<span class="badge badge-danger"><span class="badge-dot"></span> Stopped</span>'
           : '<span class="badge badge-neutral"><span class="badge-dot"></span> Inactive</span>';
+        const projectSites = sites.filter((site) => site.projectId === p.id);
 
         return `
         <div class="card" style="display:flex;flex-direction:column;justify-content:space-between;">
@@ -102,6 +107,10 @@ async function loadProjects() {
                   `
                       : ""
                   }
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                  ${I.get("globe", { size: 14, color: "var(--text-tertiary)" })}
+                  <span>${projectSites.length ? projectSites.map((site) => escapeHtml(site.serverNames.filter((name) => name !== "_")[0] || site.name)).join(", ") : "No website linked"}</span>
                 </div>
               </div>
             </div>

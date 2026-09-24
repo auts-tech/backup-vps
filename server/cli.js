@@ -12,6 +12,7 @@
  * in this process and the command waits until it has finished.
  */
 import dotenv from "dotenv";
+import { spawn } from "child_process";
 import { join } from "path";
 import { getConfig, PROJECT_ROOT } from "./lib/config.js";
 import { Notifier } from "./services/notifier.js";
@@ -89,8 +90,47 @@ async function notifyCron(name, success, detail) {
   log(`Notification results: ${JSON.stringify(results)}`);
 }
 
+function runCronCommand(command) {
+  return new Promise((resolve, reject) => {
+    const env = { ...process.env };
+    delete env.ADMIN_EMAIL;
+    delete env.ADMIN_PASSWORD;
+    delete env.SESSION_SECRET;
+    const child = spawn("/bin/sh", ["-c", command], { stdio: "inherit", env });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`Command exited with code ${code ?? "unknown"}`));
+    });
+  });
+}
+
+async function runCronWrapper(args) {
+  const labelIndex = args.indexOf("--label");
+  const separator = args.indexOf("--");
+  const label =
+    labelIndex >= 0 ? args[labelIndex + 1] || "Cron job" : "Cron job";
+  const command = separator >= 0 ? args.slice(separator + 1).join(" ") : "";
+  if (!command) throw new Error("Cron command is required");
+  try {
+    await runCronCommand(command);
+    await notifyCron(
+      label,
+      true,
+      "The scheduled command completed successfully.",
+    );
+  } catch (err) {
+    await notifyCron(label, false, err.message);
+    throw err;
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
+  if (args[0] === "cron-run") {
+    await runCronWrapper(args.slice(1));
+    process.exit(0);
+  }
   const notify = args.includes("--cron-notify");
   const [name, arg] = args.filter((value) => value !== "--cron-notify");
   const task = TASKS[name];

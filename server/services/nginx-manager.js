@@ -148,6 +148,8 @@ export class NginxManager {
     // Sites created by the panel record their template in the header comment
     const managed = (raw.match(/^# Managed by VPS Panel — (\w+) site/m) ||
       [])[1];
+    const projectId =
+      (raw.match(/^# VPS Panel Project: ([A-Za-z0-9-]+)$/m) || [])[1] || null;
     if (managed && SITE_TYPES.includes(managed)) type = managed;
     return {
       serverNames: [...serverNames],
@@ -158,6 +160,7 @@ export class NginxManager {
       ssl,
       certPath,
       type,
+      projectId,
     };
   }
 
@@ -385,6 +388,7 @@ export class NginxManager {
       root,
       name,
       proxyTarget,
+      projectId: opts.projectId,
       phpVersion: opts.phpVersion,
       maxBodySize: /^\d+[kKmMgG]?$/.test(opts.maxBodySize || "")
         ? opts.maxBodySize
@@ -460,10 +464,12 @@ export class NginxManager {
     name,
     phpVersion,
     proxyTarget,
+    projectId,
     maxBodySize,
   }) {
     const head = [
       `# Managed by VPS Panel — ${type} site`,
+      ...(projectId ? [`# VPS Panel Project: ${projectId}`] : []),
       "server {",
       "    listen 80;",
       "    listen [::]:80;",

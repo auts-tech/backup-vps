@@ -114,9 +114,9 @@ class PanelUpdater {
     btn.disabled = false;
     label.textContent = info?.updateAvailable
       ? info.canUpdate
-        ? `Update now (${info.behind})`
+        ? `Update VPS Manager (${info.behind})`
         : "Update blocked"
-      : "Check for updates";
+      : "Update VPS Manager";
     btn.title = info?.updateAvailable
       ? info.canUpdate
         ? "Install the latest panel version"

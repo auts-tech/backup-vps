@@ -15,7 +15,6 @@ const CRON_LOG = "/var/log/vps-panel-cron.log";
 function panelTasks() {
   const cli = `"${process.execPath}" "${join(SERVER_DIR, "cli.js")}"`;
   const logSuffix = ` >> ${CRON_LOG} 2>&1`;
-  const notify = " --cron-notify";
   const config = getConfig();
 
   const tasks = [
@@ -29,13 +28,13 @@ function panelTasks() {
       id: "vps-snapshot",
       label: "Full VPS snapshot",
       description: "Archive the whole server to the default target",
-      command: `${cli} vps-snapshot${notify}${logSuffix}`,
+      command: `${cli} vps-snapshot${logSuffix}`,
     },
     {
       id: "cleanup",
       label: "Prune expired backups",
       description: `Delete backups older than ${config.backup?.retentionDays || 30} days`,
-      command: `${cli} cleanup${notify}${logSuffix}`,
+      command: `${cli} cleanup${logSuffix}`,
     },
   ];
   for (const p of config.projects || []) {
@@ -47,6 +46,15 @@ function panelTasks() {
     });
   }
   return tasks;
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
+}
+
+function wrapCronCommand(command, label) {
+  const cli = `"${process.execPath}" "${join(SERVER_DIR, "cli.js")}"`;
+  return `${cli} cron-run --label ${shellQuote(label || "Cron job")} -- ${shellQuote(command)}`;
 }
 
 /**
@@ -65,8 +73,26 @@ export async function migrateLegacyCronJobs() {
     if (!m || /x-api-key/i.test(line)) return line;
     migrated++;
     const task = m[3] === "trigger-vps" ? "vps-snapshot" : "backup-all";
-    return `${m[1] || ""}${m[2]} ${cli} ${task} >> ${CRON_LOG} 2>&1`;
+    return `${m[1] || ""}${m[2]} ${wrapCronCommand(`${cli} ${task} >> ${CRON_LOG} 2>&1`, task)}`;
   });
+  const jobs = CronManager.parse(out);
+  for (const job of jobs) {
+    const labelLine = job.line > 0 ? out[job.line - 1] : "";
+    if (
+      !labelLine.startsWith("# vps-panel: ") ||
+      job.command.includes(" cron-run ")
+    )
+      continue;
+    const body = out[job.line].startsWith("#off# ")
+      ? out[job.line].slice(6)
+      : out[job.line];
+    const parts = CronManager.splitJobLine(body);
+    if (!parts) continue;
+    const disabled = out[job.line].startsWith("#off# ") ? "#off# " : "";
+    out[job.line] =
+      `${disabled}${parts.schedule} ${wrapCronCommand(parts.command, job.label)}`;
+    migrated++;
+  }
   if (migrated) await CronManager.writeLines(out);
   return migrated;
 }
@@ -93,14 +119,16 @@ function resolveCommand(body) {
   if (body.task) {
     const task = panelTasks().find((t) => t.id === body.task);
     if (!task) throw httpError(400, `Unknown task "${body.task}"`);
-    return { command: task.command, label: body.label || task.label };
+    const label = body.label || task.label;
+    return { command: wrapCronCommand(task.command, label), label };
   }
   let command = (body.command || "").trim();
   if (body.logOutput && command && !command.includes(">")) {
     // Subshell so every part of `a && b` is logged, not just the last command
     command = `( ${command} ) >> ${CRON_LOG} 2>&1`;
   }
-  return { command, label: body.label || "" };
+  const label = body.label || "";
+  return { command: wrapCronCommand(command, label), label };
 }
 
 // GET /api/v1/cron — List jobs + cron daemon status
