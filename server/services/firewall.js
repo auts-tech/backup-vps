@@ -16,7 +16,8 @@ const TOKEN = /^[A-Za-z0-9_.,:/()-]+$/;
 export function sshPort() {
   const files = ["/etc/ssh/sshd_config"];
   if (existsSync("/etc/ssh/sshd_config.d"))
-    for (const f of readdirSync("/etc/ssh/sshd_config.d")) if (f.endsWith(".conf")) files.push(join("/etc/ssh/sshd_config.d", f));
+    for (const f of readdirSync("/etc/ssh/sshd_config.d"))
+      if (f.endsWith(".conf")) files.push(join("/etc/ssh/sshd_config.d", f));
   for (const file of files) {
     try {
       const m = readFileSync(file, "utf-8").match(/^\s*Port\s+(\d+)/m);
@@ -33,7 +34,9 @@ export function sshPort() {
 function parseNumbered(stdout) {
   const rules = [];
   for (const line of stdout.split("\n")) {
-    const m = line.match(/^\[\s*(\d+)\]\s+(.+?)\s{2,}(ALLOW|DENY|REJECT|LIMIT)(?:\s+(IN|OUT|FWD))?\s+(.+?)\s*(?:#\s*(.*))?$/);
+    const m = line.match(
+      /^\[\s*(\d+)\]\s+(.+?)\s{2,}(ALLOW|DENY|REJECT|LIMIT)(?:\s+(IN|OUT|FWD))?\s+(.+?)\s*(?:#\s*(.*))?$/,
+    );
     if (!m) continue;
     const v6 = /\(v6\)/.test(m[2]) || /\(v6\)/.test(m[5]);
     rules.push({
@@ -64,16 +67,27 @@ export class Firewall {
 
   static async status() {
     if (!(await which("ufw"))) return { installed: false, sshPort: sshPort() };
-    const [verbose, numbered] = await Promise.all([Firewall.ufw(["status", "verbose"]), Firewall.ufw(["status", "numbered"])]);
-    if (verbose.code !== 0) throw httpError(500, (verbose.stderr || verbose.stdout).trim() || "ufw status failed (the panel must run as root)");
+    const [verbose, numbered] = await Promise.all([
+      Firewall.ufw(["status", "verbose"]),
+      Firewall.ufw(["status", "numbered"]),
+    ]);
+    if (verbose.code !== 0)
+      throw httpError(
+        500,
+        (verbose.stderr || verbose.stdout).trim() ||
+          "ufw status failed (the panel must run as root)",
+      );
     const active = /Status:\s+active/.test(verbose.stdout);
-    const defaults = verbose.stdout.match(/Default:\s*(\w+) \(incoming\),\s*(\w+) \(outgoing\)/);
+    const defaults = verbose.stdout.match(
+      /Default:\s*(\w+) \(incoming\),\s*(\w+) \(outgoing\)/,
+    );
     const status = {
       installed: true,
       active,
       incoming: defaults?.[1] || null,
       outgoing: defaults?.[2] || null,
-      logging: (verbose.stdout.match(/Logging:\s*(.+)/) || [])[1]?.trim() || null,
+      logging:
+        (verbose.stdout.match(/Logging:\s*(.+)/) || [])[1]?.trim() || null,
       sshPort: sshPort(),
       rules: active ? parseNumbered(numbered.stdout) : [],
       pending: [],
@@ -110,7 +124,11 @@ echo "ufw installed (not enabled yet). Enable it from the Firewall page — SSH 
     else if (panelPort) allow.push([`${panelPort}/tcp`, "VPS Panel"]);
     for (const [port, comment] of allow) {
       const r = await Firewall.ufw(["allow", port, "comment", comment]);
-      if (r.code !== 0) throw httpError(500, `Could not allow ${port}: ${(r.stderr || r.stdout).trim()}`);
+      if (r.code !== 0)
+        throw httpError(
+          500,
+          `Could not allow ${port}: ${(r.stderr || r.stdout).trim()}`,
+        );
     }
     const r = await Firewall.ufw(["--force", "enable"]);
     if (r.code !== 0) throw httpError(500, (r.stderr || r.stdout).trim());
@@ -127,33 +145,54 @@ echo "ufw installed (not enabled yet). Enable it from the Firewall page — SSH 
    * { action: allow|deny|reject|limit, port: "443" | "8000:8100", proto: tcp|udp|"", from: IP/CIDR|"", comment }
    */
   static async addRule({ action, port, proto, from, comment }) {
-    if (!ACTIONS.includes(action)) throw httpError(400, "Action must be allow, deny, reject or limit");
+    if (!ACTIONS.includes(action))
+      throw httpError(400, "Action must be allow, deny, reject or limit");
     const p = String(port || "").trim();
     const pr = String(proto || "").trim();
     const src = String(from || "").trim();
-    if (p && !/^\d{1,5}(:\d{1,5})?$/.test(p)) throw httpError(400, "Port must be a number (443) or range (8000:8100)");
-    for (const n of p ? p.split(":").map(Number) : []) if (n < 1 || n > 65535) throw httpError(400, "Ports go from 1 to 65535");
-    if (pr && !PROTOS.includes(pr)) throw httpError(400, "Protocol must be tcp or udp");
-    if (p.includes(":") && !pr) throw httpError(400, "A port range needs a protocol (tcp or udp)");
+    if (p && !/^\d{1,5}(:\d{1,5})?$/.test(p))
+      throw httpError(400, "Port must be a number (443) or range (8000:8100)");
+    for (const n of p ? p.split(":").map(Number) : [])
+      if (n < 1 || n > 65535) throw httpError(400, "Ports go from 1 to 65535");
+    if (pr && !PROTOS.includes(pr))
+      throw httpError(400, "Protocol must be tcp or udp");
+    if (p.includes(":") && !pr)
+      throw httpError(400, "A port range needs a protocol (tcp or udp)");
     if (src) assertIpOrCidr(src, "Source address");
-    if (!p && !src) throw httpError(400, "Enter a port, a source address, or both");
-    if (comment && !COMMENT.test(comment)) throw httpError(400, "Comments may use letters, numbers and . , : @ ( ) / + -");
+    if (!p && !src)
+      throw httpError(400, "Enter a port, a source address, or both");
+    if (comment && !COMMENT.test(comment))
+      throw httpError(
+        400,
+        "Comments may use letters, numbers and . , : @ ( ) / + -",
+      );
 
     const ssh = sshPort();
     if (action !== "allow" && action !== "limit" && !src && p === String(ssh))
-      throw httpError(400, `Blocking port ${ssh} for everyone would lock you out of SSH`);
+      throw httpError(
+        400,
+        `Blocking port ${ssh} for everyone would lock you out of SSH`,
+      );
 
     let args;
     if (!src) args = [action, pr ? `${p}/${pr}` : p];
-    else args = [action, "from", src, ...(p ? ["to", "any", "port", p, ...(pr ? ["proto", pr] : [])] : [])];
+    else
+      args = [
+        action,
+        "from",
+        src,
+        ...(p ? ["to", "any", "port", p, ...(pr ? ["proto", pr] : [])] : []),
+      ];
     if (comment) args.push("comment", comment);
 
     // Blocking an address must come before the allow rules, or it never matches
     const status = await Firewall.status();
-    if (status.active && action !== "allow" && src && status.rules.length) args = ["insert", "1", ...args];
+    if (status.active && action !== "allow" && src && status.rules.length)
+      args = ["insert", "1", ...args];
 
     const r = await Firewall.ufw(args);
-    if (r.code !== 0 || /ERROR/i.test(r.stdout)) throw httpError(400, (r.stderr || r.stdout).trim());
+    if (r.code !== 0 || /ERROR/i.test(r.stdout))
+      throw httpError(400, (r.stderr || r.stdout).trim());
     return { success: true, output: r.stdout.trim() };
   }
 
@@ -165,11 +204,29 @@ echo "ufw installed (not enabled yet). Enable it from the Firewall page — SSH 
     if (number !== undefined && number !== null) {
       const n = parseInt(number);
       const rule = status.rules.find((r) => r.number === n);
-      if (!rule) throw httpError(404, "Rule not found — the firewall changed, refresh and try again");
+      if (!rule)
+        throw httpError(
+          404,
+          "Rule not found — the firewall changed, refresh and try again",
+        );
       const ssh = sshPort();
-      if (rule.action === "allow" && portOf(rule.to) === ssh && rule.from === "Anywhere") {
-        const others = status.rules.filter((r) => r !== rule && r.action === "allow" && portOf(r.to) === ssh && r.v6 === rule.v6);
-        if (!others.length) throw httpError(400, `This rule keeps SSH (port ${ssh}) reachable — deleting it would lock you out`);
+      if (
+        rule.action === "allow" &&
+        portOf(rule.to) === ssh &&
+        rule.from === "Anywhere"
+      ) {
+        const others = status.rules.filter(
+          (r) =>
+            r !== rule &&
+            r.action === "allow" &&
+            portOf(r.to) === ssh &&
+            r.v6 === rule.v6,
+        );
+        if (!others.length)
+          throw httpError(
+            400,
+            `This rule keeps SSH (port ${ssh}) reachable — deleting it would lock you out`,
+          );
       }
       const r = await Firewall.ufw(["--force", "delete", String(n)]);
       if (r.code !== 0) throw httpError(500, (r.stderr || r.stdout).trim());
@@ -179,7 +236,8 @@ echo "ufw installed (not enabled yet). Enable it from the Firewall page — SSH 
     if (!status.pending.includes(full)) throw httpError(404, "Rule not found");
     // `ufw delete` takes the rule without its comment
     const tokens = full.replace(/\s+comment\s+'[^']*'\s*$/, "").split(/\s+/);
-    if (!tokens.every((t) => TOKEN.test(t)) || !ACTIONS.includes(tokens[0])) throw httpError(400, "Invalid rule");
+    if (!tokens.every((t) => TOKEN.test(t)) || !ACTIONS.includes(tokens[0]))
+      throw httpError(400, "Invalid rule");
     const r = await Firewall.ufw(["delete", ...tokens]);
     if (r.code !== 0) throw httpError(500, (r.stderr || r.stdout).trim());
     return { success: true };
