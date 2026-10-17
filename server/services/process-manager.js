@@ -32,6 +32,7 @@ function summarize(proc) {
     unstableRestarts: env.unstable_restarts || 0,
     instances: env.instances || 1,
     cwd: env.pm_cwd || null,
+    args: env.args || null,
     outLog: env.pm_out_log_path || null,
     errLog: env.pm_err_log_path || null,
   };
@@ -71,6 +72,11 @@ export class ProcessManager {
     return join(ECOSYSTEM_DIR, `${site.id}.json`);
   }
 
+  static startArgs(site) {
+    // `exec` lets bash expand $PORT etc. and then hands the process over to the command
+    return ["-c", `exec ${site.startCommand}`];
+  }
+
   static writeEcosystem(site) {
     if (!site.startCommand) throw httpError(400, "Set a start command for this app first");
     mkdirSync(ECOSYSTEM_DIR, { recursive: true });
@@ -79,9 +85,8 @@ export class ProcessManager {
     const app = {
       name: site.name,
       cwd: site.deployPath,
-      // `exec` lets bash expand $PORT etc. and then hands the process over to the command
       script: "bash",
-      args: ["-c", `exec ${site.startCommand}`],
+      args: ProcessManager.startArgs(site),
       interpreter: "none",
       env,
       autorestart: true,
@@ -106,18 +111,28 @@ export class ProcessManager {
     if (!existsSync(site.deployPath))
       throw httpError(409, `${site.deployPath} does not exist`);
     const file = ProcessManager.writeEcosystem(site);
-    // A changed start command needs a fresh process; reload only re-reads env
     const current = await ProcessManager.status(site.name);
-    const r =
-      current.status === "not-started"
-        ? await ProcessManager.pm2(["start", file])
-        : await ProcessManager.pm2(["startOrReload", file, "--update-env"]);
+    let r;
+    if (current.status === "not-started") {
+      r = await ProcessManager.pm2(["start", file]);
+    } else if (
+      current.cwd !== site.deployPath ||
+      JSON.stringify(current.args) !== JSON.stringify(ProcessManager.startArgs(site))
+    ) {
+      // reload only re-reads the environment — a new command or folder needs a fresh process
+      await ProcessManager.pm2(["delete", site.name]);
+      r = await ProcessManager.pm2(["start", file]);
+    } else {
+      r = await ProcessManager.pm2(["startOrReload", file, "--update-env"]);
+    }
     if (r.code !== 0) throw httpError(500, (r.stderr || r.stdout).trim() || "pm2 failed to start the app");
     await ProcessManager.pm2(["save"], 20000);
     return { success: true };
   }
 
   static async control(site, action) {
+    if (!(await ProcessManager.installed()))
+      throw httpError(409, "PM2 is not installed — install it from the App tab first");
     if (action === "start" || action === "restart" || action === "reload") {
       const current = await ProcessManager.status(site.name);
       if (current.status === "not-started" || action !== "restart") return ProcessManager.startOrReload(site);

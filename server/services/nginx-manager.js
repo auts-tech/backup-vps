@@ -15,11 +15,14 @@ import { X509Certificate } from "crypto";
 import { run, which, serviceCtl, serviceActive } from "../lib/shell.js";
 import { httpError } from "../lib/config.js";
 
-export const NGINX_DIR = "/etc/nginx";
+// Overridable for development machines without a system nginx
+export const NGINX_DIR = process.env.PANEL_NGINX_DIR || "/etc/nginx";
+export const NGINX_LOG_DIR = process.env.PANEL_NGINX_LOG_DIR || "/var/log/nginx";
 export const SITES_AVAILABLE = join(NGINX_DIR, "sites-available");
 export const SITES_ENABLED = join(NGINX_DIR, "sites-enabled");
 const UPGRADE_MAP_FILE = join(NGINX_DIR, "conf.d", "vps-panel-websocket.conf");
 const LE_LIVE = "/etc/letsencrypt/live";
+const PROJECT_HEADER = /^# VPS Panel Project: [A-Za-z0-9-]+\n/m;
 
 const SITE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,200}$/;
 const DOMAIN = /^(\*\.)?([A-Za-z0-9-_]{1,63}\.)*[A-Za-z0-9-]{1,63}$/;
@@ -367,7 +370,10 @@ export class NginxManager {
           409,
           `Proxy port ${targetPort} is already assigned to site "${duplicateSite.name}"`,
         );
-      const listening = await run("ss", ["-ltnH"], { timeout: 5000 });
+      // A website's own app is expected to be listening on its port
+      const listening = opts.ownPort
+        ? { code: 1, stdout: "" }
+        : await run("ss", ["-ltnH"], { timeout: 5000 });
       if (
         listening.code === 0 &&
         listening.stdout
@@ -477,8 +483,8 @@ export class NginxManager {
       "",
     ];
     const logs = [
-      `    access_log /var/log/nginx/${name}.access.log;`,
-      `    error_log /var/log/nginx/${name}.error.log;`,
+      `    access_log ${NGINX_LOG_DIR}/${name}.access.log;`,
+      `    error_log ${NGINX_LOG_DIR}/${name}.error.log;`,
       "",
       `    client_max_body_size ${maxBodySize};`,
       "",
@@ -660,6 +666,114 @@ export class NginxManager {
 
   static logPath(name, type) {
     assertSiteName(name);
-    return `/var/log/nginx/${name}.${type === "access" ? "access" : "error"}.log`;
+    // Prefer the paths written in the site's own config (imported sites may log elsewhere)
+    try {
+      const text = NginxManager.readSite(name).replace(/#.*$/gm, "");
+      const directive = type === "access" ? "access_log" : "error_log";
+      const m = text.match(new RegExp(`^\\s*${directive}\\s+(\\/[^\\s;]+)`, "m"));
+      if (m && m[1] !== "off") return m[1];
+    } catch {}
+    return `${NGINX_LOG_DIR}/${name}.${type === "access" ? "access" : "error"}.log`;
+  }
+
+  // ── Website (project) integration ──────────────────────────
+
+  /**
+   * Parsed details of a single site.
+   */
+  static siteInfo(name) {
+    const file = NginxManager.sitePath(name);
+    if (!existsSync(file)) return null;
+    const info = NginxManager.parseConfig(readFileSync(file, "utf-8"));
+    return {
+      name,
+      enabled: NginxManager.isEnabled(name),
+      ...info,
+      sslExpires: info.certPath ? NginxManager.certExpiry(info.certPath) : null,
+      modified: statSync(file).mtime,
+    };
+  }
+
+  /**
+   * Record which website a site belongs to, in the config header.
+   */
+  static async linkProject(name, projectId) {
+    const text = NginxManager.readSite(name);
+    let updated = text.replace(PROJECT_HEADER, "");
+    const header = projectId ? `# VPS Panel Project: ${projectId}\n` : "";
+    const managed = updated.match(/^# Managed by VPS Panel — \w+ site\n/m);
+    if (managed && updated.startsWith(managed[0]))
+      updated = managed[0] + header + updated.slice(managed[0].length);
+    else updated = header + updated;
+    if (updated === text) return { success: true };
+    return NginxManager.writeSite(name, updated);
+  }
+
+  /**
+   * Replace the domains a site answers on (every server_name in the file,
+   * including the HTTP→HTTPS block certbot adds).
+   */
+  static async setServerNames(name, domains) {
+    const list = normalizeDomains(domains);
+    const text = NginxManager.readSite(name);
+    const re = /^(\s*)server_name\s+[^;]+;/gm;
+    if (!re.test(text)) throw httpError(400, "This site has no server_name directive to update");
+    const updated = text.replace(re, `$1server_name ${list.join(" ")};`);
+    return NginxManager.writeSite(name, updated);
+  }
+
+  /**
+   * Change the upload limit (client_max_body_size) of a site.
+   */
+  static async setMaxBodySize(name, size) {
+    if (!/^\d+[kKmMgG]?$/.test(size || "")) throw httpError(400, "Upload limit must look like 64M, 512K or 1G");
+    const text = NginxManager.readSite(name);
+    const re = /^(\s*)client_max_body_size\s+[^;]+;/gm;
+    const updated = re.test(text)
+      ? text.replace(re, `$1client_max_body_size ${size};`)
+      : text.replace(/^(\s*)server_name\s+[^;]+;/gm, (m, indent) => `${m}\n${indent}client_max_body_size ${size};`);
+    return NginxManager.writeSite(name, updated);
+  }
+
+  static maxBodySize(name) {
+    try {
+      const text = NginxManager.readSite(name).replace(/#.*$/gm, "");
+      return (text.match(/^\s*client_max_body_size\s+([^;]+);/m) || [])[1]?.trim() || "1M";
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Bash for a certbot job that issues (or expands) a site's certificate.
+   * Values are validated here; the job preamble provides apt_get/ufw_allow.
+   */
+  static sslScript({ name, domains, email, redirect = true }) {
+    assertSiteName(name);
+    const list = normalizeDomains(domains).filter((d) => d !== "_" && !d.startsWith("*."));
+    if (!list.length) throw httpError(400, "Add a domain to this website before enabling HTTPS");
+    if (email && !/^[^\s@'"]+@[^\s@'"]+\.[^\s@'"]+$/.test(email)) throw httpError(400, "Invalid email address");
+    const emailArgs = email ? `-m '${email}'` : "--register-unsafely-without-email";
+    return `
+if ! command -v certbot >/dev/null 2>&1; then
+  echo "Installing certbot..."
+  apt_get update
+  apt_get install certbot python3-certbot-nginx
+fi
+ufw_allow 'Nginx Full'
+echo "Requesting a certificate for: ${list.join(" ")}"
+echo "(Each domain's DNS A record must already point to this server.)"
+certbot --nginx --non-interactive --agree-tos --expand ${emailArgs} ${redirect ? "--redirect" : "--no-redirect"} --cert-name '${name}' ${list.map((d) => `-d '${d}'`).join(" ")}
+echo ""
+echo "HTTPS is active. Certificates renew automatically (certbot timer)."
+`;
+  }
+
+  static async deleteCertificate(name) {
+    assertSiteName(name);
+    if (!existsSync(join(LE_LIVE, name))) return { success: true, skipped: true };
+    const r = await run("certbot", ["delete", "--non-interactive", "--cert-name", name], { timeout: 60000 });
+    if (r.code !== 0) throw httpError(500, (r.stderr || r.stdout).trim());
+    return { success: true };
   }
 }
