@@ -40,7 +40,11 @@ const PROTECTED = new Set([
  */
 export function panelUnit() {
   try {
-    return (readFileSync("/proc/self/cgroup", "utf-8").match(/\/([^/\n]+\.service)\s*$/m) || [])[1] || null;
+    return (
+      (readFileSync("/proc/self/cgroup", "utf-8").match(
+        /\/([^/\n]+\.service)\s*$/m,
+      ) || [])[1] || null
+    );
   } catch {
     return null;
   }
@@ -48,7 +52,8 @@ export function panelUnit() {
 
 function assertUnit(unit) {
   if (!UNIT.test(unit || "")) throw httpError(400, "Invalid service name");
-  if (!hasSystemd()) throw httpError(400, "systemd is not available on this server");
+  if (!hasSystemd())
+    throw httpError(400, "systemd is not available on this server");
 }
 
 /**
@@ -58,8 +63,29 @@ export class ServiceManager {
   static async list() {
     if (!hasSystemd()) return { supported: false, services: [] };
     const [units, files] = await Promise.all([
-      run("systemctl", ["list-units", "--type=service", "--all", "--no-legend", "--plain", "--no-pager"], { timeout: 20000 }),
-      run("systemctl", ["list-unit-files", "--type=service", "--no-legend", "--plain", "--no-pager"], { timeout: 20000 }),
+      run(
+        "systemctl",
+        [
+          "list-units",
+          "--type=service",
+          "--all",
+          "--no-legend",
+          "--plain",
+          "--no-pager",
+        ],
+        { timeout: 20000 },
+      ),
+      run(
+        "systemctl",
+        [
+          "list-unit-files",
+          "--type=service",
+          "--no-legend",
+          "--plain",
+          "--no-pager",
+        ],
+        { timeout: 20000 },
+      ),
     ]);
     const enabled = new Map();
     for (const line of files.stdout.split("\n")) {
@@ -68,14 +94,33 @@ export class ServiceManager {
     }
     const services = new Map();
     for (const line of units.stdout.split("\n")) {
-      const m = line.trim().match(/^(\S+\.service)\s+(\S+)\s+(\S+)\s+(\S+)\s*(.*)$/);
+      const m = line
+        .trim()
+        .match(/^(\S+\.service)\s+(\S+)\s+(\S+)\s+(\S+)\s*(.*)$/);
       if (!m || m[2] === "not-found") continue;
-      services.set(m[1], { unit: m[1], load: m[2], active: m[3], sub: m[4], description: m[5] });
+      services.set(m[1], {
+        unit: m[1],
+        load: m[2],
+        active: m[3],
+        sub: m[4],
+        description: m[5],
+      });
     }
     // Installed but never started since boot (e.g. disabled services)
     for (const [unit, state] of enabled) {
-      if (services.has(unit) || unit.includes("@.service") || ["static", "alias", "masked"].includes(state)) continue;
-      services.set(unit, { unit, load: "loaded", active: "inactive", sub: "dead", description: "" });
+      if (
+        services.has(unit) ||
+        unit.includes("@.service") ||
+        ["static", "alias", "masked"].includes(state)
+      )
+        continue;
+      services.set(unit, {
+        unit,
+        load: "loaded",
+        active: "inactive",
+        sub: "dead",
+        description: "",
+      });
     }
     const own = panelUnit();
     const list = [...services.values()].map((s) => ({
@@ -96,25 +141,50 @@ export class ServiceManager {
 
   static async action(unit, action) {
     assertUnit(unit);
-    if (!["start", "stop", "restart", "reload", "enable", "disable"].includes(action)) throw httpError(400, "Unknown action");
+    if (
+      !["start", "stop", "restart", "reload", "enable", "disable"].includes(
+        action,
+      )
+    )
+      throw httpError(400, "Unknown action");
     if (PROTECTED.has(unit) && ["stop", "restart", "disable"].includes(action))
-      throw httpError(400, `${unit} keeps the server reachable — ${action} it from an SSH session if you really need to`);
+      throw httpError(
+        400,
+        `${unit} keeps the server reachable — ${action} it from an SSH session if you really need to`,
+      );
     if (unit === panelUnit()) {
-      if (action !== "restart") throw httpError(400, "That is this panel — it can only be restarted here");
+      if (action !== "restart")
+        throw httpError(
+          400,
+          "That is this panel — it can only be restarted here",
+        );
       // Answer first: the restart stops this very process
       setTimeout(() => run("systemctl", ["--no-block", "restart", unit]), 500);
       return { success: true, restarting: true };
     }
-    const args = action === "enable" ? ["enable", unit] : action === "disable" ? ["disable", unit] : [action, unit];
+    const args =
+      action === "enable"
+        ? ["enable", unit]
+        : action === "disable"
+          ? ["disable", unit]
+          : [action, unit];
     const r = await run("systemctl", args, { timeout: 120000 });
-    if (r.code !== 0) throw httpError(500, (r.stderr || r.stdout).trim() || `systemctl ${action} ${unit} failed`);
+    if (r.code !== 0)
+      throw httpError(
+        500,
+        (r.stderr || r.stdout).trim() || `systemctl ${action} ${unit} failed`,
+      );
     return { success: true };
   }
 
   static async logs(unit, lines = 200) {
     assertUnit(unit);
     const n = String(Math.min(Math.max(parseInt(lines) || 200, 10), 2000));
-    const r = await run("journalctl", ["-u", unit, "-n", n, "--no-pager", "-o", "short-iso"], { timeout: 20000 });
+    const r = await run(
+      "journalctl",
+      ["-u", unit, "-n", n, "--no-pager", "-o", "short-iso"],
+      { timeout: 20000 },
+    );
     return { unit, lines: r.stdout.split("\n").filter(Boolean) };
   }
 }
