@@ -21,24 +21,38 @@ router.get("/composer", async (req, res) => {
 
 // POST /api/v1/php/composer/install — Install (or reinstall) Composer
 router.post("/composer/install", (req, res) => {
-  const job = JobRunner.start("Install Composer", ComposerManager.installScript(), {
-    env: toolEnv(),
-  });
+  const job = JobRunner.start(
+    "Install Composer",
+    ComposerManager.installScript(),
+    {
+      env: toolEnv(),
+    },
+  );
   res.json({ jobId: job.id });
 });
 
 // POST /api/v1/php/composer/self-update — Update Composer to the latest release
 router.post("/composer/self-update", (req, res) => {
-  const job = JobRunner.start("Update Composer", ComposerManager.selfUpdateScript(), {
-    env: toolEnv(),
-  });
+  const job = JobRunner.start(
+    "Update Composer",
+    ComposerManager.selfUpdateScript(),
+    {
+      env: toolEnv(),
+    },
+  );
   res.json({ jobId: job.id });
 });
 
 // POST /api/v1/php/composer/run — { dir, version, command, packageName, flags: [] }
 router.post("/composer/run", (req, res) => {
   const { dir, version, command, packageName, flags } = req.body;
-  const script = ComposerManager.runScript({ dir, version, command, packageName, flags });
+  const script = ComposerManager.runScript({
+    dir,
+    version,
+    command,
+    packageName,
+    flags,
+  });
   const job = JobRunner.start(`composer ${command} in ${dir}`, script, {
     env: toolEnv(),
   });

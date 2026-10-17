@@ -10,9 +10,25 @@ const PACKAGE =
 
 // Commands offered in the dashboard and the flags each one accepts
 export const COMPOSER_COMMANDS = {
-  install: ["--no-dev", "--optimize-autoloader", "--no-scripts", "--ignore-platform-reqs"],
-  update: ["--no-dev", "--optimize-autoloader", "--with-all-dependencies", "--no-scripts", "--ignore-platform-reqs"],
-  require: ["--dev", "--no-update", "--with-all-dependencies", "--ignore-platform-reqs"],
+  install: [
+    "--no-dev",
+    "--optimize-autoloader",
+    "--no-scripts",
+    "--ignore-platform-reqs",
+  ],
+  update: [
+    "--no-dev",
+    "--optimize-autoloader",
+    "--with-all-dependencies",
+    "--no-scripts",
+    "--ignore-platform-reqs",
+  ],
+  require: [
+    "--dev",
+    "--no-update",
+    "--with-all-dependencies",
+    "--ignore-platform-reqs",
+  ],
   remove: ["--dev", "--no-update"],
   "dump-autoload": ["--optimize", "--no-dev"],
   validate: [],
@@ -24,7 +40,8 @@ const PACKAGE_COMMANDS = new Set(["require", "remove"]);
  * PHP CLI binary for a version (php8.3), or the default `php`.
  */
 export function phpBinary(version) {
-  if (version && VERSION.test(version) && existsSync(`/usr/bin/php${version}`)) return `/usr/bin/php${version}`;
+  if (version && VERSION.test(version) && existsSync(`/usr/bin/php${version}`))
+    return `/usr/bin/php${version}`;
   return null;
 }
 
@@ -61,7 +78,9 @@ export class ComposerManager {
     return {
       installed: true,
       path,
-      version: (text.match(/Composer (?:version )?(\d+\.\d+\.\d+\S*)/) || [])[1] || null,
+      version:
+        (text.match(/Composer (?:version )?(\d+\.\d+\.\d+\S*)/) || [])[1] ||
+        null,
       phpVersion: (text.match(/PHP version (\d+\.\d+\.\d+)/) || [])[1] || null,
       commands: COMPOSER_COMMANDS,
     };
@@ -108,8 +127,13 @@ composer --version --no-ansi
   static runScript({ dir, version, command, packageName, flags = [] }) {
     const folder = assertSitePath(dir, "Project folder");
     if (!existsSync(folder)) throw httpError(404, `${folder} does not exist`);
-    if (!COMPOSER_COMMANDS[command]) throw httpError(400, `Unsupported composer command "${command}"`);
-    if (command !== "require" && command !== "diagnose" && !existsSync(join(folder, "composer.json")))
+    if (!COMPOSER_COMMANDS[command])
+      throw httpError(400, `Unsupported composer command "${command}"`);
+    if (
+      command !== "require" &&
+      command !== "diagnose" &&
+      !existsSync(join(folder, "composer.json"))
+    )
       throw httpError(400, `${folder} has no composer.json`);
     const args = [command];
     if (PACKAGE_COMMANDS.has(command)) {
@@ -117,11 +141,15 @@ composer --version --no-ansi
         .split(/\s+/)
         .filter(Boolean);
       if (!pkgs.length || !pkgs.every((p) => PACKAGE.test(p)))
-        throw httpError(400, "Enter a package like vendor/package or vendor/package:^2.0");
+        throw httpError(
+          400,
+          "Enter a package like vendor/package or vendor/package:^2.0",
+        );
       args.push(...pkgs);
     }
     for (const flag of Array.isArray(flags) ? flags : []) {
-      if (!COMPOSER_COMMANDS[command].includes(flag)) throw httpError(400, `Flag ${flag} is not allowed for ${command}`);
+      if (!COMPOSER_COMMANDS[command].includes(flag))
+        throw httpError(400, `Flag ${flag} is not allowed for ${command}`);
       args.push(flag);
     }
     let php = "php";
