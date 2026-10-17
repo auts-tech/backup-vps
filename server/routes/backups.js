@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { BackupEngine } from "../services/backup-engine.js";
+import { getSite } from "../services/site-manager.js";
+import { httpError } from "../lib/config.js";
 
 const router = Router();
 
@@ -51,26 +53,18 @@ router.post("/trigger-vps", async (req, res) => {
   }
 });
 
-// POST /api/v1/backups/restore — Restore a backup
-router.post("/restore", async (req, res) => {
-  try {
-    const { projectId, backupDate, restoreDb, restoreFiles, restoreEnv } =
-      req.body;
-    if (!projectId || !backupDate) {
-      return res
-        .status(400)
-        .json({ error: "projectId and backupDate are required" });
-    }
-
-    const result = await BackupEngine.restoreBackup(projectId, backupDate, {
-      restoreDb,
-      restoreFiles,
-      restoreEnv,
-    });
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+// POST /api/v1/backups/restore — { projectId, backupDate, restoreDb, restoreFiles, restoreEnv } → { jobId }
+router.post("/restore", (req, res) => {
+  const { projectId, backupDate, restoreDb, restoreFiles, restoreEnv } =
+    req.body;
+  if (!projectId || !backupDate)
+    throw httpError(400, "projectId and backupDate are required");
+  const job = BackupEngine.restoreJob(getSite(projectId), backupDate, {
+    restoreDb,
+    restoreFiles,
+    restoreEnv,
+  });
+  res.json({ jobId: job.id });
 });
 
 // GET /api/v1/backups/status — Current backup status

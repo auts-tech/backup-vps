@@ -1,126 +1,51 @@
 import { Router } from "express";
+import { httpError } from "../lib/config.js";
+import { getSite } from "../services/site-manager.js";
 import { DeployEngine } from "../services/deploy-engine.js";
+import { ProcessManager } from "../services/process-manager.js";
 
+/**
+ * Older deploy API kept for scripts and CI jobs that still call it.
+ * New integrations: POST /api/v1/sites/:id/deploy, or a push webhook.
+ */
 const router = Router();
 
-// POST /api/v1/deploy/clone — Clone a repo
-router.post("/clone", async (req, res) => {
+function siteFromBody(req) {
+  if (!req.body.projectId) throw httpError(400, "projectId is required");
+  return getSite(req.body.projectId);
+}
+
+// POST /api/v1/deploy/pull — { projectId } Full deployment: pull, build, restart → { jobId }
+router.post("/pull", (req, res) => {
+  const site = siteFromBody(req);
   try {
-    const { gitUrl, branch, deployPath, name, type, description, port } =
-      req.body;
-    if (!gitUrl || !deployPath) {
-      return res
-        .status(400)
-        .json({ error: "gitUrl and deployPath are required" });
-    }
-    const result = await DeployEngine.cloneRepo(gitUrl, branch, deployPath, {
-      name,
-      type,
-      description,
-      port,
-    });
-    if (!result.success) return res.status(409).json({ error: result.error });
-    res.json(result);
+    res.json({ success: true, ...DeployEngine.deploy(site, { trigger: "api" }) });
   } catch (err) {
-    res.status(err.status || 500).json({ error: err.message });
+    if (err.jobId) return res.status(409).json({ success: false, error: err.message, jobId: err.jobId });
+    throw err;
   }
 });
 
-// POST /api/v1/deploy/pull — Pull latest changes
-router.post("/pull", async (req, res) => {
-  try {
-    const { projectId } = req.body;
-    if (!projectId)
-      return res.status(400).json({ error: "projectId is required" });
+// POST /api/v1/deploy/start|stop|restart — { projectId }
+for (const action of ["start", "stop", "restart"]) {
+  router.post(`/${action}`, async (req, res) => {
+    res.json(await ProcessManager.control(siteFromBody(req), action));
+  });
+}
 
-    const config = DeployEngine.getConfig();
-    const project = config.projects.find((p) => p.id === projectId);
-    if (!project) return res.status(404).json({ error: "Project not found" });
-
-    const result = await DeployEngine.pullLatest(
-      project.deployPath,
-      project.branch,
-    );
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/v1/deploy/configure — Install deps + build
-router.post("/configure", async (req, res) => {
-  try {
-    const { projectId, envVars } = req.body;
-    if (!projectId)
-      return res.status(400).json({ error: "projectId is required" });
-
-    const result = await DeployEngine.configure(projectId, envVars || {});
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/v1/deploy/start — Start a project
-router.post("/start", async (req, res) => {
-  try {
-    const { projectId } = req.body;
-    if (!projectId)
-      return res.status(400).json({ error: "projectId is required" });
-
-    const result = await DeployEngine.start(projectId);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/v1/deploy/stop — Stop a project
-router.post("/stop", async (req, res) => {
-  try {
-    const { projectId } = req.body;
-    if (!projectId)
-      return res.status(400).json({ error: "projectId is required" });
-
-    const result = await DeployEngine.stop(projectId);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/v1/deploy/restart — Restart a project
-router.post("/restart", async (req, res) => {
-  try {
-    const { projectId } = req.body;
-    if (!projectId)
-      return res.status(400).json({ error: "projectId is required" });
-
-    const result = await DeployEngine.restart(projectId);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/v1/deploy/status/:id — Project runtime status
+// GET /api/v1/deploy/status/:id — PM2 status of one project
 router.get("/status/:id", async (req, res) => {
-  try {
-    const result = await DeployEngine.getStatus(req.params.id);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  res.json(await ProcessManager.status(getSite(req.params.id).name));
 });
 
-// GET /api/v1/deploy/status — All project statuses
+// GET /api/v1/deploy/status — PM2 status of every app
 router.get("/status", async (req, res) => {
-  try {
-    const statuses = await DeployEngine.getAllStatuses();
-    res.json({ statuses });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  res.json({ statuses: [...(await ProcessManager.list()).values()] });
+});
+
+// Clone/configure became part of website setup
+router.post(["/clone", "/configure"], () => {
+  throw httpError(410, "Create websites with POST /api/v1/sites — it clones, builds and starts in one job");
 });
 
 export default router;

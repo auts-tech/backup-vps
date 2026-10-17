@@ -165,26 +165,15 @@ router.post("/sites/:name/ssl", (req, res) => {
   const email = (req.body.email || defaultSslEmail()).trim();
   if (email && !EMAIL.test(email))
     throw httpError(400, "Invalid email address");
-  const emailArgs = email
-    ? `-m '${email}'`
-    : "--register-unsafely-without-email";
-  const redirect = req.body.redirect === false ? "--no-redirect" : "--redirect";
 
   const job = JobRunner.start(
     `SSL certificate for ${domains.join(", ")}`,
-    `
-if ! command -v certbot >/dev/null 2>&1; then
-  echo "Installing certbot..."
-  apt_get update
-  apt_get install certbot python3-certbot-nginx
-fi
-ufw_allow 'Nginx Full'
-echo "Requesting certificate for: ${domains.join(" ")}"
-echo "(Each domain's DNS A record must already point to this server.)"
-certbot --nginx --non-interactive --agree-tos ${emailArgs} ${redirect} --cert-name '${req.params.name}' ${domains.map((d) => `-d '${d}'`).join(" ")}
-echo ""
-echo "HTTPS is active. Certificates renew automatically (certbot timer)."
-`,
+    NginxManager.sslScript({
+      name: req.params.name,
+      domains,
+      email,
+      redirect: req.body.redirect !== false,
+    }),
   );
   res.json({ jobId: job.id });
 });
