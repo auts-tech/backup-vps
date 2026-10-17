@@ -3,14 +3,24 @@ import {
   readFileSync,
   writeFileSync,
   mkdirSync,
+  mkdtempSync,
   rmSync,
 } from "fs";
-import { join, dirname } from "path";
+import { join, dirname, basename } from "path";
+import { tmpdir } from "os";
 import { randomBytes, createHmac, timingSafeEqual } from "crypto";
 import { DATA_DIR, getConfig, httpError } from "../lib/config.js";
 import { run, toolEnv, serviceCtl, which } from "../lib/shell.js";
-import { assertGitUrl, maskGitUrl } from "../lib/validate.js";
-import { STACKS, normalizeStack, hasCommands } from "../lib/stacks.js";
+import { assertGitUrl, assertBranch, maskGitUrl } from "../lib/validate.js";
+import {
+  STACKS,
+  normalizeStack,
+  hasCommands,
+  detectStack,
+  defaultDeployScript,
+  defaultStartCommand,
+  suggestWebRoot,
+} from "../lib/stacks.js";
 import { JobRunner } from "./job-runner.js";
 import { ProcessManager } from "./process-manager.js";
 import { ComposerManager, phpShimDir } from "./composer-manager.js";
@@ -133,6 +143,53 @@ export class DeployEngine {
       .sort();
     const def = (head.stdout.match(/^ref: refs\/heads\/(\S+)\s+HEAD/m) || [])[1] || null;
     return { branches, defaultBranch: def || (branches.includes("main") ? "main" : branches[0] || "main") };
+  }
+
+  /**
+   * Shallow-clone a repository into a temp folder and suggest website
+   * settings (stack, build/start commands, web root, PHP version) from it.
+   */
+  static async inspectRepository(url, branch) {
+    const repo = assertGitUrl(url);
+    const { branches, defaultBranch } = await DeployEngine.remoteBranches(repo);
+    const ref = branch ? assertBranch(branch) : defaultBranch;
+    if (branches.length && !branches.includes(ref))
+      throw httpError(400, `Branch "${ref}" does not exist. Branches: ${branches.slice(0, 15).join(", ")}`);
+    const repoName = basename(repo.replace(/[/:]+$/, "")).replace(/\.git$/, "");
+    if (!branches.length) return { branches, defaultBranch, branch: ref, repoName, empty: true };
+
+    const dir = mkdtempSync(join(tmpdir(), "vps-panel-inspect-"));
+    try {
+      const r = await git(null, ["clone", "--depth", "1", "--single-branch", "--branch", ref, "--", repo, dir], { timeout: 180000 });
+      if (r.code !== 0) throw httpError(400, explainGitError(r.stderr || r.stdout));
+      const read = (f) => {
+        try {
+          return JSON.parse(readFileSync(join(dir, f), "utf-8"));
+        } catch {
+          return null;
+        }
+      };
+      const stack = detectStack(dir);
+      const composer = read("composer.json");
+      const pkg = read("package.json");
+      const last = await git(dir, ["log", "-1", COMMIT_FORMAT]);
+      return {
+        branches,
+        defaultBranch,
+        branch: ref,
+        repoName,
+        stack,
+        deployScript: defaultDeployScript(stack, dir, { database: stack === "laravel" }),
+        startCommand: defaultStartCommand(stack, dir),
+        webRoot: suggestWebRoot(stack, dir),
+        phpConstraint: composer?.require?.php || null,
+        nodeEngine: pkg?.engines?.node || null,
+        hasEnvExample: existsSync(join(dir, ".env.example")),
+        commit: parseCommit(last.stdout.trim()),
+      };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   }
 
   // ── History ────────────────────────────────────────────────
