@@ -5,14 +5,13 @@ import {
   readFileSync,
   writeFileSync,
   rmSync,
-  copyFileSync,
 } from "fs";
 import { join, dirname } from "path";
 import { createServer } from "net";
 import { randomBytes } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { getConfig, updateConfig, httpError } from "../lib/config.js";
-import { run, which, shq, JOB_PREAMBLE } from "../lib/shell.js";
+import { run, which, shq } from "../lib/shell.js";
 import {
   assertSiteName,
   assertSitePath,
@@ -207,6 +206,15 @@ async function databaseExists(name) {
     const [rows] = await c.query("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?", [name]);
     return rows.length > 0;
   });
+}
+
+/**
+ * Create a database plus a user with all privileges on it. The password is
+ * always (re)set: CREATE USER IF NOT EXISTS keeps the old one of a leftover user.
+ */
+async function createDatabaseWithUser(db) {
+  await MysqlManager.createDatabase({ name: db.name, user: db.user, password: db.password });
+  await MysqlManager.setPassword(db.user, "localhost", db.password);
 }
 
 async function uniqueDbNames(siteName) {
@@ -702,7 +710,7 @@ export class SiteManager {
         when: () => !!plan.db,
         run: async (ctx) => {
           if (await databaseExists(plan.db.name)) return ctx.log(`Database ${plan.db.name} already exists — keeping it.`);
-          await MysqlManager.createDatabase({ name: plan.db.name, user: plan.db.user, password: plan.db.password });
+          await createDatabaseWithUser(plan.db);
           ctx.log(`Created database ${plan.db.name} and user ${plan.db.user}@localhost (all privileges on it).`);
         },
       },
@@ -1258,7 +1266,7 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
     if (!MysqlManager.getCreds()) throw httpError(409, "Connect the database server first (Databases page)");
     const names = await uniqueDbNames(site.name);
     const db = { ...names, password: randomPassword() };
-    await MysqlManager.createDatabase({ name: db.name, user: db.user, password: db.password });
+    await createDatabaseWithUser(db);
     saveSite(id, (p) => ({ ...p, database: { type: "mysql", ...db } }));
     let envUpdated = false;
     if (writeEnv && ENV_STACKS.has(site.type) && site.deployPath && existsSync(site.deployPath)) {
@@ -1402,5 +1410,3 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
     }
   }
 }
-
-export { JOB_PREAMBLE };
