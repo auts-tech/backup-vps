@@ -143,12 +143,16 @@ export class JobRunner {
       get cancelled() {
         return !!job.cancelled;
       },
-      log: (text) => JobRunner._append(job, text.endsWith("\n") ? text : `${text}\n`),
+      log: (text) =>
+        JobRunner._append(job, text.endsWith("\n") ? text : `${text}\n`),
       sh: (script, opts = {}) =>
         JobRunner._spawn(
           job,
           "bash",
-          ["-c", opts.preamble === false ? script : `${JOB_PREAMBLE}\n${script}`],
+          [
+            "-c",
+            opts.preamble === false ? script : `${JOB_PREAMBLE}\n${script}`,
+          ],
           { env: { ...env, ...opts.env }, cwd: opts.cwd },
         ),
       exec: (cmd, args, opts = {}) =>
@@ -184,7 +188,9 @@ export class JobRunner {
             const code = await ctx.sh(step.script, step);
             if (code !== 0)
               throw new Error(
-                job.cancelled ? "Cancelled" : `Command failed (exit code ${code})`,
+                job.cancelled
+                  ? "Cancelled"
+                  : `Command failed (exit code ${code})`,
               );
           } else {
             await step.run(ctx);
@@ -249,7 +255,10 @@ export class JobRunner {
   static output(id) {
     const job = JobRunner.jobs.get(id);
     if (!job) return "";
-    return (job.dropped ? `[… ${job.dropped} earlier characters trimmed]\n` : "") + job.output;
+    return (
+      (job.dropped ? `[… ${job.dropped} earlier characters trimmed]\n` : "") +
+      job.output
+    );
   }
 
   static list() {
@@ -272,7 +281,8 @@ export class JobRunner {
   static findRunning(match) {
     for (const job of JobRunner.jobs.values()) {
       if (job.status !== "running") continue;
-      if (Object.entries(match).every(([k, v]) => job.meta?.[k] === v)) return job;
+      if (Object.entries(match).every(([k, v]) => job.meta?.[k] === v))
+        return job;
     }
     return null;
   }
