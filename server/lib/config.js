@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, renameSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -13,8 +13,14 @@ export function getConfig() {
   return JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
 }
 
+/**
+ * Write via a temp file + rename so a crash never leaves a half-written
+ * config.json. Mode 0600: it holds database passwords and webhook secrets.
+ */
 export function saveConfig(config) {
-  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+  const tmp = `${CONFIG_PATH}.tmp-${process.pid}`;
+  writeFileSync(tmp, JSON.stringify(config, null, 2), { mode: 0o600 });
+  renameSync(tmp, CONFIG_PATH);
 }
 
 /**

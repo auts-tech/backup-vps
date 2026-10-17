@@ -14,6 +14,42 @@ export function cleanEnv(extra = {}) {
 }
 
 /**
+ * Environment for build tools (git, npm, composer, pm2) run by the panel:
+ * systemd starts the panel without HOME and with a short PATH, and nothing
+ * may ever wait for an interactive prompt.
+ */
+export function toolEnv(extra = {}) {
+  const path = [
+    ...(process.env.PATH || "").split(":"),
+    "/usr/local/sbin",
+    "/usr/local/bin",
+    "/usr/sbin",
+    "/usr/bin",
+    "/sbin",
+    "/bin",
+  ].filter(Boolean);
+  return {
+    HOME: process.env.HOME || "/root",
+    PATH: [...new Set(path)].join(":"),
+    GIT_TERMINAL_PROMPT: "0",
+    GIT_SSH_COMMAND:
+      "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20",
+    COMPOSER_ALLOW_SUPERUSER: "1",
+    COMPOSER_NO_INTERACTION: "1",
+    NPM_CONFIG_UPDATE_NOTIFIER: "false",
+    NPM_CONFIG_FUND: "false",
+    ...extra,
+  };
+}
+
+/**
+ * Quote a value for safe use inside a bash script.
+ */
+export function shq(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
+}
+
+/**
  * Run a binary with an argument array (no shell interpolation).
  * Always resolves with { code, stdout, stderr } — never rejects on non-zero exit.
  */
@@ -89,6 +125,7 @@ export function bash(script, opts = {}) {
 export async function which(bin) {
   const { code, stdout } = await run("sh", ["-c", `command -v ${bin}`], {
     timeout: 5000,
+    env: { PATH: toolEnv().PATH },
   });
   return code === 0 ? stdout.trim() : null;
 }
