@@ -17,7 +17,8 @@ import { httpError } from "../lib/config.js";
 
 // Overridable for development machines without a system nginx
 export const NGINX_DIR = process.env.PANEL_NGINX_DIR || "/etc/nginx";
-export const NGINX_LOG_DIR = process.env.PANEL_NGINX_LOG_DIR || "/var/log/nginx";
+export const NGINX_LOG_DIR =
+  process.env.PANEL_NGINX_LOG_DIR || "/var/log/nginx";
 export const SITES_AVAILABLE = join(NGINX_DIR, "sites-available");
 export const SITES_ENABLED = join(NGINX_DIR, "sites-enabled");
 const UPGRADE_MAP_FILE = join(NGINX_DIR, "conf.d", "vps-panel-websocket.conf");
@@ -670,7 +671,9 @@ export class NginxManager {
     try {
       const text = NginxManager.readSite(name).replace(/#.*$/gm, "");
       const directive = type === "access" ? "access_log" : "error_log";
-      const m = text.match(new RegExp(`^\\s*${directive}\\s+(\\/[^\\s;]+)`, "m"));
+      const m = text.match(
+        new RegExp(`^\\s*${directive}\\s+(\\/[^\\s;]+)`, "m"),
+      );
       if (m && m[1] !== "off") return m[1];
     } catch {}
     return `${NGINX_LOG_DIR}/${name}.${type === "access" ? "access" : "error"}.log`;
@@ -717,7 +720,8 @@ export class NginxManager {
     const list = normalizeDomains(domains);
     const text = NginxManager.readSite(name);
     const re = /^(\s*)server_name\s+[^;]+;/gm;
-    if (!re.test(text)) throw httpError(400, "This site has no server_name directive to update");
+    if (!re.test(text))
+      throw httpError(400, "This site has no server_name directive to update");
     const updated = text.replace(re, `$1server_name ${list.join(" ")};`);
     return NginxManager.writeSite(name, updated);
   }
@@ -726,19 +730,26 @@ export class NginxManager {
    * Change the upload limit (client_max_body_size) of a site.
    */
   static async setMaxBodySize(name, size) {
-    if (!/^\d+[kKmMgG]?$/.test(size || "")) throw httpError(400, "Upload limit must look like 64M, 512K or 1G");
+    if (!/^\d+[kKmMgG]?$/.test(size || ""))
+      throw httpError(400, "Upload limit must look like 64M, 512K or 1G");
     const text = NginxManager.readSite(name);
     const re = /^(\s*)client_max_body_size\s+[^;]+;/gm;
     const updated = re.test(text)
       ? text.replace(re, `$1client_max_body_size ${size};`)
-      : text.replace(/^(\s*)server_name\s+[^;]+;/gm, (m, indent) => `${m}\n${indent}client_max_body_size ${size};`);
+      : text.replace(
+          /^(\s*)server_name\s+[^;]+;/gm,
+          (m, indent) => `${m}\n${indent}client_max_body_size ${size};`,
+        );
     return NginxManager.writeSite(name, updated);
   }
 
   static maxBodySize(name) {
     try {
       const text = NginxManager.readSite(name).replace(/#.*$/gm, "");
-      return (text.match(/^\s*client_max_body_size\s+([^;]+);/m) || [])[1]?.trim() || "1M";
+      return (
+        (text.match(/^\s*client_max_body_size\s+([^;]+);/m) || [])[1]?.trim() ||
+        "1M"
+      );
     } catch {
       return null;
     }
@@ -750,10 +761,19 @@ export class NginxManager {
    */
   static sslScript({ name, domains, email, redirect = true }) {
     assertSiteName(name);
-    const list = normalizeDomains(domains).filter((d) => d !== "_" && !d.startsWith("*."));
-    if (!list.length) throw httpError(400, "Add a domain to this website before enabling HTTPS");
-    if (email && !/^[^\s@'"]+@[^\s@'"]+\.[^\s@'"]+$/.test(email)) throw httpError(400, "Invalid email address");
-    const emailArgs = email ? `-m '${email}'` : "--register-unsafely-without-email";
+    const list = normalizeDomains(domains).filter(
+      (d) => d !== "_" && !d.startsWith("*."),
+    );
+    if (!list.length)
+      throw httpError(
+        400,
+        "Add a domain to this website before enabling HTTPS",
+      );
+    if (email && !/^[^\s@'"]+@[^\s@'"]+\.[^\s@'"]+$/.test(email))
+      throw httpError(400, "Invalid email address");
+    const emailArgs = email
+      ? `-m '${email}'`
+      : "--register-unsafely-without-email";
     return `
 if ! command -v certbot >/dev/null 2>&1; then
   echo "Installing certbot..."
@@ -771,8 +791,13 @@ echo "HTTPS is active. Certificates renew automatically (certbot timer)."
 
   static async deleteCertificate(name) {
     assertSiteName(name);
-    if (!existsSync(join(LE_LIVE, name))) return { success: true, skipped: true };
-    const r = await run("certbot", ["delete", "--non-interactive", "--cert-name", name], { timeout: 60000 });
+    if (!existsSync(join(LE_LIVE, name)))
+      return { success: true, skipped: true };
+    const r = await run(
+      "certbot",
+      ["delete", "--non-interactive", "--cert-name", name],
+      { timeout: 60000 },
+    );
     if (r.code !== 0) throw httpError(500, (r.stderr || r.stdout).trim());
     return { success: true };
   }
