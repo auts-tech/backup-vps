@@ -1,55 +1,72 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VPS Hosting Panel</title>
-  <meta name="description" content="Multi-project VPS deployment and backup management dashboard">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/styles.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2309090b%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><rect x=%222%22 y=%222%22 width=%2220%22 height=%228%22 rx=%222%22 ry=%222%22/><rect x=%222%22 y=%2214%22 width=%2220%22 height=%228%22 rx=%222%22 ry=%222%22/><line x1=%226%22 y1=%226%22 x2=%226.01%22 y2=%226%22/><line x1=%226%22 y1=%2218%22 x2=%226.01%22 y2=%2218%22/></svg>">
-</head>
-<body>
-  <!-- App root — login screen or app shell rendered here by app.js -->
-  <div id="app-root">
-    <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg-primary);">
-      <div class="spinner spinner-lg"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VPS Hosting Panel</title>
+    <meta
+      name="description"
+      content="Multi-project VPS deployment and backup management dashboard"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2309090b%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><rect x=%222%22 y=%222%22 width=%2220%22 height=%228%22 rx=%222%22 ry=%222%22/><rect x=%222%22 y=%2214%22 width=%2220%22 height=%228%22 rx=%222%22 ry=%222%22/><line x1=%226%22 y1=%226%22 x2=%226.01%22 y2=%226%22/><line x1=%226%22 y1=%2218%22 x2=%226.01%22 y2=%2218%22/></svg>"
+    />
+  </head>
+  <body>
+    <!-- App root — login screen or app shell rendered here by app.js -->
+    <div id="app-root">
+      <div
+        style="
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          background: var(--bg-primary);
+        "
+      >
+        <div class="spinner spinner-lg"></div>
+      </div>
     </div>
-  </div>
 
-  <!-- Vector Icons Library -->
-  <script src="/js/icons.js"></script>
+    <!-- Vector Icons Library -->
+    <script src="/js/icons.js"></script>
 
-  <!-- Components -->
-  <script src="/js/components/toast.js"></script>
-  <script src="/js/components/modal.js"></script>
-  <script src="/js/components/job-console.js"></script>
-  <script src="/js/components/code-editor.js"></script>
-  <script src="/js/components/updater.js"></script>
+    <!-- Components -->
+    <script src="/js/components/toast.js"></script>
+    <script src="/js/components/modal.js"></script>
+    <script src="/js/components/job-console.js"></script>
+    <script src="/js/components/code-editor.js"></script>
+    <script src="/js/components/updater.js"></script>
 
-  <!-- API Layer -->
-  <script src="/js/api.js"></script>
+    <!-- API Layer -->
+    <script src="/js/api.js"></script>
 
-  <!-- Pages -->
-  <script src="/js/pages/dashboard.js"></script>
-  <script src="/js/pages/websites.js"></script>
-  <script src="/js/pages/files.js"></script>
-  <script src="/js/pages/databases.js"></script>
-  <script src="/js/pages/php.js"></script>
-  <script src="/js/pages/mail.js"></script>
-  <script src="/js/pages/terminal.js"></script>
-  <script src="/js/pages/ports.js"></script>
-  <script src="/js/pages/projects.js"></script>
-  <script src="/js/pages/backups.js"></script>
-  <script src="/js/pages/deploy.js"></script>
-  <script src="/js/pages/cron.js"></script>
-  <script src="/js/pages/monitor.js"></script>
-  <script src="/js/pages/logs.js"></script>
-  <script src="/js/pages/settings.js"></script>
+    <!-- Pages -->
+    <script src="/js/pages/dashboard.js"></script>
+    <script src="/js/pages/websites.js"></script>
+    <script src="/js/pages/files.js"></script>
+    <script src="/js/pages/databases.js"></script>
+    <script src="/js/pages/php.js"></script>
+    <script src="/js/pages/mail.js"></script>
+    <script src="/js/pages/terminal.js"></script>
+    <script src="/js/pages/ports.js"></script>
+    <script src="/js/pages/projects.js"></script>
+    <script src="/js/pages/backups.js"></script>
+    <script src="/js/pages/deploy.js"></script>
+    <script src="/js/pages/cron.js"></script>
+    <script src="/js/pages/monitor.js"></script>
+    <script src="/js/pages/logs.js"></script>
+    <script src="/js/pages/settings.js"></script>
 
-  <!-- Main App Controller (must load last) -->
-  <script src="/js/app.js"></script>
-</body>
+    <!-- Main App Controller (must load last) -->
+    <script src="/js/app.js"></script>
+  </body>
 </html>

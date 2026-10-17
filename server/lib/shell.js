@@ -1,8 +1,8 @@
-import { spawn } from 'child_process';
-import { existsSync } from 'fs';
+import { spawn } from "child_process";
+import { existsSync } from "fs";
 
 // Secrets from .env that must never leak into shells, jobs, or cron commands
-const PRIVATE_ENV_KEYS = ['ADMIN_EMAIL', 'ADMIN_PASSWORD', 'SESSION_SECRET'];
+const PRIVATE_ENV_KEYS = ["ADMIN_EMAIL", "ADMIN_PASSWORD", "SESSION_SECRET"];
 
 /**
  * Copy of process.env without the panel's own secrets.
@@ -19,8 +19,8 @@ export function cleanEnv(extra = {}) {
  */
 export function run(cmd, args = [], { input, timeout = 60000, env, cwd } = {}) {
   return new Promise((resolve) => {
-    let stdout = '';
-    let stderr = '';
+    let stdout = "";
+    let stderr = "";
     let settled = false;
     const finish = (code) => {
       if (settled) return;
@@ -33,19 +33,28 @@ export function run(cmd, args = [], { input, timeout = 60000, env, cwd } = {}) {
     try {
       child = spawn(cmd, args, { cwd, env: cleanEnv(env) });
     } catch (err) {
-      resolve({ code: -1, stdout: '', stderr: err.message });
+      resolve({ code: -1, stdout: "", stderr: err.message });
       return;
     }
 
-    const timer = timeout ? setTimeout(() => {
-      stderr += `\nTimed out after ${Math.round(timeout / 1000)}s`;
-      child.kill('SIGKILL');
-    }, timeout) : null;
+    const timer = timeout
+      ? setTimeout(() => {
+          stderr += `\nTimed out after ${Math.round(timeout / 1000)}s`;
+          child.kill("SIGKILL");
+        }, timeout)
+      : null;
 
-    child.stdout.on('data', d => { stdout += d; });
-    child.stderr.on('data', d => { stderr += d; });
-    child.on('error', err => { stderr += err.message; finish(-1); });
-    child.on('close', code => finish(code));
+    child.stdout.on("data", (d) => {
+      stdout += d;
+    });
+    child.stderr.on("data", (d) => {
+      stderr += d;
+    });
+    child.on("error", (err) => {
+      stderr += err.message;
+      finish(-1);
+    });
+    child.on("close", (code) => finish(code));
 
     if (input !== undefined) child.stdin.end(input);
     else child.stdin.end();
@@ -58,7 +67,11 @@ export function run(cmd, args = [], { input, timeout = 60000, env, cwd } = {}) {
 export async function runOrThrow(cmd, args = [], opts = {}) {
   const result = await run(cmd, args, opts);
   if (result.code !== 0) {
-    const msg = (result.stderr || result.stdout || `${cmd} exited with code ${result.code}`).trim();
+    const msg = (
+      result.stderr ||
+      result.stdout ||
+      `${cmd} exited with code ${result.code}`
+    ).trim();
     const err = new Error(msg);
     err.result = result;
     throw err;
@@ -70,20 +83,22 @@ export async function runOrThrow(cmd, args = [], opts = {}) {
  * Run a trusted bash script (only ever built from validated values).
  */
 export function bash(script, opts = {}) {
-  return run('bash', ['-c', script], opts);
+  return run("bash", ["-c", script], opts);
 }
 
 export async function which(bin) {
-  const { code, stdout } = await run('sh', ['-c', `command -v ${bin}`], { timeout: 5000 });
+  const { code, stdout } = await run("sh", ["-c", `command -v ${bin}`], {
+    timeout: 5000,
+  });
   return code === 0 ? stdout.trim() : null;
 }
 
 export function hasSystemd() {
-  return existsSync('/run/systemd/system');
+  return existsSync("/run/systemd/system");
 }
 
 export function isDebianLike() {
-  return existsSync('/etc/debian_version');
+  return existsSync("/etc/debian_version");
 }
 
 /**
@@ -92,18 +107,23 @@ export function isDebianLike() {
  */
 export function serviceCtl(action, name) {
   if (hasSystemd()) {
-    const args = action === 'enable' ? ['enable', '--now', name] : [action, name];
-    return run('systemctl', args, { timeout: 120000 });
+    const args =
+      action === "enable" ? ["enable", "--now", name] : [action, name];
+    return run("systemctl", args, { timeout: 120000 });
   }
-  return run('service', [name, action === 'enable' ? 'start' : action], { timeout: 120000 });
+  return run("service", [name, action === "enable" ? "start" : action], {
+    timeout: 120000,
+  });
 }
 
 export async function serviceActive(name) {
   if (hasSystemd()) {
-    const { stdout } = await run('systemctl', ['is-active', name], { timeout: 10000 });
-    return stdout.trim() === 'active';
+    const { stdout } = await run("systemctl", ["is-active", name], {
+      timeout: 10000,
+    });
+    return stdout.trim() === "active";
   }
-  const { code } = await run('service', [name, 'status'], { timeout: 10000 });
+  const { code } = await run("service", [name, "status"], { timeout: 10000 });
   return code === 0;
 }
 

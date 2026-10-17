@@ -1,52 +1,63 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, chmodSync } from 'fs';
-import { join } from 'path';
-import net from 'net';
-import { Resolver } from 'dns/promises';
-import { DATA_DIR, httpError } from '../lib/config.js';
-import { run, which } from '../lib/shell.js';
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  readdirSync,
+  chmodSync,
+} from "fs";
+import { join } from "path";
+import net from "net";
+import { Resolver } from "dns/promises";
+import { DATA_DIR, httpError } from "../lib/config.js";
+import { run, which } from "../lib/shell.js";
 
 /**
  * Email hosting on top of docker-mailserver (Postfix + Dovecot + Rspamd + Fail2ban)
  * with optional Roundcube webmail. Accounts and aliases are managed through the
  * container's `setup` CLI; state is read from the mounted config files.
  */
-export const MAIL_DIR = '/opt/vps-mail';
-const CONFIG_DIR = join(MAIL_DIR, 'docker-data', 'dms', 'config');
-const SETTINGS_FILE = join(DATA_DIR, 'mail.json');
-const CONTAINER = 'mailserver';
-const WEBMAIL_CONTAINER = 'roundcube';
+export const MAIL_DIR = "/opt/vps-mail";
+const CONFIG_DIR = join(MAIL_DIR, "docker-data", "dms", "config");
+const SETTINGS_FILE = join(DATA_DIR, "mail.json");
+const CONTAINER = "mailserver";
+const WEBMAIL_CONTAINER = "roundcube";
 const WEBMAIL_PORT = 8025;
-const MAIL_NET = { subnet: '172.30.53.0/24', mailserver: '172.30.53.10' };
+const MAIL_NET = { subnet: "172.30.53.0/24", mailserver: "172.30.53.10" };
 
 const EMAIL = /^[A-Za-z0-9._%+-]{1,64}@([A-Za-z0-9-]{1,63}\.)+[A-Za-z]{2,63}$/;
 const DOMAIN = /^([A-Za-z0-9-]{1,63}\.)+[A-Za-z]{2,63}$/;
 
-export function assertEmail(e, field = 'email') {
-  if (!EMAIL.test(e || '')) throw httpError(400, `Invalid ${field} "${e}"`);
+export function assertEmail(e, field = "email") {
+  if (!EMAIL.test(e || "")) throw httpError(400, `Invalid ${field} "${e}"`);
   return e.toLowerCase();
 }
 export function assertDomain(d) {
-  if (!DOMAIN.test(d || '')) throw httpError(400, `Invalid domain "${d}"`);
+  if (!DOMAIN.test(d || "")) throw httpError(400, `Invalid domain "${d}"`);
   return d.toLowerCase();
 }
 function assertPassword(p) {
-  if (!p || p.length < 8) throw httpError(400, 'Password must be at least 8 characters');
-  if (/[\r\n]/.test(p)) throw httpError(400, 'Password cannot contain line breaks');
+  if (!p || p.length < 8)
+    throw httpError(400, "Password must be at least 8 characters");
+  if (/[\r\n]/.test(p))
+    throw httpError(400, "Password cannot contain line breaks");
 }
 
 function readLines(file) {
   try {
-    return readFileSync(file, 'utf-8').split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    return readFileSync(file, "utf-8")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith("#"));
   } catch {
     return [];
   }
 }
 
 export class MailManager {
-
   static settings() {
     try {
-      return JSON.parse(readFileSync(SETTINGS_FILE, 'utf-8'));
+      return JSON.parse(readFileSync(SETTINGS_FILE, "utf-8"));
     } catch {
       return null;
     }
@@ -57,71 +68,109 @@ export class MailManager {
   }
 
   static async containerState(name) {
-    const r = await run('docker', ['inspect', '-f', '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}', name], { timeout: 10000 });
+    const r = await run(
+      "docker",
+      [
+        "inspect",
+        "-f",
+        "{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}",
+        name,
+      ],
+      { timeout: 10000 },
+    );
     if (r.code !== 0) return null;
-    const [status, health] = r.stdout.trim().split('|');
+    const [status, health] = r.stdout.trim().split("|");
     return { status, health: health || null };
   }
 
   static async status() {
-    const docker = await which('docker');
+    const docker = await which("docker");
     const settings = MailManager.settings();
     const result = { docker: !!docker, settings, installed: false };
     if (!docker) return result;
-    const [mail, webmail] = await Promise.all([MailManager.containerState(CONTAINER), MailManager.containerState(WEBMAIL_CONTAINER)]);
-    result.installed = !!mail && existsSync(join(MAIL_DIR, 'compose.yaml'));
+    const [mail, webmail] = await Promise.all([
+      MailManager.containerState(CONTAINER),
+      MailManager.containerState(WEBMAIL_CONTAINER),
+    ]);
+    result.installed = !!mail && existsSync(join(MAIL_DIR, "compose.yaml"));
     result.container = mail;
     result.webmail = webmail;
     return result;
   }
 
   static async exec(args, { timeout = 60000 } = {}) {
-    const r = await run('docker', ['exec', CONTAINER, ...args], { timeout });
-    const out = (r.stdout + r.stderr).replace(/\x1b\[[0-9;]*m/g, '');
+    const r = await run("docker", ["exec", CONTAINER, ...args], { timeout });
+    const out = (r.stdout + r.stderr).replace(/\x1b\[[0-9;]*m/g, "");
     if (r.code !== 0 || /\bERROR\b/.test(out)) {
-      const msg = out.split('\n').filter(l => /ERROR/.test(l)).map(l => l.replace(/^.*ERROR\s+[\w-]+:\s*/, '')).join(' ') || out.trim();
-      throw httpError(400, msg || 'Mail server command failed');
+      const msg =
+        out
+          .split("\n")
+          .filter((l) => /ERROR/.test(l))
+          .map((l) => l.replace(/^.*ERROR\s+[\w-]+:\s*/, ""))
+          .join(" ") || out.trim();
+      throw httpError(400, msg || "Mail server command failed");
     }
     return out;
   }
 
   static async assertRunning() {
     const state = await MailManager.containerState(CONTAINER);
-    if (!state || state.status !== 'running') throw httpError(409, 'The mail server container is not running');
+    if (!state || state.status !== "running")
+      throw httpError(409, "The mail server container is not running");
   }
 
   // ── Accounts & aliases ─────────────────────────────────────
 
   static async accounts() {
-    const quotas = new Map(readLines(join(CONFIG_DIR, 'dovecot-quotas.cf')).map(l => l.split(':')));
+    const quotas = new Map(
+      readLines(join(CONFIG_DIR, "dovecot-quotas.cf")).map((l) => l.split(":")),
+    );
     const usage = new Map();
     try {
-      const out = await MailManager.exec(['doveadm', '-f', 'tab', 'quota', 'get', '-A'], { timeout: 20000 });
-      for (const line of out.split('\n')) {
-        const [user, , type, value, limit] = line.split('\t');
-        if (type === 'STORAGE') usage.set(user, { usedKb: parseInt(value) || 0, limitKb: parseInt(limit) || null });
+      const out = await MailManager.exec(
+        ["doveadm", "-f", "tab", "quota", "get", "-A"],
+        { timeout: 20000 },
+      );
+      for (const line of out.split("\n")) {
+        const [user, , type, value, limit] = line.split("\t");
+        if (type === "STORAGE")
+          usage.set(user, {
+            usedKb: parseInt(value) || 0,
+            limitKb: parseInt(limit) || null,
+          });
       }
-    } catch { }
+    } catch {}
     const aliases = MailManager.aliases();
 
-    return readLines(join(CONFIG_DIR, 'postfix-accounts.cf')).map(line => {
-      const email = line.split('|')[0];
-      const u = usage.get(email);
-      return {
-        email,
-        domain: email.split('@')[1],
-        quota: quotas.get(email) || null,
-        usedBytes: u ? u.usedKb * 1024 : null,
-        limitBytes: u?.limitKb ? u.limitKb * 1024 : null,
-        aliases: aliases.filter(a => a.targets.includes(email)).map(a => a.alias)
-      };
-    }).sort((a, b) => a.email.localeCompare(b.email));
+    return readLines(join(CONFIG_DIR, "postfix-accounts.cf"))
+      .map((line) => {
+        const email = line.split("|")[0];
+        const u = usage.get(email);
+        return {
+          email,
+          domain: email.split("@")[1],
+          quota: quotas.get(email) || null,
+          usedBytes: u ? u.usedKb * 1024 : null,
+          limitBytes: u?.limitKb ? u.limitKb * 1024 : null,
+          aliases: aliases
+            .filter((a) => a.targets.includes(email))
+            .map((a) => a.alias),
+        };
+      })
+      .sort((a, b) => a.email.localeCompare(b.email));
   }
 
   static aliases() {
-    return readLines(join(CONFIG_DIR, 'postfix-virtual.cf')).map(line => {
+    return readLines(join(CONFIG_DIR, "postfix-virtual.cf")).map((line) => {
       const [alias, ...rest] = line.split(/\s+/);
-      return { alias, targets: rest.join(' ').split(',').map(t => t.trim()).filter(Boolean) };
+      return {
+        alias,
+        targets: rest
+          .join(" ")
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+      };
     });
   }
 
@@ -129,11 +178,13 @@ export class MailManager {
     email = assertEmail(email);
     assertPassword(password);
     await MailManager.assertRunning();
-    await MailManager.exec(['setup', 'email', 'add', email, password]);
+    await MailManager.exec(["setup", "email", "add", email, password]);
     // New domain? Give it a DKIM key so its mail is signed from the start
-    const domain = email.split('@')[1];
+    const domain = email.split("@")[1];
     if (!MailManager.dkimRecord(domain)) {
-      try { await MailManager.generateDkim(domain); } catch { }
+      try {
+        await MailManager.generateDkim(domain);
+      } catch {}
     }
     return { success: true };
   }
@@ -141,38 +192,48 @@ export class MailManager {
   static async setPassword(email, password) {
     email = assertEmail(email);
     assertPassword(password);
-    await MailManager.exec(['setup', 'email', 'update', email, password]);
+    await MailManager.exec(["setup", "email", "update", email, password]);
     return { success: true };
   }
 
   static async deleteAccount(email) {
     email = assertEmail(email);
-    await MailManager.exec(['setup', 'email', 'del', '-y', email]);
+    await MailManager.exec(["setup", "email", "del", "-y", email]);
     return { success: true };
   }
 
   static async setQuota(email, quota) {
     email = assertEmail(email);
-    if (!quota || quota === '0') {
-      await MailManager.exec(['setup', 'quota', 'del', email]);
+    if (!quota || quota === "0") {
+      await MailManager.exec(["setup", "quota", "del", email]);
     } else {
-      if (!/^\d+[KMGT]?$/i.test(quota)) throw httpError(400, 'Quota must look like 500M or 2G (0 for unlimited)');
-      await MailManager.exec(['setup', 'quota', 'set', email, quota.toUpperCase()]);
+      if (!/^\d+[KMGT]?$/i.test(quota))
+        throw httpError(
+          400,
+          "Quota must look like 500M or 2G (0 for unlimited)",
+        );
+      await MailManager.exec([
+        "setup",
+        "quota",
+        "set",
+        email,
+        quota.toUpperCase(),
+      ]);
     }
     return { success: true };
   }
 
   static async addAlias(alias, target) {
-    alias = assertEmail(alias, 'alias');
-    target = assertEmail(target, 'destination');
-    await MailManager.exec(['setup', 'alias', 'add', alias, target]);
+    alias = assertEmail(alias, "alias");
+    target = assertEmail(target, "destination");
+    await MailManager.exec(["setup", "alias", "add", alias, target]);
     return { success: true };
   }
 
   static async deleteAlias(alias, target) {
-    alias = assertEmail(alias, 'alias');
-    target = assertEmail(target, 'destination');
-    await MailManager.exec(['setup', 'alias', 'del', alias, target]);
+    alias = assertEmail(alias, "alias");
+    target = assertEmail(target, "destination");
+    await MailManager.exec(["setup", "alias", "del", alias, target]);
     return { success: true };
   }
 
@@ -180,23 +241,38 @@ export class MailManager {
     const set = new Set();
     const s = MailManager.settings();
     if (s?.domain) set.add(s.domain);
-    readLines(join(CONFIG_DIR, 'postfix-accounts.cf')).forEach(l => set.add(l.split('|')[0].split('@')[1]));
-    MailManager.aliases().forEach(a => set.add(a.alias.split('@')[1]));
+    readLines(join(CONFIG_DIR, "postfix-accounts.cf")).forEach((l) =>
+      set.add(l.split("|")[0].split("@")[1]),
+    );
+    MailManager.aliases().forEach((a) => set.add(a.alias.split("@")[1]));
     return [...set].filter(Boolean).sort();
   }
 
   // ── DKIM ───────────────────────────────────────────────────
 
   static dkimRecord(domain) {
-    const file = join(CONFIG_DIR, 'rspamd', 'dkim', `rsa-2048-mail-${domain}.public.dns.txt`);
-    return existsSync(file) ? readFileSync(file, 'utf-8').trim() : null;
+    const file = join(
+      CONFIG_DIR,
+      "rspamd",
+      "dkim",
+      `rsa-2048-mail-${domain}.public.dns.txt`,
+    );
+    return existsSync(file) ? readFileSync(file, "utf-8").trim() : null;
   }
 
   static async generateDkim(domain) {
     domain = assertDomain(domain);
     await MailManager.assertRunning();
     if (!MailManager.dkimRecord(domain)) {
-      await MailManager.exec(['setup', 'config', 'dkim', 'keysize', '2048', 'domain', domain]);
+      await MailManager.exec([
+        "setup",
+        "config",
+        "dkim",
+        "keysize",
+        "2048",
+        "domain",
+        domain,
+      ]);
     }
     await MailManager.writeDkimSigningConfig();
     return { success: true, record: MailManager.dkimRecord(domain) };
@@ -207,13 +283,18 @@ export class MailManager {
    * Rebuild it so every domain with a key is signed, then reload rspamd.
    */
   static async writeDkimSigningConfig() {
-    const dkimDir = join(CONFIG_DIR, 'rspamd', 'dkim');
+    const dkimDir = join(CONFIG_DIR, "rspamd", "dkim");
     if (!existsSync(dkimDir)) return;
     const domains = readdirSync(dkimDir)
-      .map(f => f.match(/^rsa-2048-mail-(.+)\.private\.txt$/))
+      .map((f) => f.match(/^rsa-2048-mail-(.+)\.private\.txt$/))
       .filter(Boolean)
-      .map(m => m[1]);
-    const blocks = domains.map(d => `    ${d} {\n        path = "/tmp/docker-mailserver/rspamd/dkim/rsa-2048-mail-${d}.private.txt";\n        selector = "mail";\n    }`).join('\n');
+      .map((m) => m[1]);
+    const blocks = domains
+      .map(
+        (d) =>
+          `    ${d} {\n        path = "/tmp/docker-mailserver/rspamd/dkim/rsa-2048-mail-${d}.private.txt";\n        selector = "mail";\n    }`,
+      )
+      .join("\n");
     const conf = `# Managed by VPS Panel — regenerated whenever a DKIM key is added
 # documentation: https://rspamd.com/doc/modules/dkim_signing.html
 
@@ -234,29 +315,33 @@ domain {
 ${blocks}
 }
 `;
-    const overrideDir = join(CONFIG_DIR, 'rspamd', 'override.d');
+    const overrideDir = join(CONFIG_DIR, "rspamd", "override.d");
     mkdirSync(overrideDir, { recursive: true });
-    writeFileSync(join(overrideDir, 'dkim_signing.conf'), conf);
-    await run('docker', ['exec', CONTAINER, 'supervisorctl', 'restart', 'rspamd'], { timeout: 60000 });
+    writeFileSync(join(overrideDir, "dkim_signing.conf"), conf);
+    await run(
+      "docker",
+      ["exec", CONTAINER, "supervisorctl", "restart", "rspamd"],
+      { timeout: 60000 },
+    );
   }
 
   // ── Server checks & DNS ────────────────────────────────────
 
   static resolver() {
     const r = new Resolver({ timeout: 4000, tries: 2 });
-    r.setServers(['1.1.1.1', '8.8.8.8']);
+    r.setServers(["1.1.1.1", "8.8.8.8"]);
     return r;
   }
 
   static async publicIp() {
-    for (const url of ['https://api.ipify.org', 'https://ifconfig.me/ip']) {
+    for (const url of ["https://api.ipify.org", "https://ifconfig.me/ip"]) {
       try {
         const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
         const ip = (await res.text()).trim();
         if (/^\d+\.\d+\.\d+\.\d+$/.test(ip)) return ip;
-      } catch { }
+      } catch {}
     }
-    const { stdout } = await run('hostname', ['-I'], { timeout: 5000 });
+    const { stdout } = await run("hostname", ["-I"], { timeout: 5000 });
     return stdout.trim().split(/\s+/)[0] || null;
   }
 
@@ -265,18 +350,27 @@ ${blocks}
    */
   static checkPort25() {
     return new Promise((resolve) => {
-      const socket = net.connect({ host: 'gmail-smtp-in.l.google.com', port: 25 });
-      let banner = '';
+      const socket = net.connect({
+        host: "gmail-smtp-in.l.google.com",
+        port: 25,
+      });
+      let banner = "";
       const finish = (open, detail) => {
         socket.destroy();
         resolve({ open, detail });
       };
-      socket.setTimeout(8000, () => finish(false, 'Timed out — outbound port 25 is probably blocked by your provider'));
-      socket.on('data', d => {
+      socket.setTimeout(8000, () =>
+        finish(
+          false,
+          "Timed out — outbound port 25 is probably blocked by your provider",
+        ),
+      );
+      socket.on("data", (d) => {
         banner += d;
-        if (banner.startsWith('220')) finish(true, 'Connected to Gmail on port 25');
+        if (banner.startsWith("220"))
+          finish(true, "Connected to Gmail on port 25");
       });
-      socket.on('error', err => finish(false, err.message));
+      socket.on("error", (err) => finish(false, err.message));
     });
   }
 
@@ -287,18 +381,36 @@ ${blocks}
     const [port25, ptr, port25Local] = await Promise.all([
       MailManager.checkPort25(),
       ip ? resolver.reverse(ip).catch(() => []) : [],
-      run('sh', ['-c', "ss -ltnp '( sport = :25 )' 2>/dev/null | tail -n +2"], { timeout: 5000 })
+      run("sh", ["-c", "ss -ltnp '( sport = :25 )' 2>/dev/null | tail -n +2"], {
+        timeout: 5000,
+      }),
     ]);
     const mem = (() => {
-      try { return parseInt(readFileSync('/proc/meminfo', 'utf-8').match(/MemTotal:\s+(\d+)/)[1]) * 1024; } catch { return null; }
+      try {
+        return (
+          parseInt(
+            readFileSync("/proc/meminfo", "utf-8").match(
+              /MemTotal:\s+(\d+)/,
+            )[1],
+          ) * 1024
+        );
+      } catch {
+        return null;
+      }
     })();
     return {
       ip,
       port25,
-      ptr: { values: ptr, ok: !!settings?.hostname && ptr.includes(settings.hostname) },
-      port25InUse: port25Local.stdout.trim() && !port25Local.stdout.includes('docker') ? port25Local.stdout.trim() : null,
+      ptr: {
+        values: ptr,
+        ok: !!settings?.hostname && ptr.includes(settings.hostname),
+      },
+      port25InUse:
+        port25Local.stdout.trim() && !port25Local.stdout.includes("docker")
+          ? port25Local.stdout.trim()
+          : null,
       memory: mem,
-      docker: !!(await which('docker'))
+      docker: !!(await which("docker")),
     };
   }
 
@@ -308,7 +420,8 @@ ${blocks}
     const hostname = settings?.hostname || `mail.${domain}`;
     const ip = await MailManager.publicIp();
     const r = MailManager.resolver();
-    const txt = async (name) => (await r.resolveTxt(name).catch(() => [])).map(parts => parts.join(''));
+    const txt = async (name) =>
+      (await r.resolveTxt(name).catch(() => [])).map((parts) => parts.join(""));
 
     const [mx, a, spfTxt, dkimTxt, dmarcTxt, ptr] = await Promise.all([
       r.resolveMx(domain).catch(() => []),
@@ -316,28 +429,75 @@ ${blocks}
       txt(domain),
       txt(`mail._domainkey.${domain}`),
       txt(`_dmarc.${domain}`),
-      ip ? r.reverse(ip).catch(() => []) : []
+      ip ? r.reverse(ip).catch(() => []) : [],
     ]);
 
     const dkim = MailManager.dkimRecord(domain);
     const dkimKey = dkim ? (dkim.match(/p=([A-Za-z0-9+/=]+)/) || [])[1] : null;
-    const liveSpf = spfTxt.find(t => t.startsWith('v=spf1')) || null;
-    const liveDkim = dkimTxt.find(t => t.includes('v=DKIM1')) || null;
-    const liveDmarc = dmarcTxt.find(t => t.startsWith('v=DMARC1')) || null;
+    const liveSpf = spfTxt.find((t) => t.startsWith("v=spf1")) || null;
+    const liveDkim = dkimTxt.find((t) => t.includes("v=DKIM1")) || null;
+    const liveDmarc = dmarcTxt.find((t) => t.startsWith("v=DMARC1")) || null;
 
     return {
       domain,
       hostname,
       ip,
       records: [
-        { type: 'A', name: hostname, value: ip || '<server IP>', live: a.join(', ') || null, ok: !!ip && a.includes(ip) },
-        { type: 'MX', name: domain, value: `10 ${hostname}`, live: mx.map(m => `${m.priority} ${m.exchange}`).join(', ') || null, ok: mx.some(m => m.exchange.toLowerCase() === hostname) },
-        { type: 'TXT', name: domain, value: 'v=spf1 mx ~all', live: liveSpf, ok: !!liveSpf && (/\bmx\b/.test(liveSpf) || (ip && liveSpf.includes(ip)) || liveSpf.includes(hostname)), note: 'SPF — only one v=spf1 record allowed per domain' },
-        { type: 'TXT', name: `mail._domainkey.${domain}`, value: dkim || 'Generate the DKIM key first', live: liveDkim, ok: !!liveDkim && !!dkimKey && liveDkim.replace(/\s/g, '').includes(dkimKey), note: 'DKIM signature key' },
-        { type: 'TXT', name: `_dmarc.${domain}`, value: `v=DMARC1; p=quarantine; rua=mailto:postmaster@${domain}`, live: liveDmarc, ok: !!liveDmarc, note: 'DMARC policy' },
-        { type: 'PTR', name: ip || '<server IP>', value: hostname, live: ptr.join(', ') || null, ok: ptr.includes(hostname), note: 'Reverse DNS — set this in your VPS provider\'s control panel, not at your DNS host' }
+        {
+          type: "A",
+          name: hostname,
+          value: ip || "<server IP>",
+          live: a.join(", ") || null,
+          ok: !!ip && a.includes(ip),
+        },
+        {
+          type: "MX",
+          name: domain,
+          value: `10 ${hostname}`,
+          live: mx.map((m) => `${m.priority} ${m.exchange}`).join(", ") || null,
+          ok: mx.some((m) => m.exchange.toLowerCase() === hostname),
+        },
+        {
+          type: "TXT",
+          name: domain,
+          value: "v=spf1 mx ~all",
+          live: liveSpf,
+          ok:
+            !!liveSpf &&
+            (/\bmx\b/.test(liveSpf) ||
+              (ip && liveSpf.includes(ip)) ||
+              liveSpf.includes(hostname)),
+          note: "SPF — only one v=spf1 record allowed per domain",
+        },
+        {
+          type: "TXT",
+          name: `mail._domainkey.${domain}`,
+          value: dkim || "Generate the DKIM key first",
+          live: liveDkim,
+          ok:
+            !!liveDkim &&
+            !!dkimKey &&
+            liveDkim.replace(/\s/g, "").includes(dkimKey),
+          note: "DKIM signature key",
+        },
+        {
+          type: "TXT",
+          name: `_dmarc.${domain}`,
+          value: `v=DMARC1; p=quarantine; rua=mailto:postmaster@${domain}`,
+          live: liveDmarc,
+          ok: !!liveDmarc,
+          note: "DMARC policy",
+        },
+        {
+          type: "PTR",
+          name: ip || "<server IP>",
+          value: hostname,
+          live: ptr.join(", ") || null,
+          ok: ptr.includes(hostname),
+          note: "Reverse DNS — set this in your VPS provider's control panel, not at your DNS host",
+        },
       ],
-      dkimGenerated: !!dkim
+      dkimGenerated: !!dkim,
     };
   }
 
@@ -348,7 +508,7 @@ ${blocks}
    */
   static writeStack({ hostname, domain, webmail, timezone }) {
     mkdirSync(CONFIG_DIR, { recursive: true });
-    const tz = /^[A-Za-z_+\-/0-9]+$/.test(timezone || '') ? timezone : 'UTC';
+    const tz = /^[A-Za-z_+\-/0-9]+$/.test(timezone || "") ? timezone : "UTC";
 
     const env = `# Managed by VPS Panel — docker-mailserver settings
 # Reference: https://docker-mailserver.github.io/docker-mailserver/latest/config/environment/
@@ -382,7 +542,8 @@ ENABLE_MANAGESIEVE=1
 POSTFIX_MESSAGE_SIZE_LIMIT=52428800
 `;
 
-    const webmailService = webmail ? `
+    const webmailService = webmail
+      ? `
   roundcube:
     image: roundcube/roundcubemail:latest
     container_name: ${WEBMAIL_CONTAINER}
@@ -406,7 +567,8 @@ POSTFIX_MESSAGE_SIZE_LIMIT=52428800
       ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE: 25M
     networks:
       - mail
-` : '';
+`
+      : "";
 
     const compose = `# Managed by VPS Panel — email hosting stack
 services:
@@ -445,9 +607,9 @@ networks:
       config:
         - subnet: ${MAIL_NET.subnet}
 `;
-    writeFileSync(join(MAIL_DIR, 'mailserver.env'), env);
-    writeFileSync(join(MAIL_DIR, 'compose.yaml'), compose);
-    chmodSync(join(MAIL_DIR, 'mailserver.env'), 0o600);
+    writeFileSync(join(MAIL_DIR, "mailserver.env"), env);
+    writeFileSync(join(MAIL_DIR, "compose.yaml"), compose);
+    chmodSync(join(MAIL_DIR, "mailserver.env"), 0o600);
   }
 
   static installScript({ hostname, domain, email, firstMailbox }) {
@@ -508,14 +670,24 @@ echo "Mail server is running. Next: add the DNS records shown on the Email page.
   }
 
   static async control(action) {
-    if (!['start', 'stop', 'restart'].includes(action)) throw httpError(400, 'Invalid action');
-    const r = await run('docker', ['compose', action], { cwd: MAIL_DIR, timeout: 180000 });
+    if (!["start", "stop", "restart"].includes(action))
+      throw httpError(400, "Invalid action");
+    const r = await run("docker", ["compose", action], {
+      cwd: MAIL_DIR,
+      timeout: 180000,
+    });
     if (r.code !== 0) throw httpError(500, (r.stderr || r.stdout).trim());
     return { success: true };
   }
 
   static async logs() {
-    const r = await run('docker', ['logs', '--tail', '300', CONTAINER], { timeout: 20000 });
-    return (r.stdout + r.stderr).replace(/\x1b\[[0-9;]*m/g, '').split('\n').filter(Boolean).slice(-300);
+    const r = await run("docker", ["logs", "--tail", "300", CONTAINER], {
+      timeout: 20000,
+    });
+    return (r.stdout + r.stderr)
+      .replace(/\x1b\[[0-9;]*m/g, "")
+      .split("\n")
+      .filter(Boolean)
+      .slice(-300);
   }
 }

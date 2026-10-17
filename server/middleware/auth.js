@@ -1,12 +1,12 @@
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function getConfig() {
-  const configPath = join(__dirname, '..', 'data', 'config.json');
-  return JSON.parse(readFileSync(configPath, 'utf-8'));
+  const configPath = join(__dirname, "..", "data", "config.json");
+  return JSON.parse(readFileSync(configPath, "utf-8"));
 }
 
 /**
@@ -19,9 +19,9 @@ function getConfig() {
  */
 export function authMiddleware(req, res, next) {
   // 1. Check Bearer token from login session
-  const authHeader = req.headers['authorization'];
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.replace('Bearer ', '');
+  const authHeader = req.headers["authorization"];
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.replace("Bearer ", "");
     const sessions = req.activeSessions;
     if (sessions && sessions.has(token)) {
       const session = sessions.get(token);
@@ -53,16 +53,16 @@ export function authMiddleware(req, res, next) {
 
   // 3. Legacy: Check X-API-Key header or ?apiKey query param
   const config = getConfig();
-  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
+  const apiKey = req.headers["x-api-key"] || req.query.apiKey;
   if (apiKey && config.apiKey && apiKey === config.apiKey) {
-    req.user = { email: 'api-key-user' };
+    req.user = { email: "api-key-user" };
     return next();
   }
 
   // No valid auth found
   return res.status(401).json({
-    error: 'Authentication required',
-    message: 'Please login at the dashboard or provide a valid Bearer token'
+    error: "Authentication required",
+    message: "Please login at the dashboard or provide a valid Bearer token",
   });
 }
 

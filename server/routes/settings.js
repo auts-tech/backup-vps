@@ -1,21 +1,27 @@
-import { Router } from 'express';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { v4 as uuidv4 } from 'uuid';
-import { Notifier } from '../services/notifier.js';
+import { Router } from "express";
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  chmodSync,
+} from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { exec } from "child_process";
+import { promisify } from "util";
+import { v4 as uuidv4 } from "uuid";
+import { Notifier } from "../services/notifier.js";
 
 const execAsync = promisify(exec);
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const configPath = join(__dirname, '..', 'data', 'config.json');
-const projectRoot = join(__dirname, '..', '..');
+const configPath = join(__dirname, "..", "data", "config.json");
+const projectRoot = join(__dirname, "..", "..");
 
 const router = Router();
 
 function getConfig() {
-  return JSON.parse(readFileSync(configPath, 'utf-8'));
+  return JSON.parse(readFileSync(configPath, "utf-8"));
 }
 
 function saveConfig(config) {
@@ -30,7 +36,7 @@ function syncMsmtpConfig(smtp) {
 
   const content = `defaults
 auth           on
-tls            ${smtp.tls === false ? 'off' : 'on'}
+tls            ${smtp.tls === false ? "off" : "on"}
 tls_trust_file /etc/ssl/certs/ca-certificates.crt
 logfile        /var/log/msmtp.log
 
@@ -39,13 +45,13 @@ host           ${smtp.host}
 port           ${smtp.port || 587}
 from           ${smtp.from || smtp.user}
 user           ${smtp.user}
-password       ${smtp.password || ''}
+password       ${smtp.password || ""}
 `;
 
   const targets = [
-    join(projectRoot, 'msmtprc'),
-    '/root/.msmtprc',
-    process.env.HOME ? join(process.env.HOME, '.msmtprc') : null
+    join(projectRoot, "msmtprc"),
+    "/root/.msmtprc",
+    process.env.HOME ? join(process.env.HOME, ".msmtprc") : null,
   ].filter(Boolean);
 
   for (const target of targets) {
@@ -67,18 +73,18 @@ password       ${smtp.password || ''}
 function syncServiceAccount(saData) {
   if (!saData) return false;
 
-  let jsonStr = '';
-  if (typeof saData === 'string') {
+  let jsonStr = "";
+  if (typeof saData === "string") {
     // Validate JSON
     JSON.parse(saData);
     jsonStr = saData;
-  } else if (typeof saData === 'object') {
+  } else if (typeof saData === "object") {
     jsonStr = JSON.stringify(saData, null, 2);
   }
 
   const targets = [
-    join(projectRoot, 'service-account.json'),
-    '/root/.config/backup/service-account.json'
+    join(projectRoot, "service-account.json"),
+    "/root/.config/backup/service-account.json",
   ];
 
   for (const target of targets) {
@@ -98,18 +104,20 @@ function getExistingRcloneContent() {
   const file = getRcloneConfigFile();
   if (file) {
     try {
-      const text = readFileSync(file, 'utf-8');
+      const text = readFileSync(file, "utf-8");
       if (text && text.trim()) return text.trim();
     } catch {}
   }
-  return '';
+  return "";
 }
 
 function getRcloneConfigFile() {
   const candidates = [
-    join(projectRoot, 'rclone.conf'),
-    '/root/.config/rclone/rclone.conf',
-    process.env.HOME ? join(process.env.HOME, '.config', 'rclone', 'rclone.conf') : null
+    join(projectRoot, "rclone.conf"),
+    "/root/.config/rclone/rclone.conf",
+    process.env.HOME
+      ? join(process.env.HOME, ".config", "rclone", "rclone.conf")
+      : null,
   ].filter(Boolean);
 
   for (const c of candidates) {
@@ -120,7 +128,7 @@ function getRcloneConfigFile() {
 
 function getRcloneConfigFlag() {
   const f = getRcloneConfigFile();
-  return f ? `--config="${f}"` : '';
+  return f ? `--config="${f}"` : "";
 }
 
 /**
@@ -129,52 +137,60 @@ function getRcloneConfigFlag() {
 function syncRcloneConfig(gdrive) {
   if (!gdrive) return false;
 
-  let content = '';
+  let content = "";
 
   if (gdrive.rcloneRaw && gdrive.rcloneRaw.trim()) {
     // 1. Explicit raw rclone content (e.g. from UI editor)
     content = gdrive.rcloneRaw.trim();
   } else if (gdrive.token && gdrive.token.trim()) {
     // 2. Explicit OAuth token
-    const remoteName = gdrive.remoteName || 'gdrive-backup';
+    const remoteName = gdrive.remoteName || "gdrive-backup";
     content = `[${remoteName}]
 type = drive
 scope = drive
 token = ${gdrive.token.trim()}
-${gdrive.rootFolderId ? `root_folder_id = ${gdrive.rootFolderId.trim()}` : ''}
+${gdrive.rootFolderId ? `root_folder_id = ${gdrive.rootFolderId.trim()}` : ""}
 `;
   } else {
     // 3. Check existing rclone.conf on disk — if it has OAuth token, PRESERVE IT!
     const existing = getExistingRcloneContent();
-    if (existing && (existing.includes('token =') || existing.includes('refresh_token'))) {
+    if (
+      existing &&
+      (existing.includes("token =") || existing.includes("refresh_token"))
+    ) {
       content = existing;
       if (gdrive.rootFolderId) {
-        if (content.includes('root_folder_id =')) {
-          content = content.replace(/root_folder_id\s*=.*$/m, `root_folder_id = ${gdrive.rootFolderId.trim()}`);
+        if (content.includes("root_folder_id =")) {
+          content = content.replace(
+            /root_folder_id\s*=.*$/m,
+            `root_folder_id = ${gdrive.rootFolderId.trim()}`,
+          );
         } else {
           content += `\nroot_folder_id = ${gdrive.rootFolderId.trim()}\n`;
         }
       }
     } else {
       // 4. Default to service account
-      const remoteName = gdrive.remoteName || 'gdrive-backup';
-      const saPath = existsSync('/root/.config/backup/service-account.json')
-        ? '/root/.config/backup/service-account.json'
-        : join(projectRoot, 'service-account.json');
+      const remoteName = gdrive.remoteName || "gdrive-backup";
+      const saPath = existsSync("/root/.config/backup/service-account.json")
+        ? "/root/.config/backup/service-account.json"
+        : join(projectRoot, "service-account.json");
 
       content = `[${remoteName}]
 type = drive
 scope = drive
-${existsSync(saPath) ? `service_account_file = ${saPath}` : ''}
-${gdrive.rootFolderId ? `root_folder_id = ${gdrive.rootFolderId}` : ''}
+${existsSync(saPath) ? `service_account_file = ${saPath}` : ""}
+${gdrive.rootFolderId ? `root_folder_id = ${gdrive.rootFolderId}` : ""}
 `;
     }
   }
 
   const targets = [
-    join(projectRoot, 'rclone.conf'),
-    '/root/.config/rclone/rclone.conf',
-    process.env.HOME ? join(process.env.HOME, '.config', 'rclone', 'rclone.conf') : null
+    join(projectRoot, "rclone.conf"),
+    "/root/.config/rclone/rclone.conf",
+    process.env.HOME
+      ? join(process.env.HOME, ".config", "rclone", "rclone.conf")
+      : null,
   ].filter(Boolean);
 
   for (const target of targets) {
@@ -191,16 +207,18 @@ ${gdrive.rootFolderId ? `root_folder_id = ${gdrive.rootFolderId}` : ''}
 }
 
 // GET /api/v1/settings — Get current settings
-router.get('/', (req, res) => {
+router.get("/", (req, res) => {
   const config = getConfig();
 
   // Check if credentials exist on disk
-  const hasServiceAccount = existsSync(join(projectRoot, 'service-account.json')) ||
-    existsSync('/root/.config/backup/service-account.json');
-  const hasRcloneConf = existsSync(join(projectRoot, 'rclone.conf')) ||
-    existsSync('/root/.config/rclone/rclone.conf');
-  const hasMsmtprc = existsSync(join(projectRoot, 'msmtprc')) ||
-    existsSync('/root/.msmtprc');
+  const hasServiceAccount =
+    existsSync(join(projectRoot, "service-account.json")) ||
+    existsSync("/root/.config/backup/service-account.json");
+  const hasRcloneConf =
+    existsSync(join(projectRoot, "rclone.conf")) ||
+    existsSync("/root/.config/rclone/rclone.conf");
+  const hasMsmtprc =
+    existsSync(join(projectRoot, "msmtprc")) || existsSync("/root/.msmtprc");
 
   const existingRclone = getExistingRcloneContent();
   const smtp = config.notifications?.email?.smtp || {};
@@ -208,72 +226,91 @@ router.get('/', (req, res) => {
   const sanitized = {
     server: config.server,
     notifications: {
-      discord: config.notifications?.discord || { enabled: false, webhookUrl: '' },
+      discord: config.notifications?.discord || {
+        enabled: false,
+        webhookUrl: "",
+      },
       email: {
         enabled: config.notifications?.email?.enabled || false,
-        to: config.notifications?.email?.to || '',
-        from: config.notifications?.email?.from || '',
-        msmtpConfigured: hasMsmtprc || config.notifications?.email?.msmtpConfigured,
+        to: config.notifications?.email?.to || "",
+        from: config.notifications?.email?.from || "",
+        msmtpConfigured:
+          hasMsmtprc || config.notifications?.email?.msmtpConfigured,
         smtp: {
-          host: smtp.host || 'smtp.gmail.com',
+          host: smtp.host || "smtp.gmail.com",
           port: smtp.port || 587,
           tls: smtp.tls !== false,
-          user: smtp.user || '',
-          from: smtp.from || '',
-          hasPassword: !!smtp.password
-        }
-      }
+          user: smtp.user || "",
+          from: smtp.from || "",
+          hasPassword: !!smtp.password,
+        },
+      },
     },
     backup: {
       retentionDays: config.backup?.retentionDays || 30,
-      defaultTarget: config.backup?.defaultTarget || 'gdrive',
+      defaultTarget: config.backup?.defaultTarget || "gdrive",
       targets: {
         gdrive: {
           enabled: config.backup?.targets?.gdrive?.enabled !== false,
-          remoteName: config.backup?.targets?.gdrive?.remoteName || 'gdrive-backup',
-          basePath: config.backup?.targets?.gdrive?.basePath || 'backups',
-          rootFolderId: config.backup?.targets?.gdrive?.rootFolderId || '',
+          remoteName:
+            config.backup?.targets?.gdrive?.remoteName || "gdrive-backup",
+          basePath: config.backup?.targets?.gdrive?.basePath || "backups",
+          rootFolderId: config.backup?.targets?.gdrive?.rootFolderId || "",
           hasServiceAccount,
           hasRcloneConf,
           rcloneRaw: existingRclone,
-          isOAuth: existingRclone.includes('token =') || existingRclone.includes('refresh_token'),
-          authType: (existingRclone.includes('token =') || existingRclone.includes('refresh_token')) ? 'oauth' : (hasServiceAccount ? 'service_account' : 'none')
+          isOAuth:
+            existingRclone.includes("token =") ||
+            existingRclone.includes("refresh_token"),
+          authType:
+            existingRclone.includes("token =") ||
+            existingRclone.includes("refresh_token")
+              ? "oauth"
+              : hasServiceAccount
+                ? "service_account"
+                : "none",
         },
         s3: {
           enabled: config.backup?.targets?.s3?.enabled || false,
-          bucket: config.backup?.targets?.s3?.bucket || '',
-          region: config.backup?.targets?.s3?.region || '',
-          accessKey: config.backup?.targets?.s3?.accessKey || '',
+          bucket: config.backup?.targets?.s3?.bucket || "",
+          region: config.backup?.targets?.s3?.region || "",
+          accessKey: config.backup?.targets?.s3?.accessKey || "",
           hasSecretKey: !!config.backup?.targets?.s3?.secretKey,
-          basePath: config.backup?.targets?.s3?.basePath || 'backups'
+          basePath: config.backup?.targets?.s3?.basePath || "backups",
         },
         sftp: {
           enabled: config.backup?.targets?.sftp?.enabled || false,
-          host: config.backup?.targets?.sftp?.host || '',
+          host: config.backup?.targets?.sftp?.host || "",
           port: config.backup?.targets?.sftp?.port || 22,
-          user: config.backup?.targets?.sftp?.user || '',
-          basePath: config.backup?.targets?.sftp?.basePath || '/backups'
-        }
-      }
+          user: config.backup?.targets?.sftp?.user || "",
+          basePath: config.backup?.targets?.sftp?.basePath || "/backups",
+        },
+      },
     },
-    hasApiKey: !!config.apiKey
+    hasApiKey: !!config.apiKey,
   };
 
   res.json(sanitized);
 });
 
 // PUT /api/v1/settings — Update settings and auto-sync config files
-router.put('/', (req, res) => {
+router.put("/", (req, res) => {
   const config = getConfig();
   const updates = req.body;
 
   // Merge notifications & SMTP
   if (updates.notifications) {
     if (updates.notifications.discord) {
-      config.notifications.discord = { ...config.notifications.discord, ...updates.notifications.discord };
+      config.notifications.discord = {
+        ...config.notifications.discord,
+        ...updates.notifications.discord,
+      };
     }
     if (updates.notifications.email) {
-      config.notifications.email = { ...config.notifications.email, ...updates.notifications.email };
+      config.notifications.email = {
+        ...config.notifications.email,
+        ...updates.notifications.email,
+      };
 
       // Handle SMTP details and auto-sync msmtprc
       if (updates.notifications.email.smtp) {
@@ -307,7 +344,11 @@ router.put('/', (req, res) => {
         }
 
         // Retain secrets if not re-sent
-        if (key === 's3' && !val.secretKey && config.backup.targets.s3?.secretKey) {
+        if (
+          key === "s3" &&
+          !val.secretKey &&
+          config.backup.targets.s3?.secretKey
+        ) {
           val.secretKey = config.backup.targets.s3.secretKey;
         }
 
@@ -329,19 +370,26 @@ router.put('/', (req, res) => {
         syncRcloneConfig(config.backup.targets.gdrive);
       }
     } catch (err) {
-      return res.status(400).json({ error: `Invalid Service Account JSON: ${err.message}` });
+      return res
+        .status(400)
+        .json({ error: `Invalid Service Account JSON: ${err.message}` });
     }
   }
 
   saveConfig(config);
-  res.json({ success: true, message: 'Settings saved and server configurations applied dynamically.' });
+  res.json({
+    success: true,
+    message: "Settings saved and server configurations applied dynamically.",
+  });
 });
 
 // POST /api/v1/settings/service-account — Save Service Account directly
-router.post('/service-account', (req, res) => {
+router.post("/service-account", (req, res) => {
   const { serviceAccountJson } = req.body;
   if (!serviceAccountJson) {
-    return res.status(400).json({ error: 'Service Account JSON content is required' });
+    return res
+      .status(400)
+      .json({ error: "Service Account JSON content is required" });
   }
 
   try {
@@ -350,122 +398,147 @@ router.post('/service-account', (req, res) => {
     if (config.backup?.targets?.gdrive) {
       syncRcloneConfig(config.backup.targets.gdrive);
     }
-    res.json({ success: true, message: 'Service Account JSON saved and rclone configured successfully.' });
+    res.json({
+      success: true,
+      message: "Service Account JSON saved and rclone configured successfully.",
+    });
   } catch (err) {
     res.status(400).json({ error: `Invalid JSON: ${err.message}` });
   }
 });
 
 // POST /api/v1/settings/test-storage — Test Cloud Storage Connection (rclone/S3)
-router.post('/test-storage', async (req, res) => {
+router.post("/test-storage", async (req, res) => {
   const config = getConfig();
-  const target = req.body.target || config.backup.defaultTarget || 'gdrive';
+  const target = req.body.target || config.backup.defaultTarget || "gdrive";
 
-  if (target === 'gdrive') {
-    const remote = config.backup.targets?.gdrive?.remoteName || 'gdrive-backup';
+  if (target === "gdrive") {
+    const remote = config.backup.targets?.gdrive?.remoteName || "gdrive-backup";
     const cfgFlag = getRcloneConfigFlag();
     try {
       // Execute rclone lsd
-      const { stdout } = await execAsync(`rclone lsd "${remote}:" ${cfgFlag} --max-depth 1`, { timeout: 15000 });
+      const { stdout } = await execAsync(
+        `rclone lsd "${remote}:" ${cfgFlag} --max-depth 1`,
+        { timeout: 15000 },
+      );
       return res.json({
         success: true,
         message: `Successfully connected to Google Drive remote "${remote}"!`,
-        output: stdout.trim() || '(Remote connected, root folder accessible)'
+        output: stdout.trim() || "(Remote connected, root folder accessible)",
       });
     } catch (err) {
-      const stderr = err.stderr || err.message || '';
+      const stderr = err.stderr || err.message || "";
       let helpful = stderr;
-      if (stderr.includes('storageQuotaExceeded') || stderr.includes('Service Accounts do not have storage quota')) {
-        helpful = 'Google Drive Error 403: Service Accounts do not have storage quota on personal Google Drive folders. To fix: Switch to the OAuth Token tab and paste your personal account rclone.conf token.';
+      if (
+        stderr.includes("storageQuotaExceeded") ||
+        stderr.includes("Service Accounts do not have storage quota")
+      ) {
+        helpful =
+          "Google Drive Error 403: Service Accounts do not have storage quota on personal Google Drive folders. To fix: Switch to the OAuth Token tab and paste your personal account rclone.conf token.";
       }
       return res.status(400).json({
         success: false,
-        error: helpful
+        error: helpful,
       });
     }
   }
 
-  if (target === 's3') {
+  if (target === "s3") {
     const s3 = config.backup.targets?.s3;
     if (!s3?.bucket) {
-      return res.status(400).json({ error: 'S3 bucket name not configured' });
+      return res.status(400).json({ error: "S3 bucket name not configured" });
     }
-    return res.json({ success: true, message: `S3 target configured for bucket "${s3.bucket}".` });
+    return res.json({
+      success: true,
+      message: `S3 target configured for bucket "${s3.bucket}".`,
+    });
   }
 
   res.json({ success: true, message: `Target "${target}" configured.` });
 });
 
 // GET /api/v1/settings/system-check — Check system tools and dependencies
-router.get('/system-check', async (req, res) => {
-  const tools = ['node', 'rclone', 'msmtp', 'git', 'tar', 'gzip'];
+router.get("/system-check", async (req, res) => {
+  const tools = ["node", "rclone", "msmtp", "git", "tar", "gzip"];
   const results = {};
 
   for (const tool of tools) {
     try {
-      const { stdout } = await execAsync(`which ${tool} && ${tool} --version || true`);
+      const { stdout } = await execAsync(
+        `which ${tool} && ${tool} --version || true`,
+      );
       results[tool] = {
         installed: true,
-        version: stdout.split('\n')[0].trim()
+        version: stdout.split("\n")[0].trim(),
       };
     } catch {
-      results[tool] = { installed: false, version: 'Not installed' };
+      results[tool] = { installed: false, version: "Not installed" };
     }
   }
 
   // Check mysqldump
   try {
-    const { stdout } = await execAsync('mysqldump --version || mariadb-dump --version');
-    results.database = { installed: true, name: 'mysqldump', version: stdout.split('\n')[0].trim() };
+    const { stdout } = await execAsync(
+      "mysqldump --version || mariadb-dump --version",
+    );
+    results.database = {
+      installed: true,
+      name: "mysqldump",
+      version: stdout.split("\n")[0].trim(),
+    };
   } catch {
-    results.database = { installed: false, name: 'mysqldump', version: 'Not found (install mysql-client if backing up DB)' };
+    results.database = {
+      installed: false,
+      name: "mysqldump",
+      version: "Not found (install mysql-client if backing up DB)",
+    };
   }
 
   res.json({ tools: results });
 });
 
 // POST /api/v1/settings/test-notification — Test notifications
-router.post('/test-notification', async (req, res) => {
+router.post("/test-notification", async (req, res) => {
   const config = getConfig();
   const { type, emailTo, emailFrom } = req.body;
   const results = {};
 
-  if (type === 'discord' || type === 'all') {
+  if (type === "discord" || type === "all") {
     results.discord = await Notifier.sendDiscord(
       config.notifications.discord.webhookUrl,
       {
-        title: 'System Notification Test',
-        message: 'VPS Deploy & Backup Manager alert channels are connected and operational.',
-        color: 3447003
-      }
+        title: "System Notification Test",
+        message:
+          "VPS Deploy & Backup Manager alert channels are connected and operational.",
+        color: 3447003,
+      },
     );
   }
 
-  if (type === 'email' || type === 'all') {
+  if (type === "email" || type === "all") {
     const to = emailTo || config.notifications.email.to;
-    const from = emailFrom || config.notifications.email.from || config.notifications.email.smtp?.from;
-    results.email = await Notifier.sendEmail(
-      to,
-      from,
-      {
-        subject: 'VPS Backup Manager — System Notification Test',
-        body: 'This is a test notification from your VPS Deploy & Backup Manager.\n\nYour SMTP alert dispatch is working properly.'
-      }
-    );
+    const from =
+      emailFrom ||
+      config.notifications.email.from ||
+      config.notifications.email.smtp?.from;
+    results.email = await Notifier.sendEmail(to, from, {
+      subject: "VPS Backup Manager — System Notification Test",
+      body: "This is a test notification from your VPS Deploy & Backup Manager.\n\nYour SMTP alert dispatch is working properly.",
+    });
   }
 
   res.json({ results });
 });
 
 // POST /api/v1/settings/api-key — Generate or set API key
-router.post('/api-key', (req, res) => {
+router.post("/api-key", (req, res) => {
   const config = getConfig();
   const { apiKey } = req.body;
 
   config.apiKey = apiKey || uuidv4();
   saveConfig(config);
 
-  res.json({ apiKey: config.apiKey, message: 'API key updated' });
+  res.json({ apiKey: config.apiKey, message: "API key updated" });
 });
 
 export default router;

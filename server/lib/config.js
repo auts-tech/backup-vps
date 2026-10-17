@@ -1,16 +1,16 @@
-import { readFileSync, writeFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync, writeFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const SERVER_DIR = join(__dirname, '..');
-export const PROJECT_ROOT = join(SERVER_DIR, '..');
-export const DATA_DIR = join(SERVER_DIR, 'data');
-export const CONFIG_PATH = join(DATA_DIR, 'config.json');
+export const SERVER_DIR = join(__dirname, "..");
+export const PROJECT_ROOT = join(SERVER_DIR, "..");
+export const DATA_DIR = join(SERVER_DIR, "data");
+export const CONFIG_PATH = join(DATA_DIR, "config.json");
 
 export function getConfig() {
-  return JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'));
+  return JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
 }
 
 export function saveConfig(config) {

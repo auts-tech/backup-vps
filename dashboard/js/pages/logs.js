@@ -4,8 +4,8 @@
  */
 let logEventSource = null;
 let currentLogPage = 1;
-let currentLogSearch = '';
-let currentLogLevel = 'all';
+let currentLogSearch = "";
+let currentLogLevel = "all";
 
 function renderLogs(container) {
   const I = window.Icons;
@@ -23,7 +23,7 @@ function renderLogs(container) {
             <span id="live-stream-text">Live SSE Stream</span>
           </button>
           <button class="btn btn-secondary btn-sm" onclick="loadLogs(1)">
-            ${I.get('refresh', { size: 12 })}
+            ${I.get("refresh", { size: 12 })}
             <span>Refresh</span>
           </button>
         </div>
@@ -58,7 +58,7 @@ function renderLogs(container) {
             <span style="font-family:var(--font-mono);font-size:12px;color:#a1a1aa;">/var/log/vps-backup-manager.log</span>
           </div>
           <button class="btn btn-sm btn-ghost" onclick="copyLogContents()" style="color:#d4d4d8;font-size:11px;padding:2px 8px;">
-            ${I.get('copy', { size: 12, color: '#d4d4d8' })}
+            ${I.get("copy", { size: 12, color: "#d4d4d8" })}
             <span>Copy Log</span>
           </button>
         </div>
@@ -85,12 +85,12 @@ function renderLogs(container) {
 }
 
 // Cleanup SSE on page navigation
-window.addEventListener('hashchange', () => {
+window.addEventListener("hashchange", () => {
   stopLiveLogStream();
 });
 
 async function loadLogMeta() {
-  const metaEl = document.getElementById('log-file-meta');
+  const metaEl = document.getElementById("log-file-meta");
   if (!metaEl) return;
   try {
     const info = await api.getLogInfo();
@@ -103,7 +103,7 @@ async function loadLogMeta() {
 }
 
 async function loadLogs(page = 1) {
-  const container = document.getElementById('logs-container');
+  const container = document.getElementById("logs-container");
   if (!container) return;
 
   currentLogPage = page;
@@ -111,39 +111,45 @@ async function loadLogs(page = 1) {
     const res = await api.getLogs(page, 100, currentLogSearch);
     let logs = res.logs || [];
 
-    if (currentLogLevel !== 'all') {
-      logs = logs.filter(l => l.level === currentLogLevel);
+    if (currentLogLevel !== "all") {
+      logs = logs.filter((l) => l.level === currentLogLevel);
     }
 
     if (logs.length === 0) {
       container.innerHTML = `<div style="color:#71717a;text-align:center;padding:40px;">No log entries found.</div>`;
     } else {
-      container.innerHTML = logs.map(l => {
-        const color = l.level === 'error' ? '#f87171'
-          : l.level === 'warning' ? '#fbbf24'
-          : l.level === 'success' ? '#4ade80'
-          : '#38bdf8';
+      container.innerHTML = logs
+        .map((l) => {
+          const color =
+            l.level === "error"
+              ? "#f87171"
+              : l.level === "warning"
+                ? "#fbbf24"
+                : l.level === "success"
+                  ? "#4ade80"
+                  : "#38bdf8";
 
-        return `
+          return `
           <div style="display:flex;gap:12px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-            <span style="color:#71717a;white-space:nowrap;user-select:none;">${escapeHtml(l.timestamp || '')}</span>
+            <span style="color:#71717a;white-space:nowrap;user-select:none;">${escapeHtml(l.timestamp || "")}</span>
             <span style="color:${color};font-weight:600;min-width:64px;">[${l.level.toUpperCase()}]</span>
             <span style="flex:1;word-break:break-all;color:#e4e4e7;">${escapeHtml(l.message || l.raw)}</span>
           </div>
         `;
-      }).join('');
+        })
+        .join("");
     }
 
     // Update pagination
-    const pagInfo = document.getElementById('logs-pagination-info');
-    if (pagInfo) pagInfo.textContent = `Page ${res.page || 1} of ${res.pages || 1} (${res.total || 0} entries)`;
+    const pagInfo = document.getElementById("logs-pagination-info");
+    if (pagInfo)
+      pagInfo.textContent = `Page ${res.page || 1} of ${res.pages || 1} (${res.total || 0} entries)`;
 
-    const prevBtn = document.getElementById('log-prev-btn');
+    const prevBtn = document.getElementById("log-prev-btn");
     if (prevBtn) prevBtn.disabled = page <= 1;
 
-    const nextBtn = document.getElementById('log-next-btn');
+    const nextBtn = document.getElementById("log-next-btn");
     if (nextBtn) nextBtn.disabled = page >= (res.pages || 1);
-
   } catch (err) {
     container.innerHTML = `<div style="color:#f87171;padding:20px;">Failed to load logs: ${escapeHtml(err.message)}</div>`;
   }
@@ -175,36 +181,40 @@ function toggleLiveLogStream() {
 }
 
 function startLiveLogStream() {
-  const dot = document.getElementById('live-stream-dot');
-  const txt = document.getElementById('live-stream-text');
-  const container = document.getElementById('logs-container');
+  const dot = document.getElementById("live-stream-dot");
+  const txt = document.getElementById("live-stream-text");
+  const container = document.getElementById("logs-container");
 
   try {
     const token = api.token;
-    const url = `/api/v1/logs/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    const url = `/api/v1/logs/stream${token ? `?token=${encodeURIComponent(token)}` : ""}`;
     logEventSource = new EventSource(url);
 
-    if (dot) dot.style.background = 'var(--color-green)';
-    if (txt) txt.textContent = 'Live Stream: ON';
+    if (dot) dot.style.background = "var(--color-green)";
+    if (txt) txt.textContent = "Live Stream: ON";
 
     logEventSource.onmessage = (event) => {
       try {
         const log = JSON.parse(event.data);
-        const color = log.level === 'error' ? '#f87171'
-          : log.level === 'warning' ? '#fbbf24'
-          : log.level === 'success' ? '#4ade80'
-          : '#38bdf8';
+        const color =
+          log.level === "error"
+            ? "#f87171"
+            : log.level === "warning"
+              ? "#fbbf24"
+              : log.level === "success"
+                ? "#4ade80"
+                : "#38bdf8";
 
         const lineHtml = `
           <div style="display:flex;gap:12px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-            <span style="color:#71717a;white-space:nowrap;">${escapeHtml(log.timestamp || '')}</span>
+            <span style="color:#71717a;white-space:nowrap;">${escapeHtml(log.timestamp || "")}</span>
             <span style="color:${color};font-weight:600;min-width:64px;">[${log.level.toUpperCase()}]</span>
             <span style="flex:1;word-break:break-all;color:#e4e4e7;">${escapeHtml(log.message)}</span>
           </div>
         `;
 
         if (container) {
-          container.insertAdjacentHTML('afterbegin', lineHtml);
+          container.insertAdjacentHTML("afterbegin", lineHtml);
         }
       } catch {}
     };
@@ -213,9 +223,9 @@ function startLiveLogStream() {
       stopLiveLogStream();
     };
 
-    toast.info('Connected', 'Live log stream active');
+    toast.info("Connected", "Live log stream active");
   } catch (err) {
-    toast.error('Failed', 'Could not open live stream');
+    toast.error("Failed", "Could not open live stream");
   }
 }
 
@@ -224,21 +234,24 @@ function stopLiveLogStream() {
     logEventSource.close();
     logEventSource = null;
   }
-  const dot = document.getElementById('live-stream-dot');
-  const txt = document.getElementById('live-stream-text');
+  const dot = document.getElementById("live-stream-dot");
+  const txt = document.getElementById("live-stream-text");
 
-  if (dot) dot.style.background = 'var(--text-tertiary)';
-  if (txt) txt.textContent = 'Live SSE Stream';
+  if (dot) dot.style.background = "var(--text-tertiary)";
+  if (txt) txt.textContent = "Live SSE Stream";
 }
 
 function copyLogContents() {
-  const container = document.getElementById('logs-container');
+  const container = document.getElementById("logs-container");
   if (!container) return;
-  navigator.clipboard.writeText(container.innerText).then(() => {
-    toast.success('Copied', 'Log output copied to clipboard');
-  }).catch(() => {
-    toast.error('Failed', 'Failed to copy text');
-  });
+  navigator.clipboard
+    .writeText(container.innerText)
+    .then(() => {
+      toast.success("Copied", "Log output copied to clipboard");
+    })
+    .catch(() => {
+      toast.error("Failed", "Failed to copy text");
+    });
 }
 
 window.renderLogs = renderLogs;

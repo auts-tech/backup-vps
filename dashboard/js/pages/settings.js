@@ -15,11 +15,11 @@ function renderSettings(container) {
         </div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-secondary" onclick="runSystemCheckModal()">
-            ${I.get('activity', { size: 13 })}
+            ${I.get("activity", { size: 13 })}
             <span>System Health Check</span>
           </button>
           <button class="btn btn-primary" onclick="saveAllSettings()">
-            ${I.get('save', { size: 13, color: '#ffffff' })}
+            ${I.get("save", { size: 13, color: "#ffffff" })}
             <span>Save All Settings</span>
           </button>
         </div>
@@ -32,7 +32,7 @@ function renderSettings(container) {
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">
-              ${I.get('mail', { size: 16 })}
+              ${I.get("mail", { size: 16 })}
               <span>SMTP & Email Alerts</span>
             </h3>
             <span class="badge badge-neutral" id="smtp-status-badge">Checking...</span>
@@ -73,7 +73,7 @@ function renderSettings(container) {
                 <div style="display:flex;gap:4px;">
                   <input type="password" id="smtp-pass" class="form-input" placeholder="••••••••••••••••">
                   <button type="button" class="btn btn-secondary btn-icon-only" onclick="toggleInputVisibility('smtp-pass')" title="Show/Hide password">
-                    ${I.get('eye', { size: 13 })}
+                    ${I.get("eye", { size: 13 })}
                   </button>
                 </div>
               </div>
@@ -96,7 +96,7 @@ function renderSettings(container) {
                 <span style="font-size:12px;color:var(--text-secondary);">Enable TLS Encryption</span>
               </label>
               <button class="btn btn-sm btn-secondary" onclick="testSmtpFromForm()">
-                ${I.get('zap', { size: 12 })}
+                ${I.get("zap", { size: 12 })}
                 <span>Send Test Email</span>
               </button>
             </div>
@@ -107,7 +107,7 @@ function renderSettings(container) {
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">
-              ${I.get('bell', { size: 16 })}
+              ${I.get("bell", { size: 16 })}
               <span>Discord Alerts & Security</span>
             </h3>
           </div>
@@ -116,7 +116,7 @@ function renderSettings(container) {
             <div style="margin-bottom:20px;border-bottom:1px solid var(--border-secondary);padding-bottom:18px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
                 <div style="display:flex;align-items:center;gap:8px;">
-                  ${I.get('messageSquare', { size: 16, color: 'var(--text-secondary)' })}
+                  ${I.get("messageSquare", { size: 16, color: "var(--text-secondary)" })}
                   <strong style="font-size:13px;">Discord Webhook Channel</strong>
                 </div>
                 <label class="form-check">
@@ -129,7 +129,7 @@ function renderSettings(container) {
                 <input type="url" id="discord-webhook" class="form-input" placeholder="https://discord.com/api/webhooks/...">
               </div>
               <button class="btn btn-sm btn-secondary" onclick="testNotification('discord')">
-                ${I.get('zap', { size: 12 })}
+                ${I.get("zap", { size: 12 })}
                 <span>Send Test Webhook</span>
               </button>
             </div>
@@ -137,7 +137,7 @@ function renderSettings(container) {
             <!-- API Key -->
             <div>
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                ${I.get('lock', { size: 16, color: 'var(--text-secondary)' })}
+                ${I.get("lock", { size: 16, color: "var(--text-secondary)" })}
                 <strong style="font-size:13px;">Admin API Key</strong>
               </div>
               <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">
@@ -147,15 +147,15 @@ function renderSettings(container) {
                 <div style="display:flex;gap:6px;">
                   <input type="password" id="current-api-key" class="form-input" readonly style="font-family:var(--font-mono);font-size:12px;">
                   <button class="btn btn-secondary btn-icon-only" onclick="toggleInputVisibility('current-api-key')" title="Show/Hide key">
-                    ${I.get('eye', { size: 14 })}
+                    ${I.get("eye", { size: 14 })}
                   </button>
                   <button class="btn btn-secondary btn-icon-only" onclick="copyCurrentApiKey()" title="Copy API Key">
-                    ${I.get('copy', { size: 14 })}
+                    ${I.get("copy", { size: 14 })}
                   </button>
                 </div>
               </div>
               <button class="btn btn-sm btn-secondary" onclick="regenerateApiKey()">
-                ${I.get('key', { size: 12 })}
+                ${I.get("key", { size: 12 })}
                 <span>Regenerate Key</span>
               </button>
             </div>
@@ -167,12 +167,12 @@ function renderSettings(container) {
       <div class="card" style="margin-bottom:24px;">
         <div class="card-header">
           <h3 class="card-title">
-            ${I.get('cloud', { size: 16 })}
+            ${I.get("cloud", { size: 16 })}
             <span>Cloud Storage Providers & Service Account</span>
           </h3>
           <div style="display:flex;gap:8px;">
             <button class="btn btn-sm btn-secondary" onclick="testActiveStorage()">
-              ${I.get('zap', { size: 12 })}
+              ${I.get("zap", { size: 12 })}
               <span>Test Active Connection</span>
             </button>
           </div>
@@ -237,11 +237,11 @@ function renderSettings(container) {
             <!-- Auth Mode Switch -->
             <div style="display:flex;gap:6px;margin-bottom:12px;">
               <button type="button" class="btn btn-xs btn-primary" id="gdrive-subtab-oauth-btn" onclick="switchGdriveSubtab('oauth')">
-                ${I.get('key', { size: 12 })}
+                ${I.get("key", { size: 12 })}
                 <span>OAuth Token / rclone.conf (Personal Drive)</span>
               </button>
               <button type="button" class="btn btn-xs btn-secondary" id="gdrive-subtab-sa-btn" onclick="switchGdriveSubtab('sa')">
-                ${I.get('server', { size: 12 })}
+                ${I.get("server", { size: 12 })}
                 <span>Service Account JSON (Shared Drive)</span>
               </button>
             </div>
@@ -251,7 +251,7 @@ function renderSettings(container) {
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                 <label class="form-label" style="margin-bottom:0;">Active rclone Configuration (OAuth Token)</label>
                 <button type="button" class="btn btn-xs btn-secondary" onclick="loadRcloneTemplate()">
-                  ${I.get('refresh', { size: 11 })}
+                  ${I.get("refresh", { size: 11 })}
                   <span>Paste Sample Token Template</span>
                 </button>
               </div>
@@ -267,7 +267,7 @@ function renderSettings(container) {
                 <label class="form-label" style="margin-bottom:0;">Google Service Account JSON Key</label>
                 <div style="display:flex;gap:8px;">
                   <button type="button" class="btn btn-xs btn-secondary" onclick="document.getElementById('sa-file-input').click()">
-                    ${I.get('download', { size: 12 })}
+                    ${I.get("download", { size: 12 })}
                     <span>Upload .json File</span>
                   </button>
                   <input type="file" id="sa-file-input" accept=".json" style="display:none;" onchange="handleSaFileUpload(event)">
@@ -278,11 +278,11 @@ function renderSettings(container) {
 
             <div style="display:flex;gap:8px;padding-top:4px;">
               <button class="btn btn-sm btn-secondary" onclick="saveGdriveConfigOnly()">
-                ${I.get('save', { size: 12 })}
+                ${I.get("save", { size: 12 })}
                 <span>Save Google Drive Config</span>
               </button>
               <button class="btn btn-sm btn-secondary" onclick="testStorageConnection('gdrive')">
-                ${I.get('zap', { size: 12 })}
+                ${I.get("zap", { size: 12 })}
                 <span>Test Google Drive Connection</span>
               </button>
             </div>
@@ -318,7 +318,7 @@ function renderSettings(container) {
               </div>
             </div>
             <button class="btn btn-sm btn-secondary" onclick="testStorageConnection('s3')">
-              ${I.get('zap', { size: 12 })}
+              ${I.get("zap", { size: 12 })}
               <span>Verify S3 Configuration</span>
             </button>
           </div>
@@ -364,32 +364,39 @@ async function loadSettings() {
     // 1. Notifications & SMTP
     if (s.notifications) {
       if (s.notifications.discord) {
-        document.getElementById('discord-enabled').checked = !!s.notifications.discord.enabled;
-        document.getElementById('discord-webhook').value = s.notifications.discord.webhookUrl || '';
+        document.getElementById("discord-enabled").checked =
+          !!s.notifications.discord.enabled;
+        document.getElementById("discord-webhook").value =
+          s.notifications.discord.webhookUrl || "";
       }
 
       if (s.notifications.email) {
-        document.getElementById('email-enabled').checked = !!s.notifications.email.enabled;
-        document.getElementById('email-to').value = s.notifications.email.to || '';
-        document.getElementById('email-from').value = s.notifications.email.from || '';
+        document.getElementById("email-enabled").checked =
+          !!s.notifications.email.enabled;
+        document.getElementById("email-to").value =
+          s.notifications.email.to || "";
+        document.getElementById("email-from").value =
+          s.notifications.email.from || "";
 
         const smtp = s.notifications.email.smtp || {};
-        document.getElementById('smtp-host').value = smtp.host || 'smtp.gmail.com';
-        document.getElementById('smtp-port').value = smtp.port || 587;
-        document.getElementById('smtp-tls').checked = smtp.tls !== false;
-        document.getElementById('smtp-user').value = smtp.user || '';
+        document.getElementById("smtp-host").value =
+          smtp.host || "smtp.gmail.com";
+        document.getElementById("smtp-port").value = smtp.port || 587;
+        document.getElementById("smtp-tls").checked = smtp.tls !== false;
+        document.getElementById("smtp-user").value = smtp.user || "";
         if (smtp.hasPassword) {
-          document.getElementById('smtp-pass').placeholder = '•••••••• (Configured)';
+          document.getElementById("smtp-pass").placeholder =
+            "•••••••• (Configured)";
         }
 
-        const smtpBadge = document.getElementById('smtp-status-badge');
+        const smtpBadge = document.getElementById("smtp-status-badge");
         if (smtpBadge) {
           if (s.notifications.email.msmtpConfigured) {
-            smtpBadge.className = 'badge badge-success';
-            smtpBadge.textContent = 'msmtp Active';
+            smtpBadge.className = "badge badge-success";
+            smtpBadge.textContent = "msmtp Active";
           } else {
-            smtpBadge.className = 'badge badge-neutral';
-            smtpBadge.textContent = 'Unconfigured';
+            smtpBadge.className = "badge badge-neutral";
+            smtpBadge.textContent = "Unconfigured";
           }
         }
       }
@@ -397,120 +404,135 @@ async function loadSettings() {
 
     // 2. Backup & Targets
     if (s.backup) {
-      document.getElementById('retention-days').value = s.backup.retentionDays || 30;
-      document.getElementById('default-target').value = s.backup.defaultTarget || 'gdrive';
+      document.getElementById("retention-days").value =
+        s.backup.retentionDays || 30;
+      document.getElementById("default-target").value =
+        s.backup.defaultTarget || "gdrive";
 
       const targets = s.backup.targets || {};
       if (targets.gdrive) {
-        document.getElementById('gdrive-enabled').checked = !!targets.gdrive.enabled;
-        document.getElementById('gdrive-remote').value = targets.gdrive.remoteName || 'gdrive-backup';
-        document.getElementById('gdrive-root-folder').value = targets.gdrive.rootFolderId || '';
+        document.getElementById("gdrive-enabled").checked =
+          !!targets.gdrive.enabled;
+        document.getElementById("gdrive-remote").value =
+          targets.gdrive.remoteName || "gdrive-backup";
+        document.getElementById("gdrive-root-folder").value =
+          targets.gdrive.rootFolderId || "";
 
-        const rcloneInput = document.getElementById('rclone-raw-input');
+        const rcloneInput = document.getElementById("rclone-raw-input");
         if (rcloneInput && targets.gdrive.rcloneRaw) {
           rcloneInput.value = targets.gdrive.rcloneRaw;
         }
 
-        const saBadge = document.getElementById('gdrive-sa-badge');
+        const saBadge = document.getElementById("gdrive-sa-badge");
         if (saBadge) {
-          if (targets.gdrive.authType === 'oauth' || targets.gdrive.isOAuth) {
-            saBadge.className = 'badge badge-success';
-            saBadge.textContent = 'OAuth Token Active (Personal Drive)';
-            switchGdriveSubtab('oauth');
+          if (targets.gdrive.authType === "oauth" || targets.gdrive.isOAuth) {
+            saBadge.className = "badge badge-success";
+            saBadge.textContent = "OAuth Token Active (Personal Drive)";
+            switchGdriveSubtab("oauth");
           } else if (targets.gdrive.hasServiceAccount) {
-            saBadge.className = 'badge badge-info';
-            saBadge.textContent = 'Service Account Active (Shared Drive)';
-            switchGdriveSubtab('sa');
+            saBadge.className = "badge badge-info";
+            saBadge.textContent = "Service Account Active (Shared Drive)";
+            switchGdriveSubtab("sa");
           } else if (targets.gdrive.hasRcloneConf) {
-            saBadge.className = 'badge badge-info';
-            saBadge.textContent = 'rclone Token Active';
-            switchGdriveSubtab('oauth');
+            saBadge.className = "badge badge-info";
+            saBadge.textContent = "rclone Token Active";
+            switchGdriveSubtab("oauth");
           } else {
-            saBadge.className = 'badge badge-neutral';
-            saBadge.textContent = 'No Credentials';
-            switchGdriveSubtab('oauth');
+            saBadge.className = "badge badge-neutral";
+            saBadge.textContent = "No Credentials";
+            switchGdriveSubtab("oauth");
           }
         }
       }
 
       if (targets.s3) {
-        document.getElementById('s3-enabled').checked = !!targets.s3.enabled;
-        document.getElementById('s3-bucket').value = targets.s3.bucket || '';
-        document.getElementById('s3-region').value = targets.s3.region || '';
-        document.getElementById('s3-access-key').value = targets.s3.accessKey || '';
+        document.getElementById("s3-enabled").checked = !!targets.s3.enabled;
+        document.getElementById("s3-bucket").value = targets.s3.bucket || "";
+        document.getElementById("s3-region").value = targets.s3.region || "";
+        document.getElementById("s3-access-key").value =
+          targets.s3.accessKey || "";
         if (targets.s3.hasSecretKey) {
-          document.getElementById('s3-secret-key').placeholder = '•••••••• (Configured)';
+          document.getElementById("s3-secret-key").placeholder =
+            "•••••••• (Configured)";
         }
       }
 
       if (targets.sftp) {
-        document.getElementById('sftp-enabled').checked = !!targets.sftp.enabled;
-        document.getElementById('sftp-host').value = targets.sftp.host || '';
-        document.getElementById('sftp-port').value = targets.sftp.port || 22;
-        document.getElementById('sftp-user').value = targets.sftp.user || '';
+        document.getElementById("sftp-enabled").checked =
+          !!targets.sftp.enabled;
+        document.getElementById("sftp-host").value = targets.sftp.host || "";
+        document.getElementById("sftp-port").value = targets.sftp.port || 22;
+        document.getElementById("sftp-user").value = targets.sftp.user || "";
       }
     }
 
     // 3. API Key
-    const keyInput = document.getElementById('current-api-key');
+    const keyInput = document.getElementById("current-api-key");
     const storedKey = api.getApiKey();
     if (keyInput) {
-      keyInput.value = storedKey || '(no key configured)';
+      keyInput.value = storedKey || "(no key configured)";
     }
-
   } catch (err) {
-    toast.error('Load Error', err.message || 'Failed to load settings');
+    toast.error("Load Error", err.message || "Failed to load settings");
   }
 }
 
 function switchGdriveSubtab(mode) {
-  const oauthBox = document.getElementById('gdrive-oauth-box');
-  const saBox = document.getElementById('gdrive-sa-box');
-  const oauthBtn = document.getElementById('gdrive-subtab-oauth-btn');
-  const saBtn = document.getElementById('gdrive-subtab-sa-btn');
+  const oauthBox = document.getElementById("gdrive-oauth-box");
+  const saBox = document.getElementById("gdrive-sa-box");
+  const oauthBtn = document.getElementById("gdrive-subtab-oauth-btn");
+  const saBtn = document.getElementById("gdrive-subtab-sa-btn");
 
-  if (mode === 'oauth') {
-    if (oauthBox) oauthBox.style.display = 'block';
-    if (saBox) saBox.style.display = 'none';
+  if (mode === "oauth") {
+    if (oauthBox) oauthBox.style.display = "block";
+    if (saBox) saBox.style.display = "none";
     if (oauthBtn) {
-      oauthBtn.className = 'btn btn-xs btn-primary';
+      oauthBtn.className = "btn btn-xs btn-primary";
     }
     if (saBtn) {
-      saBtn.className = 'btn btn-xs btn-secondary';
+      saBtn.className = "btn btn-xs btn-secondary";
     }
   } else {
-    if (oauthBox) oauthBox.style.display = 'none';
-    if (saBox) saBox.style.display = 'block';
+    if (oauthBox) oauthBox.style.display = "none";
+    if (saBox) saBox.style.display = "block";
     if (oauthBtn) {
-      oauthBtn.className = 'btn btn-xs btn-secondary';
+      oauthBtn.className = "btn btn-xs btn-secondary";
     }
     if (saBtn) {
-      saBtn.className = 'btn btn-xs btn-primary';
+      saBtn.className = "btn btn-xs btn-primary";
     }
   }
 }
 
 function loadRcloneTemplate() {
-  const el = document.getElementById('rclone-raw-input');
+  const el = document.getElementById("rclone-raw-input");
   if (!el) return;
-  const remote = document.getElementById('gdrive-remote')?.value.trim() || 'gdrive-backup';
-  const folderId = document.getElementById('gdrive-root-folder')?.value.trim() || '';
+  const remote =
+    document.getElementById("gdrive-remote")?.value.trim() || "gdrive-backup";
+  const folderId =
+    document.getElementById("gdrive-root-folder")?.value.trim() || "";
 
   el.value = `[${remote}]
 type = drive
 scope = drive
 token = {"access_token":"YOUR_ACCESS_TOKEN","token_type":"Bearer","refresh_token":"YOUR_REFRESH_TOKEN","expiry":"2026-09-17T22:00:00.000000+00:00"}
-${folderId ? `root_folder_id = ${folderId}` : '# root_folder_id = YOUR_FOLDER_ID'}`;
-  toast.info('Template Loaded', 'Sample rclone OAuth config loaded. Replace with your actual tokens.');
+${folderId ? `root_folder_id = ${folderId}` : "# root_folder_id = YOUR_FOLDER_ID"}`;
+  toast.info(
+    "Template Loaded",
+    "Sample rclone OAuth config loaded. Replace with your actual tokens.",
+  );
 }
 
 async function saveGdriveConfigOnly() {
   try {
-    const remoteName = document.getElementById('gdrive-remote').value.trim() || 'gdrive-backup';
-    const rootFolderId = document.getElementById('gdrive-root-folder').value.trim();
-    const enabled = document.getElementById('gdrive-enabled').checked;
-    const rcloneRaw = document.getElementById('rclone-raw-input')?.value.trim();
-    const saInput = document.getElementById('sa-json-input')?.value.trim();
+    const remoteName =
+      document.getElementById("gdrive-remote").value.trim() || "gdrive-backup";
+    const rootFolderId = document
+      .getElementById("gdrive-root-folder")
+      .value.trim();
+    const enabled = document.getElementById("gdrive-enabled").checked;
+    const rcloneRaw = document.getElementById("rclone-raw-input")?.value.trim();
+    const saInput = document.getElementById("sa-json-input")?.value.trim();
 
     const payload = {
       backup: {
@@ -519,106 +541,125 @@ async function saveGdriveConfigOnly() {
             enabled,
             remoteName,
             rootFolderId,
-            rcloneRaw: rcloneRaw || undefined
-          }
-        }
-      }
+            rcloneRaw: rcloneRaw || undefined,
+          },
+        },
+      },
     };
 
     if (saInput) {
       payload.serviceAccount = saInput;
     }
 
-    toast.info('Saving', 'Saving Google Drive configuration and writing rclone.conf...');
+    toast.info(
+      "Saving",
+      "Saving Google Drive configuration and writing rclone.conf...",
+    );
     const res = await api.updateSettings(payload);
-    toast.success('Saved', res.message || 'Google Drive configuration updated successfully');
+    toast.success(
+      "Saved",
+      res.message || "Google Drive configuration updated successfully",
+    );
     loadSettings();
   } catch (err) {
-    toast.error('Save Failed', err.message || 'Failed to save Google Drive configuration');
+    toast.error(
+      "Save Failed",
+      err.message || "Failed to save Google Drive configuration",
+    );
   }
 }
 
 async function saveAllSettings() {
   try {
-    const saInput = document.getElementById('sa-json-input').value.trim();
-    const rcloneRaw = document.getElementById('rclone-raw-input')?.value.trim();
-    const smtpPass = document.getElementById('smtp-pass').value;
+    const saInput = document.getElementById("sa-json-input").value.trim();
+    const rcloneRaw = document.getElementById("rclone-raw-input")?.value.trim();
+    const smtpPass = document.getElementById("smtp-pass").value;
 
     const payload = {
       notifications: {
         discord: {
-          enabled: document.getElementById('discord-enabled').checked,
-          webhookUrl: document.getElementById('discord-webhook').value.trim()
+          enabled: document.getElementById("discord-enabled").checked,
+          webhookUrl: document.getElementById("discord-webhook").value.trim(),
         },
         email: {
-          enabled: document.getElementById('email-enabled').checked,
-          to: document.getElementById('email-to').value.trim(),
-          from: document.getElementById('email-from').value.trim(),
+          enabled: document.getElementById("email-enabled").checked,
+          to: document.getElementById("email-to").value.trim(),
+          from: document.getElementById("email-from").value.trim(),
           smtp: {
-            host: document.getElementById('smtp-host').value.trim(),
-            port: parseInt(document.getElementById('smtp-port').value) || 587,
-            tls: document.getElementById('smtp-tls').checked,
-            user: document.getElementById('smtp-user').value.trim(),
+            host: document.getElementById("smtp-host").value.trim(),
+            port: parseInt(document.getElementById("smtp-port").value) || 587,
+            tls: document.getElementById("smtp-tls").checked,
+            user: document.getElementById("smtp-user").value.trim(),
             password: smtpPass || undefined,
-            from: document.getElementById('email-from').value.trim()
-          }
-        }
+            from: document.getElementById("email-from").value.trim(),
+          },
+        },
       },
       backup: {
-        retentionDays: parseInt(document.getElementById('retention-days').value) || 30,
-        defaultTarget: document.getElementById('default-target').value,
+        retentionDays:
+          parseInt(document.getElementById("retention-days").value) || 30,
+        defaultTarget: document.getElementById("default-target").value,
         targets: {
           gdrive: {
-            enabled: document.getElementById('gdrive-enabled').checked,
-            remoteName: document.getElementById('gdrive-remote').value.trim(),
-            rootFolderId: document.getElementById('gdrive-root-folder').value.trim(),
-            rcloneRaw: rcloneRaw || undefined
+            enabled: document.getElementById("gdrive-enabled").checked,
+            remoteName: document.getElementById("gdrive-remote").value.trim(),
+            rootFolderId: document
+              .getElementById("gdrive-root-folder")
+              .value.trim(),
+            rcloneRaw: rcloneRaw || undefined,
           },
           s3: {
-            enabled: document.getElementById('s3-enabled').checked,
-            bucket: document.getElementById('s3-bucket').value.trim(),
-            region: document.getElementById('s3-region').value.trim(),
-            accessKey: document.getElementById('s3-access-key').value.trim(),
-            secretKey: document.getElementById('s3-secret-key').value || undefined
+            enabled: document.getElementById("s3-enabled").checked,
+            bucket: document.getElementById("s3-bucket").value.trim(),
+            region: document.getElementById("s3-region").value.trim(),
+            accessKey: document.getElementById("s3-access-key").value.trim(),
+            secretKey:
+              document.getElementById("s3-secret-key").value || undefined,
           },
           sftp: {
-            enabled: document.getElementById('sftp-enabled').checked,
-            host: document.getElementById('sftp-host').value.trim(),
-            port: parseInt(document.getElementById('sftp-port').value) || 22,
-            user: document.getElementById('sftp-user').value.trim()
-          }
-        }
-      }
+            enabled: document.getElementById("sftp-enabled").checked,
+            host: document.getElementById("sftp-host").value.trim(),
+            port: parseInt(document.getElementById("sftp-port").value) || 22,
+            user: document.getElementById("sftp-user").value.trim(),
+          },
+        },
+      },
     };
 
     if (saInput) {
       payload.serviceAccount = saInput;
     }
 
-    toast.info('Saving', 'Saving settings and generating server configuration files...');
+    toast.info(
+      "Saving",
+      "Saving settings and generating server configuration files...",
+    );
     const res = await api.updateSettings(payload);
-    toast.success('Settings Saved', res.message || 'Dynamic configuration applied to server');
+    toast.success(
+      "Settings Saved",
+      res.message || "Dynamic configuration applied to server",
+    );
     loadSettings();
   } catch (err) {
-    toast.error('Save Failed', err.message || 'Failed to save settings');
+    toast.error("Save Failed", err.message || "Failed to save settings");
   }
 }
 
 async function saveServiceAccountOnly() {
-  const saInput = document.getElementById('sa-json-input').value.trim();
+  const saInput = document.getElementById("sa-json-input").value.trim();
   if (!saInput) {
-    toast.error('Empty', 'Please paste Service Account JSON content');
+    toast.error("Empty", "Please paste Service Account JSON content");
     return;
   }
 
   try {
-    toast.info('Saving', 'Validating and saving Service Account JSON...');
+    toast.info("Saving", "Validating and saving Service Account JSON...");
     const res = await api.saveServiceAccount(saInput);
-    toast.success('Saved', res.message || 'Service Account saved');
-    document.getElementById('sa-json-input').value = '';
+    toast.success("Saved", res.message || "Service Account saved");
+    document.getElementById("sa-json-input").value = "";
     loadSettings();
   } catch (err) {
-    toast.error('Error', err.message || 'Failed to save Service Account');
+    toast.error("Error", err.message || "Failed to save Service Account");
   }
 }
 
@@ -631,63 +672,84 @@ function handleSaFileUpload(event) {
     try {
       const content = e.target.result;
       JSON.parse(content); // validate JSON
-      document.getElementById('sa-json-input').value = content;
-      toast.success('Loaded', `Loaded ${file.name} successfully`);
+      document.getElementById("sa-json-input").value = content;
+      toast.success("Loaded", `Loaded ${file.name} successfully`);
     } catch {
-      toast.error('Invalid JSON', 'The uploaded file is not valid JSON');
+      toast.error("Invalid JSON", "The uploaded file is not valid JSON");
     }
   };
   reader.readAsText(file);
 }
 
 async function testStorageConnection(target) {
-  toast.info('Testing', `Testing connection to ${target}...`);
+  toast.info("Testing", `Testing connection to ${target}...`);
   try {
     const res = await api.testStorage(target);
-    toast.success('Connected', res.message || 'Storage target reached successfully');
+    toast.success(
+      "Connected",
+      res.message || "Storage target reached successfully",
+    );
     if (res.output) {
-      Modal.show(`Storage Output (${target})`, `<pre style="font-family:var(--font-mono);font-size:12px;background:#f8fafc;padding:12px;border-radius:6px;max-height:300px;overflow-y:auto;">${escapeHtml(res.output)}</pre>`);
+      Modal.show(
+        `Storage Output (${target})`,
+        `<pre style="font-family:var(--font-mono);font-size:12px;background:#f8fafc;padding:12px;border-radius:6px;max-height:300px;overflow-y:auto;">${escapeHtml(res.output)}</pre>`,
+      );
     }
   } catch (err) {
-    toast.error('Connection Failed', err.message || `Failed to connect to ${target}`);
+    toast.error(
+      "Connection Failed",
+      err.message || `Failed to connect to ${target}`,
+    );
   }
 }
 
 function testActiveStorage() {
-  const target = document.getElementById('default-target').value || 'gdrive';
+  const target = document.getElementById("default-target").value || "gdrive";
   testStorageConnection(target);
 }
 
 async function testSmtpFromForm() {
-  const to = document.getElementById('email-to').value.trim();
-  const from = document.getElementById('email-from').value.trim();
+  const to = document.getElementById("email-to").value.trim();
+  const from = document.getElementById("email-from").value.trim();
 
   if (!to) {
-    toast.error('Recipient Missing', 'Please specify Alert Recipient (To) email');
+    toast.error(
+      "Recipient Missing",
+      "Please specify Alert Recipient (To) email",
+    );
     return;
   }
 
-  toast.info('Testing SMTP', `Sending test email to ${to}...`);
+  toast.info("Testing SMTP", `Sending test email to ${to}...`);
   try {
-    const res = await api.testNotification('email', to, from);
+    const res = await api.testNotification("email", to, from);
     const emailRes = res.results?.email;
     if (emailRes?.success) {
-      toast.success('Email Sent', 'Test email dispatched successfully');
+      toast.success("Email Sent", "Test email dispatched successfully");
     } else {
-      toast.error('Email Failed', emailRes?.error || 'Failed to send test email');
+      toast.error(
+        "Email Failed",
+        emailRes?.error || "Failed to send test email",
+      );
     }
   } catch (err) {
-    toast.error('Test Failed', err.message);
+    toast.error("Test Failed", err.message);
   }
 }
 
 async function testNotification(type) {
-  toast.info('Testing', `Sending test ${type} alert...`);
+  toast.info("Testing", `Sending test ${type} alert...`);
   try {
     const res = await api.testNotification(type);
-    toast.success('Dispatched', res.results?.[type]?.message || 'Test alert dispatched');
+    toast.success(
+      "Dispatched",
+      res.results?.[type]?.message || "Test alert dispatched",
+    );
   } catch (err) {
-    toast.error('Test Failed', err.message || `Test ${type} notification failed`);
+    toast.error(
+      "Test Failed",
+      err.message || `Test ${type} notification failed`,
+    );
   }
 }
 
@@ -697,22 +759,26 @@ async function runSystemCheckModal() {
     const res = await api.runSystemCheck();
     const tools = res.tools || {};
 
-    const rows = Object.entries(tools).map(([name, info]) => {
-      const isOk = info.installed;
-      const statusBadge = isOk
-        ? `<span class="badge badge-success">${I.get('check', { size: 11 })} Installed</span>`
-        : `<span class="badge badge-danger">${I.get('x', { size: 11 })} Missing</span>`;
+    const rows = Object.entries(tools)
+      .map(([name, info]) => {
+        const isOk = info.installed;
+        const statusBadge = isOk
+          ? `<span class="badge badge-success">${I.get("check", { size: 11 })} Installed</span>`
+          : `<span class="badge badge-danger">${I.get("x", { size: 11 })} Missing</span>`;
 
-      return `
+        return `
         <tr>
           <td><strong style="text-transform:capitalize;">${name}</strong></td>
           <td>${statusBadge}</td>
-          <td style="font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);">${escapeHtml(info.version || '—')}</td>
+          <td style="font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);">${escapeHtml(info.version || "—")}</td>
         </tr>
       `;
-    }).join('');
+      })
+      .join("");
 
-    Modal.show('VPS System Environment & Tools', `
+    Modal.show(
+      "VPS System Environment & Tools",
+      `
       <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">
         Status of CLI tools required for automated backups, process management, and Git builds on this VPS.
       </p>
@@ -728,27 +794,29 @@ async function runSystemCheckModal() {
           <tbody>${rows}</tbody>
         </table>
       </div>
-    `, {
-      submitText: 'Done',
-      submitClass: 'btn-primary'
-    });
+    `,
+      {
+        submitText: "Done",
+        submitClass: "btn-primary",
+      },
+    );
   } catch (err) {
-    toast.error('Check Failed', err.message);
+    toast.error("Check Failed", err.message);
   }
 }
 
 function switchTargetTab(target) {
-  ['gdrive', 's3', 'sftp'].forEach(t => {
+  ["gdrive", "s3", "sftp"].forEach((t) => {
     const el = document.getElementById(`target-tab-${t}`);
     const btn = document.getElementById(`tab-btn-${t}`);
-    if (el) el.style.display = t === target ? 'block' : 'none';
+    if (el) el.style.display = t === target ? "block" : "none";
     if (btn) {
       if (t === target) {
-        btn.classList.add('btn-primary');
-        btn.classList.remove('btn-secondary');
+        btn.classList.add("btn-primary");
+        btn.classList.remove("btn-secondary");
       } else {
-        btn.classList.add('btn-secondary');
-        btn.classList.remove('btn-primary');
+        btn.classList.add("btn-secondary");
+        btn.classList.remove("btn-primary");
       }
     }
   });
@@ -757,28 +825,32 @@ function switchTargetTab(target) {
 function toggleInputVisibility(id) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.type = el.type === 'password' ? 'text' : 'password';
+  el.type = el.type === "password" ? "text" : "password";
 }
 
 function copyCurrentApiKey() {
-  const el = document.getElementById('current-api-key');
+  const el = document.getElementById("current-api-key");
   if (!el || !el.value) return;
   navigator.clipboard.writeText(el.value).then(() => {
-    toast.success('Copied', 'API Key copied to clipboard');
+    toast.success("Copied", "API Key copied to clipboard");
   });
 }
 
 async function regenerateApiKey() {
-  Modal.confirm('Regenerate API Key', 'Generating a new API key will replace your active key. Are you sure you want to proceed?', async () => {
-    try {
-      const res = await api.generateApiKey();
-      api.setApiKey(res.apiKey);
-      document.getElementById('current-api-key').value = res.apiKey;
-      toast.success('Generated', 'New API key generated and applied');
-    } catch (err) {
-      toast.error('Failed', err.message || 'Failed to generate key');
-    }
-  });
+  Modal.confirm(
+    "Regenerate API Key",
+    "Generating a new API key will replace your active key. Are you sure you want to proceed?",
+    async () => {
+      try {
+        const res = await api.generateApiKey();
+        api.setApiKey(res.apiKey);
+        document.getElementById("current-api-key").value = res.apiKey;
+        toast.success("Generated", "New API key generated and applied");
+      } catch (err) {
+        toast.error("Failed", err.message || "Failed to generate key");
+      }
+    },
+  );
 }
 
 window.renderSettings = renderSettings;

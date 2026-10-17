@@ -1,7 +1,7 @@
-import { spawn } from 'child_process';
-import { randomUUID } from 'crypto';
-import { cleanEnv, JOB_PREAMBLE } from '../lib/shell.js';
-import { BackupEngine } from './backup-engine.js';
+import { spawn } from "child_process";
+import { randomUUID } from "crypto";
+import { cleanEnv, JOB_PREAMBLE } from "../lib/shell.js";
+import { BackupEngine } from "./backup-engine.js";
 
 const MAX_OUTPUT = 512 * 1024; // keep the last 512 KB of output per job
 const MAX_JOBS = 40;
@@ -25,20 +25,20 @@ export class JobRunner {
     const job = {
       id,
       title,
-      status: 'running',
+      status: "running",
       exitCode: null,
-      output: '',
+      output: "",
       dropped: 0,
       startedAt: new Date().toISOString(),
-      finishedAt: null
+      finishedAt: null,
     };
     JobRunner.jobs.set(id, job);
     JobRunner._prune();
 
     const body = preamble ? `${JOB_PREAMBLE}\n${script}` : script;
-    const child = spawn('bash', ['-c', body], {
-      env: cleanEnv({ DEBIAN_FRONTEND: 'noninteractive', ...env }),
-      detached: true
+    const child = spawn("bash", ["-c", body], {
+      env: cleanEnv({ DEBIAN_FRONTEND: "noninteractive", ...env }),
+      detached: true,
     });
     job.pid = child.pid;
     JobRunner.jobs.get(id)._child = child;
@@ -51,24 +51,32 @@ export class JobRunner {
         job.dropped += cut;
       }
     };
-    child.stdout.on('data', append);
-    child.stderr.on('data', append);
+    child.stdout.on("data", append);
+    child.stderr.on("data", append);
 
     BackupEngine.log(`[Job] Started: ${title}`);
 
     const done = (code) => {
-      if (job.status !== 'running') return;
+      if (job.status !== "running") return;
       job.exitCode = code;
-      job.status = code === 0 ? 'completed' : (job.cancelled ? 'cancelled' : 'failed');
+      job.status =
+        code === 0 ? "completed" : job.cancelled ? "cancelled" : "failed";
       job.finishedAt = new Date().toISOString();
       delete job._child;
-      BackupEngine.log(`[Job] ${job.status === 'completed' ? 'Success' : 'FAILED'}: ${title}${code ? ` (exit ${code})` : ''}`);
+      BackupEngine.log(
+        `[Job] ${job.status === "completed" ? "Success" : "FAILED"}: ${title}${code ? ` (exit ${code})` : ""}`,
+      );
       if (onExit) {
-        Promise.resolve().then(() => onExit(job)).catch(err => append(`\n[post-job error] ${err.message}\n`));
+        Promise.resolve()
+          .then(() => onExit(job))
+          .catch((err) => append(`\n[post-job error] ${err.message}\n`));
       }
     };
-    child.on('error', (err) => { append(`\n${err.message}\n`); done(-1); });
-    child.on('close', (code) => done(code ?? -1));
+    child.on("error", (err) => {
+      append(`\n${err.message}\n`);
+      done(-1);
+    });
+    child.on("close", (code) => done(code ?? -1));
 
     return job;
   }
@@ -89,24 +97,31 @@ export class JobRunner {
       startedAt: job.startedAt,
       finishedAt: job.finishedAt,
       output: job.output.slice(from),
-      nextOffset: total
+      nextOffset: total,
     };
   }
 
   static list() {
     return [...JobRunner.jobs.values()]
-      .map(({ id, title, status, exitCode, startedAt, finishedAt }) => ({ id, title, status, exitCode, startedAt, finishedAt }))
+      .map(({ id, title, status, exitCode, startedAt, finishedAt }) => ({
+        id,
+        title,
+        status,
+        exitCode,
+        startedAt,
+        finishedAt,
+      }))
       .reverse();
   }
 
   static cancel(id) {
     const job = JobRunner.jobs.get(id);
-    if (!job || job.status !== 'running' || !job._child) return false;
+    if (!job || job.status !== "running" || !job._child) return false;
     job.cancelled = true;
     try {
-      process.kill(-job._child.pid, 'SIGTERM'); // whole process group (apt, certbot, ...)
+      process.kill(-job._child.pid, "SIGTERM"); // whole process group (apt, certbot, ...)
     } catch {
-      job._child.kill('SIGTERM');
+      job._child.kill("SIGTERM");
     }
     return true;
   }
@@ -115,7 +130,7 @@ export class JobRunner {
     if (JobRunner.jobs.size <= MAX_JOBS) return;
     for (const [id, job] of JobRunner.jobs) {
       if (JobRunner.jobs.size <= MAX_JOBS) break;
-      if (job.status !== 'running') JobRunner.jobs.delete(id);
+      if (job.status !== "running") JobRunner.jobs.delete(id);
     }
   }
 }
