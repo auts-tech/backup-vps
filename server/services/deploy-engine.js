@@ -237,35 +237,47 @@ export class DeployEngine {
   /**
    * Steps shared by deployments and new-site setup: tools, build, permissions, restart, health.
    */
-  static buildSteps(site) {
-    const stack = STACKS[normalizeStack(site.type)];
-    const script = site.deploy?.script || "";
+  /**
+   * Steps shared by deployments and new-site setup. `current` returns the
+   * website as it is when each step runs (setup fills in the build script
+   * after cloning); the stack itself never changes during a job.
+   */
+  static buildSteps(current) {
+    const initial = current();
+    const stack = STACKS[normalizeStack(initial.type)];
+    const script = () => current().deploy?.script || "";
     return [
       {
         id: "composer",
         title: "Install Composer",
-        when: async () => stack.php && /\bcomposer\b/.test(script) && !(await which("composer")),
+        when: async () => stack.php && /\bcomposer\b/.test(script()) && !(await which("composer")),
         script: ComposerManager.installScript(),
       },
       {
         id: "build",
         title: "Run deploy script",
-        when: () => hasCommands(script),
-        cwd: site.deployPath,
-        env: DeployEngine.scriptEnv(site),
-        // Echo each command (PS4) so the log reads like a terminal session
-        script: `export PS4='$ '\nset -x\n${script}`,
+        when: () => hasCommands(script()),
+        run: async (ctx) => {
+          const site = current();
+          // Echo each command (PS4) so the log reads like a terminal session
+          const code = await ctx.sh(`export PS4='$ '\nset -x\n${script()}`, {
+            cwd: site.deployPath,
+            env: DeployEngine.scriptEnv(site),
+          });
+          if (code !== 0) throw new Error(ctx.cancelled ? "Cancelled" : `The deploy script failed (exit code ${code}) — see the output above`);
+        },
       },
       {
         id: "permissions",
         title: "Fix file permissions",
-        when: () => stack.php && existsSync(site.deployPath),
-        run: async (ctx) => {
-          const r = await run("chown", ["-R", "www-data:www-data", site.deployPath], { timeout: 600000 });
-          if (r.code !== 0) throw new Error(r.stderr.trim() || "chown failed");
-          ctx.log(`Files in ${site.deployPath} belong to www-data (PHP can write uploads and cache).`);
-        },
+        when: () => stack.php && existsSync(current().deployPath),
         optional: true,
+        run: async (ctx) => {
+          const { deployPath } = current();
+          const r = await run("chown", ["-R", "www-data:www-data", deployPath], { timeout: 600000 });
+          if (r.code !== 0) throw new Error(r.stderr.trim() || "chown failed");
+          ctx.log(`Files in ${deployPath} belong to www-data (PHP can write uploads and cache).`);
+        },
       },
       {
         id: "pm2",
@@ -275,13 +287,14 @@ export class DeployEngine {
       },
       {
         id: "restart",
-        title: stack.process ? "Start app" : "Reload PHP",
-        when: () => stack.process || (stack.php && site.phpVersion),
+        title: stack.process ? "Start app" : "Reload PHP-FPM",
+        when: () => stack.process || (stack.php && !!current().phpVersion),
         optional: !stack.process,
         run: async (ctx) => {
+          const site = current();
           if (stack.process) {
             await ProcessManager.startOrReload(site);
-            ctx.log(`pm2: ${site.name} is (re)started with: ${site.startCommand}`);
+            ctx.log(`pm2: ${site.name} (re)started with: ${site.startCommand}${site.port ? ` (PORT=${site.port})` : ""}`);
             return;
           }
           const r = await serviceCtl("reload", `php${site.phpVersion}-fpm`);
@@ -291,9 +304,10 @@ export class DeployEngine {
       },
       {
         id: "health",
-        title: site.port ? `Check the app answers on port ${site.port}` : "Check the app is running",
+        title: "Check the app is up",
         when: () => stack.process,
         run: async (ctx) => {
+          const site = current();
           await new Promise((r) => setTimeout(r, 3000));
           const proc = await ProcessManager.status(site.name);
           if (proc.status !== "online") {
@@ -305,7 +319,7 @@ export class DeployEngine {
             const err = new Error(
               `The app runs but nothing answers on port ${site.port}. Make sure it listens on process.env.PORT (currently ${site.port}).`,
             );
-            err.optional = true;
+            err.warning = true; // reported, but the deployment still counts
             throw err;
           }
           ctx.log(site.port ? `The app answers on 127.0.0.1:${site.port}.` : "The app is online.");
@@ -401,19 +415,7 @@ export class DeployEngine {
       },
     };
 
-    const steps = [pull, ...DeployEngine.buildSteps(site)];
-    // A health warning must not fail the deploy
-    const health = steps.find((s) => s.id === "health");
-    const runHealth = health.run;
-    health.run = async (ctx) => {
-      try {
-        await runHealth(ctx);
-      } catch (err) {
-        if (!err.optional) throw err;
-        ctx.state.healthWarning = err.message;
-        ctx.log(`⚠ ${err.message}`);
-      }
-    };
+    const steps = [pull, ...DeployEngine.buildSteps(() => site)];
 
     const job = JobRunner.pipeline(
       commit ? `Roll back ${site.name}` : `Deploy ${site.name}`,
@@ -431,15 +433,15 @@ export class DeployEngine {
 
   static async _finished(site, entry, job, ctx) {
     const finishedAt = new Date();
-    const warned = job.steps.some((s) => s.status === "warning") || !!ctx.state.healthWarning;
-    entry.status = job.status === "completed" ? (warned ? "warning" : "success") : job.status;
+    const warning = job.steps.find((s) => s.status === "warning");
+    entry.status = job.status === "completed" ? (warning ? "warning" : "success") : job.status;
     entry.finishedAt = finishedAt.toISOString();
     entry.duration = Math.round((finishedAt - new Date(entry.startedAt)) / 1000);
     entry.commitBefore = ctx.state.before || null;
     entry.commit = ctx.state.commit || (await DeployEngine.gitInfo(site.deployPath).catch(() => null))?.commit || null;
     const failedStep = job.steps.find((s) => s.status === "failed");
     if (failedStep) entry.error = `${failedStep.title}: ${failedStep.error}`;
-    else if (ctx.state.healthWarning) entry.error = ctx.state.healthWarning;
+    else if (warning) entry.error = warning.error;
 
     try {
       mkdirSync(join(HISTORY_DIR, site.id), { recursive: true });
@@ -471,6 +473,33 @@ export class DeployEngine {
         } catch {}
       }
     }
+  }
+
+  /**
+   * Record a finished website setup as the first entry of its deployment history.
+   */
+  static recordSetup(site, job, ctx) {
+    const warning = job.steps.find((s) => s.status === "warning");
+    const failed = job.steps.find((s) => s.status === "failed");
+    const entry = {
+      id: `${Date.now().toString(36)}-${randomBytes(3).toString("hex")}`,
+      trigger: "setup",
+      status: job.status === "completed" ? (warning ? "warning" : "success") : "failed",
+      branch: site.branch || null,
+      startedAt: job.startedAt,
+      finishedAt: job.finishedAt,
+      duration: Math.round((new Date(job.finishedAt) - new Date(job.startedAt)) / 1000),
+      commit: ctx.state.commit || null,
+      jobId: job.id,
+      ...(failed || warning ? { error: `${(failed || warning).title}: ${(failed || warning).error}` } : {}),
+    };
+    try {
+      mkdirSync(join(HISTORY_DIR, site.id), { recursive: true });
+      const log = JobRunner.output(job.id);
+      writeFileSync(DeployEngine.logFile(site.id, entry.id), log.length > MAX_LOG ? `[… trimmed]\n${log.slice(-MAX_LOG)}` : log);
+    } catch {}
+    DeployEngine._record(site.id, entry);
+    return entry;
   }
 
   // ── Webhooks (push to deploy) ──────────────────────────────

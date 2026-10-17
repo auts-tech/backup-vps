@@ -199,7 +199,7 @@ export class JobRunner {
           state.status = "done";
         } catch (err) {
           state.error = err.message;
-          if (step.optional && !job.cancelled) {
+          if ((step.optional || err.warning) && !job.cancelled) {
             state.status = "warning";
             ctx.log(`⚠ ${err.message}`);
           } else {
