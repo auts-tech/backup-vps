@@ -27,7 +27,8 @@ function summarize(proc) {
     pid: proc.pid || null,
     cpu: proc.monit?.cpu ?? null,
     memory: proc.monit?.memory ?? null,
-    uptime: env.status === "online" && env.pm_uptime ? Date.now() - env.pm_uptime : 0,
+    uptime:
+      env.status === "online" && env.pm_uptime ? Date.now() - env.pm_uptime : 0,
     restarts: env.restart_time || 0,
     unstableRestarts: env.unstable_restarts || 0,
     instances: env.instances || 1,
@@ -59,13 +60,17 @@ export class ProcessManager {
     const map = new Map();
     if (!(await ProcessManager.installed())) return map;
     const r = await ProcessManager.pm2(["jlist"], 15000);
-    for (const proc of parseJlist(r.stdout)) map.set(proc.name, summarize(proc));
+    for (const proc of parseJlist(r.stdout))
+      map.set(proc.name, summarize(proc));
     return map;
   }
 
   static async status(name) {
-    if (!(await ProcessManager.installed())) return { status: "pm2-missing", name };
-    return (await ProcessManager.list()).get(name) || { status: "not-started", name };
+    if (!(await ProcessManager.installed()))
+      return { status: "pm2-missing", name };
+    return (
+      (await ProcessManager.list()).get(name) || { status: "not-started", name }
+    );
   }
 
   static ecosystemPath(site) {
@@ -78,7 +83,8 @@ export class ProcessManager {
   }
 
   static writeEcosystem(site) {
-    if (!site.startCommand) throw httpError(400, "Set a start command for this app first");
+    if (!site.startCommand)
+      throw httpError(400, "Set a start command for this app first");
     mkdirSync(ECOSYSTEM_DIR, { recursive: true });
     const env = { NODE_ENV: "production" };
     if (site.port) env.PORT = String(site.port);
@@ -98,7 +104,9 @@ export class ProcessManager {
       merge_logs: true,
     };
     const file = ProcessManager.ecosystemPath(site);
-    writeFileSync(file, JSON.stringify({ apps: [app] }, null, 2), { mode: 0o600 });
+    writeFileSync(file, JSON.stringify({ apps: [app] }, null, 2), {
+      mode: 0o600,
+    });
     return file;
   }
 
@@ -107,7 +115,10 @@ export class ProcessManager {
    */
   static async startOrReload(site) {
     if (!(await ProcessManager.installed()))
-      throw httpError(409, "PM2 is not installed — install it from the App tab first");
+      throw httpError(
+        409,
+        "PM2 is not installed — install it from the App tab first",
+      );
     if (!existsSync(site.deployPath))
       throw httpError(409, `${site.deployPath} does not exist`);
     const file = ProcessManager.writeEcosystem(site);
@@ -117,7 +128,8 @@ export class ProcessManager {
       r = await ProcessManager.pm2(["start", file]);
     } else if (
       current.cwd !== site.deployPath ||
-      JSON.stringify(current.args) !== JSON.stringify(ProcessManager.startArgs(site))
+      JSON.stringify(current.args) !==
+        JSON.stringify(ProcessManager.startArgs(site))
     ) {
       // reload only re-reads the environment — a new command or folder needs a fresh process
       await ProcessManager.pm2(["delete", site.name]);
@@ -125,18 +137,30 @@ export class ProcessManager {
     } else {
       r = await ProcessManager.pm2(["startOrReload", file, "--update-env"]);
     }
-    if (r.code !== 0) throw httpError(500, (r.stderr || r.stdout).trim() || "pm2 failed to start the app");
+    if (r.code !== 0)
+      throw httpError(
+        500,
+        (r.stderr || r.stdout).trim() || "pm2 failed to start the app",
+      );
     await ProcessManager.pm2(["save"], 20000);
     return { success: true };
   }
 
   static async control(site, action) {
     if (!(await ProcessManager.installed()))
-      throw httpError(409, "PM2 is not installed — install it from the App tab first");
+      throw httpError(
+        409,
+        "PM2 is not installed — install it from the App tab first",
+      );
     if (action === "start" || action === "restart" || action === "reload") {
       const current = await ProcessManager.status(site.name);
-      if (current.status === "not-started" || action !== "restart") return ProcessManager.startOrReload(site);
-      const r = await ProcessManager.pm2(["restart", site.name, "--update-env"]);
+      if (current.status === "not-started" || action !== "restart")
+        return ProcessManager.startOrReload(site);
+      const r = await ProcessManager.pm2([
+        "restart",
+        site.name,
+        "--update-env",
+      ]);
       if (r.code !== 0) throw httpError(500, (r.stderr || r.stdout).trim());
       return { success: true };
     }
@@ -167,7 +191,11 @@ export class ProcessManager {
     const proc = await ProcessManager.status(site.name);
     const file = type === "err" ? proc.errLog : proc.outLog;
     if (!file || !existsSync(file)) return { path: file, lines: [] };
-    const r = await run("tail", ["-n", String(Math.min(Math.max(parseInt(lines) || 200, 10), 2000)), file]);
+    const r = await run("tail", [
+      "-n",
+      String(Math.min(Math.max(parseInt(lines) || 200, 10), 2000)),
+      file,
+    ]);
     return { path: file, lines: r.stdout.split("\n").filter(Boolean) };
   }
 
