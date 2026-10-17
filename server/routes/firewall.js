@@ -12,7 +12,9 @@ router.get("/", async (req, res) => {
 
 // POST /api/v1/firewall/install — apt install ufw (not enabled)
 router.post("/install", (req, res) => {
-  res.json({ jobId: JobRunner.start("Install ufw firewall", Firewall.installScript()).id });
+  res.json({
+    jobId: JobRunner.start("Install ufw firewall", Firewall.installScript()).id,
+  });
 });
 
 // POST /api/v1/firewall/enable — Allow SSH + the way you reach this panel, then enable
