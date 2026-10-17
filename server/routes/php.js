@@ -6,9 +6,44 @@ import {
   assertVersion,
 } from "../services/php-manager.js";
 import { JobRunner } from "../services/job-runner.js";
+import { ComposerManager } from "../services/composer-manager.js";
 import { httpError } from "../lib/config.js";
+import { toolEnv } from "../lib/shell.js";
 
 const router = Router();
+
+// ── Composer ───────────────────────────────────────────────
+
+// GET /api/v1/php/composer — Installed? version, PHP it runs on, supported commands
+router.get("/composer", async (req, res) => {
+  res.json(await ComposerManager.status());
+});
+
+// POST /api/v1/php/composer/install — Install (or reinstall) Composer
+router.post("/composer/install", (req, res) => {
+  const job = JobRunner.start("Install Composer", ComposerManager.installScript(), {
+    env: toolEnv(),
+  });
+  res.json({ jobId: job.id });
+});
+
+// POST /api/v1/php/composer/self-update — Update Composer to the latest release
+router.post("/composer/self-update", (req, res) => {
+  const job = JobRunner.start("Update Composer", ComposerManager.selfUpdateScript(), {
+    env: toolEnv(),
+  });
+  res.json({ jobId: job.id });
+});
+
+// POST /api/v1/php/composer/run — { dir, version, command, packageName, flags: [] }
+router.post("/composer/run", (req, res) => {
+  const { dir, version, command, packageName, flags } = req.body;
+  const script = ComposerManager.runScript({ dir, version, command, packageName, flags });
+  const job = JobRunner.start(`composer ${command} in ${dir}`, script, {
+    env: toolEnv(),
+  });
+  res.json({ jobId: job.id });
+});
 
 // GET /api/v1/php — Installed versions, repository status, default CLI
 router.get("/", async (req, res) => {
