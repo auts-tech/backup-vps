@@ -3,59 +3,15 @@ import { existsSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 import { CronManager } from "../services/cron-manager.js";
 import { JobRunner } from "../services/job-runner.js";
-import { getConfig, httpError, SERVER_DIR } from "../lib/config.js";
+import {
+  CRON_LOG,
+  panelTasks,
+  wrapCronCommand,
+} from "../services/panel-tasks.js";
+import { httpError, SERVER_DIR } from "../lib/config.js";
 import { run, serviceCtl, which } from "../lib/shell.js";
 
 const router = Router();
-const CRON_LOG = "/var/log/vps-panel-cron.log";
-
-/**
- * Built-in panel tasks. Commands use absolute paths because cron runs with a minimal PATH.
- */
-function panelTasks() {
-  const cli = `"${process.execPath}" "${join(SERVER_DIR, "cli.js")}"`;
-  const logSuffix = ` >> ${CRON_LOG} 2>&1`;
-  const config = getConfig();
-
-  const tasks = [
-    {
-      id: "backup-all",
-      label: "Backup all projects",
-      description: "Database + files + .env of every project",
-      command: `${cli} backup-all${logSuffix}`,
-    },
-    {
-      id: "vps-snapshot",
-      label: "Full VPS snapshot",
-      description: "Archive the whole server to the default target",
-      command: `${cli} vps-snapshot${logSuffix}`,
-    },
-    {
-      id: "cleanup",
-      label: "Prune expired backups",
-      description: `Delete backups older than ${config.backup?.retentionDays || 30} days`,
-      command: `${cli} cleanup${logSuffix}`,
-    },
-  ];
-  for (const p of config.projects || []) {
-    tasks.push({
-      id: `backup:${p.id}`,
-      label: `Backup ${p.name}`,
-      description: "Backup a single project",
-      command: `${cli} backup ${p.id}${logSuffix}`,
-    });
-  }
-  return tasks;
-}
-
-function shellQuote(value) {
-  return `'${String(value).replace(/'/g, "'\\''")}'`;
-}
-
-function wrapCronCommand(command, label) {
-  const cli = `"${process.execPath}" "${join(SERVER_DIR, "cli.js")}"`;
-  return `${cli} cron-run --label ${shellQuote(label || "Cron job")} -- ${shellQuote(command)}`;
-}
 
 /**
  * Earlier versions scheduled `curl -X POST http://127.0.0.1:9090/api/v1/backups/trigger`
