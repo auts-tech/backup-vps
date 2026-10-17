@@ -43,25 +43,44 @@ export function detectStack(dir) {
   if (!dir || !existsSync(dir)) return null;
   const has = (f) => existsSync(join(dir, f));
   if (has("artisan")) return "laravel";
-  if (has("wp-config.php") || has("wp-load.php") || has("public_html/wp-load.php")) return "wordpress";
+  if (
+    has("wp-config.php") ||
+    has("wp-load.php") ||
+    has("public_html/wp-load.php")
+  )
+    return "wordpress";
   const pkg = readPackageJson(dir);
   if (pkg) {
     const d = deps(pkg);
     if (d.next) return "next";
-    const server = ["express", "fastify", "koa", "@nestjs/core", "@hapi/hapi", "hono", "@remix-run/serve", "nuxt", "@sveltejs/kit"];
-    if (pkg.scripts?.start || pkg.main || server.some((s) => d[s])) return "node";
+    const server = [
+      "express",
+      "fastify",
+      "koa",
+      "@nestjs/core",
+      "@hapi/hapi",
+      "hono",
+      "@remix-run/serve",
+      "nuxt",
+      "@sveltejs/kit",
+    ];
+    if (pkg.scripts?.start || pkg.main || server.some((s) => d[s]))
+      return "node";
     if (pkg.scripts?.build) return "static"; // front-end build (Vite, CRA, Astro…) served as files
     return "node";
   }
   if (has("composer.json") || has("index.php")) return "php";
-  if (has("requirements.txt") || has("pyproject.toml") || has("manage.py")) return "python";
+  if (has("requirements.txt") || has("pyproject.toml") || has("manage.py"))
+    return "python";
   return "static";
 }
 
 function installCommand(dir) {
   const has = (f) => dir && existsSync(join(dir, f));
-  if (has("pnpm-lock.yaml")) return "corepack enable\npnpm install --frozen-lockfile";
-  if (has("yarn.lock")) return "corepack enable\nyarn install --frozen-lockfile";
+  if (has("pnpm-lock.yaml"))
+    return "corepack enable\npnpm install --frozen-lockfile";
+  if (has("yarn.lock"))
+    return "corepack enable\nyarn install --frozen-lockfile";
   if (has("package-lock.json")) return "npm ci";
   return "npm install";
 }
@@ -80,7 +99,9 @@ export function defaultDeployScript(stack, dir, { database = false } = {}) {
     case "laravel":
       return [
         "composer install --no-dev --optimize-autoloader --no-interaction",
-        ...(database ? ["php artisan migrate --force"] : ["# php artisan migrate --force"]),
+        ...(database
+          ? ["php artisan migrate --force"]
+          : ["# php artisan migrate --force"]),
         "php artisan storage:link || true",
         "php artisan config:cache",
         "php artisan route:cache",
@@ -118,7 +139,8 @@ export function defaultStartCommand(stack, dir) {
     return `node ${pkg.main || "index.js"}`;
   }
   if (stack === "python") {
-    if (dir && existsSync(join(dir, "main.py"))) return ".venv/bin/python main.py";
+    if (dir && existsSync(join(dir, "main.py")))
+      return ".venv/bin/python main.py";
     return ".venv/bin/python app.py";
   }
   return "";
@@ -143,7 +165,8 @@ export function suggestWebRoot(stack, dir) {
     if (has("public_html")) return "public_html";
     if (!has("index.php") && has("public/index.php")) return "public";
   }
-  if (stack === "wordpress" && has("public_html/wp-load.php")) return "public_html";
+  if (stack === "wordpress" && has("public_html/wp-load.php"))
+    return "public_html";
   return "";
 }
 
