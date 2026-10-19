@@ -28,7 +28,7 @@ const PROJECT_HEADER = /^# VPS Panel Project: [A-Za-z0-9-]+\n/m;
 const SITE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,200}$/;
 const DOMAIN = /^(\*\.)?([A-Za-z0-9-_]{1,63}\.)*[A-Za-z0-9-]{1,63}$/;
 
-export const SITE_TYPES = ["static", "php", "laravel", "wordpress", "proxy"];
+export const SITE_TYPES = ["static", "spa", "php", "laravel", "wordpress", "proxy"];
 
 export function assertSiteName(name) {
   if (!SITE_NAME.test(name || "") || name.includes(".."))
@@ -422,7 +422,7 @@ export class NginxManager {
   static async _createDocRoot(dir, type, domain) {
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     if (readdirSync(dir).length === 0) {
-      if (type === "static") {
+      if (type === "static" || type === "spa") {
         writeFileSync(
           join(dir, "index.html"),
           `<!doctype html>\n<html><head><meta charset="utf-8"><title>${domain}</title></head>\n<body style="font-family:sans-serif;text-align:center;padding-top:15vh"><h1>${domain}</h1><p>This site is live. Upload your files to <code>${dir}</code>.</p></body></html>\n`,
@@ -523,6 +523,26 @@ export class NginxManager {
           ...logs,
           "    location / {",
           "        try_files $uri $uri/ =404;",
+          "    }",
+          "",
+          ...assets,
+          ...hidden,
+        ];
+        break;
+      case "spa":
+        // Single-page apps (React, Vue…): client-side routes are answered with index.html
+        body = [
+          `    root ${root};`,
+          "    index index.html;",
+          "",
+          ...logs,
+          "    location / {",
+          "        try_files $uri $uri/ /index.html;",
+          "    }",
+          "",
+          "    # Always fetch the newest index.html after a deploy (assets are fingerprinted)",
+          "    location = /index.html {",
+          '        add_header Cache-Control "no-cache";',
           "    }",
           "",
           ...assets,

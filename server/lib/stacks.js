@@ -3,7 +3,7 @@ import { join } from "path";
 
 /**
  * What each kind of website needs:
- *   web      nginx template (static | php | laravel | wordpress | proxy)
+ *   web      nginx template (static | spa | php | laravel | wordpress | proxy)
  *   process  runs as a long-lived app under PM2 (needs a port + start command)
  *   php      served by PHP-FPM (needs a PHP version)
  *   external reverse proxy to something the panel does not manage
@@ -11,6 +11,8 @@ import { join } from "path";
 export const STACKS = {
   node: { label: "Node.js", web: "proxy", process: true },
   next: { label: "Next.js", web: "proxy", process: true },
+  // Built once on deploy, then served as files; unknown paths fall back to index.html
+  react: { label: "React / SPA", web: "spa" },
   laravel: { label: "Laravel", web: "laravel", php: true },
   php: { label: "PHP", web: "php", php: true },
   wordpress: { label: "WordPress", web: "wordpress", php: true },
@@ -21,6 +23,7 @@ export const STACKS = {
 
 export function normalizeStack(type) {
   if (type === "express") return "node";
+  if (type === "spa" || type === "vue" || type === "vite") return "react";
   return STACKS[type] ? type : "static";
 }
 
@@ -64,9 +67,12 @@ export function detectStack(dir) {
       "nuxt",
       "@sveltejs/kit",
     ];
-    if (pkg.scripts?.start || pkg.main || server.some((s) => d[s]))
-      return "node";
-    if (pkg.scripts?.build) return "static"; // front-end build (Vite, CRA, Astro…) served as files
+    if (server.some((s) => d[s])) return "node";
+    // Front-end apps: `npm start` of Create React App / Vite is only a dev server
+    const spa = ["react", "vue", "svelte", "@angular/core", "solid-js", "preact"];
+    if (pkg.scripts?.build && !d.gatsby && !d.astro && spa.some((s) => d[s])) return "react";
+    if (pkg.scripts?.start || pkg.main) return "node";
+    if (pkg.scripts?.build) return "static"; // other front-end builds (Astro, Gatsby…) served as files
     return "node";
   }
   if (has("composer.json") || has("index.php")) return "php";
@@ -111,6 +117,8 @@ export function defaultDeployScript(stack, dir, { database = false } = {}) {
       return has("composer.json")
         ? "composer install --no-dev --optimize-autoloader --no-interaction"
         : "# Nothing to build — PHP files are served as they are";
+    case "react":
+      return `${installCommand(dir)}\nnpm run build`;
     case "static":
       return pkg?.scripts?.build
         ? `${installCommand(dir)}\nnpm run build`
@@ -152,6 +160,10 @@ export function defaultStartCommand(stack, dir) {
 export function suggestWebRoot(stack, dir) {
   if (!dir) return "";
   const has = (f) => existsSync(join(dir, f));
+  if (stack === "react") {
+    const d = deps(readPackageJson(dir));
+    return d["react-scripts"] ? "build" : "dist";
+  }
   if (stack === "static") {
     const d = deps(readPackageJson(dir));
     if (d["react-scripts"]) return "build";
