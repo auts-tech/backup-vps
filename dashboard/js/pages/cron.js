@@ -37,8 +37,8 @@ function renderCron(container) {
           </h3>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px;padding:16px;">
-          ${cronPresetButton("0 12 * * *", "backup-all", "Daily at 12 PM", "Backup all projects at noon", "clock")}
-          ${cronPresetButton("0 0 * * *", "backup-all", "Nightly at 00:00", "Backup all projects at midnight", "moon")}
+          ${cronPresetButton("0 12 * * *", "backup-all", "Daily at 12 PM", "Backup all websites at noon", "clock")}
+          ${cronPresetButton("0 0 * * *", "backup-all", "Nightly at 00:00", "Backup all websites at midnight", "moon")}
           ${cronPresetButton("0 2 * * 0", "vps-snapshot", "Weekly Snapshot", "Full VPS snapshot, Sundays 02:00", "calendar")}
           ${cronPresetButton("0 3 * * *", "cleanup", "Prune Expired", "Delete backups past retention, 03:00", "trash")}
         </div>

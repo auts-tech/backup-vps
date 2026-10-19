@@ -411,7 +411,9 @@ class App {
       page = "dashboard";
       params = [];
     }
-    const full = [page, ...params.map(decodeURIComponent)].map(encodeURIComponent).join("/");
+    const full = [page, ...params.map(decodeURIComponent)]
+      .map(encodeURIComponent)
+      .join("/");
 
     if (updateHash && window.location.hash !== `#${full}`) {
       window.location.hash = `#${full}`;

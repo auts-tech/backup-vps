@@ -68,17 +68,40 @@ async function loadDashboardSites() {
   try {
     const { sites } = await api.getSites();
     const live = sites.filter((s) => s.health.state === "live").length;
-    const attention = sites.filter((s) => ["error", "stopped"].includes(s.health.state) || s.deploy.last?.status === "failed");
-    const expiring = sites.filter((s) => s.ssl.enabled && s.ssl.daysLeft !== null && s.ssl.daysLeft < 14).length;
-    const httpOnly = sites.filter((s) => s.domains.length && !s.ssl.enabled).length;
+    const attention = sites.filter(
+      (s) =>
+        ["error", "stopped"].includes(s.health.state) ||
+        s.deploy.last?.status === "failed",
+    );
+    const expiring = sites.filter(
+      (s) => s.ssl.enabled && s.ssl.daysLeft !== null && s.ssl.daysLeft < 14,
+    ).length;
+    const httpOnly = sites.filter(
+      (s) => s.domains.length && !s.ssl.enabled,
+    ).length;
     const set = (id, text) => {
       const node = document.getElementById(id);
       if (node) node.textContent = text;
     };
     set("dash-sites", sites.length);
-    set("dash-sites-foot", sites.length ? `${live} live${httpOnly ? ` · ${httpOnly} without HTTPS` : ""}` : "None yet — create one");
+    set(
+      "dash-sites-foot",
+      sites.length
+        ? `${live} live${httpOnly ? ` · ${httpOnly} without HTTPS` : ""}`
+        : "None yet — create one",
+    );
     set("dash-attention", attention.length + expiring);
-    set("dash-attention-foot", attention.length || expiring ? [attention.length ? `${attention.length} website(s)` : null, expiring ? `${expiring} certificate(s) expiring` : null].filter(Boolean).join(" · ") : "Everything looks fine");
+    set(
+      "dash-attention-foot",
+      attention.length || expiring
+        ? [
+            attention.length ? `${attention.length} website(s)` : null,
+            expiring ? `${expiring} certificate(s) expiring` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : "Everything looks fine",
+    );
     if (!el) return;
     if (!sites.length) {
       el.innerHTML = UI.emptyState(
@@ -89,8 +112,19 @@ async function loadDashboardSites() {
       );
       return;
     }
-    const order = { error: 0, stopped: 1, deploying: 2, live: 3, disabled: 4, idle: 5 };
-    const shown = [...sites].sort((a, b) => (order[a.health.state] ?? 9) - (order[b.health.state] ?? 9)).slice(0, 8);
+    const order = {
+      error: 0,
+      stopped: 1,
+      deploying: 2,
+      live: 3,
+      disabled: 4,
+      idle: 5,
+    };
+    const shown = [...sites]
+      .sort(
+        (a, b) => (order[a.health.state] ?? 9) - (order[b.health.state] ?? 9),
+      )
+      .slice(0, 8);
     el.innerHTML = `
       <div class="table-container" style="border:none;border-radius:0;">
         <table class="table">
@@ -112,7 +146,8 @@ async function loadDashboardSites() {
         </table>
       </div>`;
   } catch (err) {
-    if (el) el.innerHTML = `<div class="card-body muted">${escapeHtml(err.message)}</div>`;
+    if (el)
+      el.innerHTML = `<div class="card-body muted">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -123,7 +158,8 @@ async function loadDashboardData() {
     const diskEl = document.getElementById("dash-disk-usage");
     if (diskEl) diskEl.textContent = (stats.disk?.percent || "0") + "%";
     const diskFoot = document.getElementById("dash-disk-foot");
-    if (diskFoot && stats.disk?.availableHuman) diskFoot.textContent = `${stats.disk.availableHuman} free of ${stats.disk.totalHuman}`;
+    if (diskFoot && stats.disk?.availableHuman)
+      diskFoot.textContent = `${stats.disk.availableHuman} free of ${stats.disk.totalHuman}`;
     const uptimeEl = document.getElementById("dash-uptime");
     if (uptimeEl) uptimeEl.textContent = stats.uptime?.human || "—";
     const host = document.getElementById("dash-host");
@@ -149,8 +185,18 @@ async function loadDashboardData() {
       activityEl.innerHTML = logs.length
         ? `<div style="display:flex;flex-direction:column;">${logs
             .map((log) => {
-              const iconType = log.level === "error" ? "alertCircle" : log.level === "warning" ? "alertTriangle" : "checkCircle";
-              const color = log.level === "error" ? "var(--color-red)" : log.level === "warning" ? "var(--color-amber)" : "var(--color-green)";
+              const iconType =
+                log.level === "error"
+                  ? "alertCircle"
+                  : log.level === "warning"
+                    ? "alertTriangle"
+                    : "checkCircle";
+              const color =
+                log.level === "error"
+                  ? "var(--color-red)"
+                  : log.level === "warning"
+                    ? "var(--color-amber)"
+                    : "var(--color-green)";
               return `
               <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border-secondary);">
                 <div style="margin-top:2px;">${I.get(iconType, { size: 16, color })}</div>
@@ -161,7 +207,11 @@ async function loadDashboardData() {
               </div>`;
             })
             .join("")}</div>`
-        : UI.emptyState("fileText", "No activity yet", "Deployments, backups and installs show up here.");
+        : UI.emptyState(
+            "fileText",
+            "No activity yet",
+            "Deployments, backups and installs show up here.",
+          );
     }
   } catch (err) {
     console.error("Dashboard load error:", err);
@@ -173,7 +223,12 @@ const TOOL_GROUPS = [
     title: "Websites & Domains",
     tools: [
       ["sites", "globe", "Websites", "Sites & apps: domains, deploys, .env"],
-      ["new-site", "rocket", "New Website", "Git, WordPress, empty site, proxy"],
+      [
+        "new-site",
+        "rocket",
+        "New Website",
+        "Git, WordPress, empty site, proxy",
+      ],
       ["ssl", "shieldCheck", "SSL / TLS", "Free Let's Encrypt certificates"],
       ["files", "folder", "File Manager", "Browse, edit, upload & extract"],
     ],
@@ -181,7 +236,12 @@ const TOOL_GROUPS = [
   {
     title: "Databases & Software",
     tools: [
-      ["databases", "database", "MySQL Databases", "Databases, users & privileges"],
+      [
+        "databases",
+        "database",
+        "MySQL Databases",
+        "Databases, users & privileges",
+      ],
       ["databases", "table", "Database Browser", "Tables and SQL console"],
       ["php", "code", "PHP Versions", "Multiple PHP-FPM versions & php.ini"],
       ["php", "package", "Composer", "Install & run Composer"],

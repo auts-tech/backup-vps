@@ -37,13 +37,15 @@ async function loadServices() {
   try {
     const r = await api.getServices();
     if (!r.supported) {
-      document.getElementById("svc-body").innerHTML = `<tr><td colspan="4">${UI.emptyState("layers", "systemd is not available", "Service management needs a server with systemd (Ubuntu / Debian).")}</td></tr>`;
+      document.getElementById("svc-body").innerHTML =
+        `<tr><td colspan="4">${UI.emptyState("layers", "systemd is not available", "Service management needs a server with systemd (Ubuntu / Debian).")}</td></tr>`;
       return;
     }
     servicesState.services = r.services;
     renderServicesTable();
   } catch (err) {
-    document.getElementById("svc-body").innerHTML = `<tr><td colspan="4" style="color:var(--color-red);padding:20px;">${escapeHtml(err.message)}</td></tr>`;
+    document.getElementById("svc-body").innerHTML =
+      `<tr><td colspan="4" style="color:var(--color-red);padding:20px;">${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -64,10 +66,18 @@ function renderServicesTable() {
     ["failed", "Failed"],
     ["all", "All"],
   ]
-    .map(([id, label]) => `<button class="chip ${servicesState.filter === id ? "active" : ""}" onclick="servicesState.filter='${id}';renderServicesTable()">${label} · ${groups[id].length}</button>`)
+    .map(
+      ([id, label]) =>
+        `<button class="chip ${servicesState.filter === id ? "active" : ""}" onclick="servicesState.filter='${id}';renderServicesTable()">${label} · ${groups[id].length}</button>`,
+    )
     .join("");
   const q = servicesState.search;
-  const list = groups[servicesState.filter].filter((s) => !q || s.unit.toLowerCase().includes(q) || s.description.toLowerCase().includes(q));
+  const list = groups[servicesState.filter].filter(
+    (s) =>
+      !q ||
+      s.unit.toLowerCase().includes(q) ||
+      s.description.toLowerCase().includes(q),
+  );
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="4" class="muted" style="padding:20px;">No services.</td></tr>`;
     return;
@@ -102,23 +112,40 @@ async function svcAction(unit, action) {
   const run = async () => {
     try {
       const r = await api.serviceAction(unit, action);
-      toast.success(r.restarting ? "Restarting the panel" : `${action} done`, unit);
+      toast.success(
+        r.restarting ? "Restarting the panel" : `${action} done`,
+        unit,
+      );
       if (r.restarting) return setTimeout(() => location.reload(), 6000);
     } catch (err) {
-      Modal.show(`Could not ${action} ${escapeHtml(unit)}`, `<pre class="job-output">${escapeHtml(err.message)}</pre>`);
+      Modal.show(
+        `Could not ${action} ${escapeHtml(unit)}`,
+        `<pre class="job-output">${escapeHtml(err.message)}</pre>`,
+      );
     }
     loadServices();
   };
-  if (action === "stop" || action === "disable") Modal.confirm(`${action[0].toUpperCase()}${action.slice(1)} ${escapeHtml(unit)}?`, "Websites that depend on it may stop working.", run);
+  if (action === "stop" || action === "disable")
+    Modal.confirm(
+      `${action[0].toUpperCase()}${action.slice(1)} ${escapeHtml(unit)}?`,
+      "Websites that depend on it may stop working.",
+      run,
+    );
   else run();
 }
 
 async function svcLogs(unit) {
-  const { overlay } = Modal.show(`Logs: ${escapeHtml(unit)}`, `<pre class="job-output" id="svc-log" style="max-height:65vh;">Loading…</pre>`, { width: 1000 });
+  const { overlay } = Modal.show(
+    `Logs: ${escapeHtml(unit)}`,
+    `<pre class="job-output" id="svc-log" style="max-height:65vh;">Loading…</pre>`,
+    { width: 1000 },
+  );
   try {
     const r = await api.getServiceLogs(unit, 300);
     const pre = overlay.querySelector("#svc-log");
-    pre.textContent = r.lines.length ? r.lines.join("\n") : "No journal entries.";
+    pre.textContent = r.lines.length
+      ? r.lines.join("\n")
+      : "No journal entries.";
     pre.scrollTop = pre.scrollHeight;
   } catch (err) {
     overlay.querySelector("#svc-log").textContent = err.message;

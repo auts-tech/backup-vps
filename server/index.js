@@ -148,11 +148,9 @@ app.post("/api/v1/auth/login", (req, res) => {
     const minutes = Math.ceil(
       (LOGIN_WINDOW - (Date.now() - failures.first)) / 60000,
     );
-    return res
-      .status(429)
-      .json({
-        error: `Too many failed logins. Try again in ${minutes} minute(s).`,
-      });
+    return res.status(429).json({
+      error: `Too many failed logins. Try again in ${minutes} minute(s).`,
+    });
   }
 
   if (!safeEqual(email, adminEmail) || !safeEqual(password, adminPassword)) {

@@ -91,7 +91,12 @@ async function loadBackupProjects() {
     const { sites } = await api.getSites();
     const withFiles = sites.filter((s) => s.deployPath);
     if (!withFiles.length) {
-      el.innerHTML = UI.emptyState("globe", "No websites yet", "Create a website first — its database, files and .env are backed up together.", `<a class="btn btn-primary" href="#new-site">New website</a>`);
+      el.innerHTML = UI.emptyState(
+        "globe",
+        "No websites yet",
+        "Create a website first — its database, files and .env are backed up together.",
+        `<a class="btn btn-primary" href="#new-site">New website</a>`,
+      );
       return;
     }
     el.innerHTML = `

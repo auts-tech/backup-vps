@@ -215,7 +215,7 @@ The application runs as a native Linux system service named `vps-backup-manager`
 When new commits are pushed to the branch the server was cloned from, the panel shows an **Update available** popup right after you log in (and a green *Update available* button in the top bar). It lists what's new; click **Update now** and the panel:
 
 1. Downloads the changes (`git fetch` + fast-forward merge — never a force reset).
-2. Keeps this server's `server/data/config.json` (projects, API key, settings) even if the update touches it.
+2. Keeps this server's `server/data/config.json` (websites, API key, settings) and deployment history even if the update touches them.
 3. Runs `npm ci` only if dependencies changed.
 4. Checks every server file for syntax errors — if anything fails, it **rolls back** to the previous version and keeps running.
 5. Restarts itself, signs you out, and shows *"Panel updated to …"* on the login screen.
@@ -252,8 +252,8 @@ Re-running `setup.sh` is safe: it installs any new system packages and Node depe
 The panel includes a root terminal and file manager, so it should not be reachable over plain HTTP on port 9090. You can put it behind HTTPS **using the panel itself**:
 
 1. **DNS**: create an `A` record, e.g. `panel.yourdomain.com` → your server IP.
-2. **Websites & SSL → Install nginx** (if not installed yet), then in the *SSL Certificates* card enter your email and click **Install certbot** — Let's Encrypt sends expiry warnings there, and automatic renewal is enabled.
-3. **Create Website** → Domain `panel.yourdomain.com` → Type **Reverse proxy** → App port `9090` → tick *Enable HTTPS right away* → **Create**.
+2. **SSL / TLS** → enter your email → **Install certbot** — Let's Encrypt sends expiry warnings there, and automatic renewal is enabled. (nginx and certbot are also installed automatically with your first website.)
+3. **Websites → New Website → Reverse proxy** → app port `9090` → domain `panel.yourdomain.com` → tick *Enable HTTPS* → **Create website**.
    (The proxy template already supports the live log stream and the terminal WebSocket.)
 4. Open `https://panel.yourdomain.com` and log in.
 5. Stop exposing port 9090 publicly:
@@ -268,18 +268,28 @@ The panel includes a root terminal and file manager, so it should not be reachab
 
 ## Step 11: Host a Website
 
-Typical flow for a PHP / Laravel / WordPress site:
+Every site or app on the server is a **Website**: one page holds its domains & HTTPS, code & deployments, `.env`, app process, database, backups and logs. There are no separate project / deploy / website records to keep in sync any more.
 
-1. **PHP Versions** → *Add Repository* (once) → **Install PHP Version** (e.g. 8.3). Install more versions any time — they run side by side.
-2. **Databases** → *Install MariaDB* (once) → *Connect automatically* → **New Database** (creates the database and a user with a generated password).
-3. **Websites & SSL** → **Create Website** → enter the domain, choose the type (PHP / Laravel / WordPress / Static / Reverse proxy) and the PHP version.
-4. Upload your code with the **File Manager** (drag a `.zip` in, then *Extract*), clone it with **Deploy & Git**, or use the **Terminal**.
-5. Point the domain's DNS `A` record to the server, then click **Enable SSL** on the site (the email saved with certbot is pre-filled).
-6. Laravel scheduler: **Cron Jobs → Add Cron Job → Custom command** `/usr/bin/php8.3 /var/www/example.com/artisan schedule:run`, schedule *Every minute*.
+### Deploy an app from Git (Node.js, Next.js, React, Laravel, PHP, static, Python)
 
-**Which app is on which port?** Open **Ports & Processes**: every listening port with its process, whether it's public or local-only, whether UFW allows it, and what it belongs to (project, PM2 app, Docker container, nginx site, systemd service). Use it to spot apps that are exposed directly instead of through nginx.
+1. **Private repository?** **Security → SSH Keys** → *Generate deploy key*, add it to the repository as a read-only deploy key (GitHub: Settings → Deploy keys), and use the SSH URL (`git@github.com:you/app.git`). The page has a *Test connection* button.
+2. **Websites → New Website → Deploy from Git** → paste the URL. The panel inspects the repository and fills in the framework, branch, build command, start command, web root (`dist`/`build` for React and other front-end apps) and a matching PHP version. The folder (`/var/www/<name>`) and a free port are suggested automatically — every value can be changed.
+3. Enter the domain. A live DNS check shows whether it already points to this server; tick *Enable HTTPS* when it does. Laravel: keep *Create a database* ticked — the credentials are written to `.env`.
+4. **Create website**. One job with a live log clones the code, writes `.env`, runs the deploy script (installing Composer or PM2 if missing), starts the app and checks it answers on its port, configures nginx, and issues the certificate. If a step fails, fix the cause and click *Retry setup* — finished steps are skipped.
+5. Later updates: the **Deploy** button (pull + build + restart), or **Deployments → Deploy on push** to get a webhook URL and secret for GitHub, GitLab, Gitea or Bitbucket. Every deployment is kept with its log, and any earlier commit can be **rolled back** to.
 
-Switch a site to another PHP version from the dropdown on the Websites page. Every nginx change is validated with `nginx -t` first and rolled back automatically if it would break nginx.
+### Other kinds of websites
+
+- **WordPress** — *New Website → WordPress*: enter the domain and admin email. The database, WP-CLI download and installation happen automatically; the admin password is shown once at the end.
+- **HTML / PHP files** — *New Website → Empty website*: upload into `public_html` with the **File Manager** (drag a `.zip` in, then *Extract*).
+- **An app the panel doesn't run** (Docker, another service) — *New Website → Reverse proxy* → its port.
+- **nginx sites made before this version** appear under *Other nginx sites* on the Websites page → **Manage as website**.
+
+PHP sites need a PHP version (**PHP & Composer** → *Add Repository* once → **Install PHP Version**); databases need MariaDB connected (**Databases** → *Install MariaDB* → *Connect automatically*). Laravel's scheduler is a switch on the website's **PHP** tab.
+
+**Which app is on which port?** Open **Ports & Processes**: every listening port with its process, whether it's public or local-only, whether UFW allows it, and what it belongs to (website, PM2 app, Docker container, nginx site, systemd service). Close everything else with **Security → Firewall** — turning it on keeps SSH and the panel reachable automatically.
+
+Switch a website to another PHP version on its **PHP** tab. Every nginx change is validated with `nginx -t` first and rolled back automatically if it would break nginx.
 
 ---
 

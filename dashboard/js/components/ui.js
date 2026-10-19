@@ -4,7 +4,12 @@
 const STACKS = {
   node: { label: "Node.js", short: "JS", cls: "stack-node" },
   next: { label: "Next.js", short: "N", cls: "stack-next" },
-  react: { label: "React / SPA", short: "⚛", cls: "stack-react" },
+  react: {
+    label: "React / SPA",
+    short: "R",
+    cls: "stack-react",
+    svg: '<svg viewBox="-12 -12 24 24" width="62%" height="62%" fill="none" stroke="currentColor" stroke-width="1.4"><circle r="2" fill="currentColor" stroke="none"/><ellipse rx="10" ry="4"/><ellipse rx="10" ry="4" transform="rotate(60)"/><ellipse rx="10" ry="4" transform="rotate(120)"/></svg>',
+  },
   laravel: { label: "Laravel", short: "L", cls: "stack-laravel" },
   php: { label: "PHP", short: "php", cls: "stack-php" },
   wordpress: { label: "WordPress", short: "W", cls: "stack-wordpress" },
@@ -22,7 +27,7 @@ const UI = {
 
   stackAvatar(type, size = "md") {
     const s = UI.stack(type);
-    return `<span class="stack-avatar stack-avatar-${size} ${s.cls}" title="${escapeHtml(s.label)}">${escapeHtml(s.short)}</span>`;
+    return `<span class="stack-avatar stack-avatar-${size} ${s.cls}" title="${escapeHtml(s.label)}">${s.svg || escapeHtml(s.short)}</span>`;
   },
 
   /**
@@ -103,7 +108,14 @@ const UI = {
    * Destructive action that must be confirmed by typing a name.
    * options: [{ id, label, hint, checked, danger }] rendered as checkboxes; onConfirm(values)
    */
-  confirmTyped({ title, message, expected, confirmText = "Delete", options = [], onConfirm }) {
+  confirmTyped({
+    title,
+    message,
+    expected,
+    confirmText = "Delete",
+    options = [],
+    onConfirm,
+  }) {
     const { overlay, close } = Modal.show(
       escapeHtml(title),
       `
@@ -129,10 +141,14 @@ const UI = {
         submitText: confirmText,
         submitClass: "btn-danger-solid",
         onSubmit: async (el) => {
-          if (el.querySelector("#confirm-typed-input").value.trim() !== expected)
+          if (
+            el.querySelector("#confirm-typed-input").value.trim() !== expected
+          )
             throw new Error(`Type ${expected} to confirm`);
           const values = {};
-          el.querySelectorAll("[data-opt]").forEach((c) => (values[c.dataset.opt] = c.checked));
+          el.querySelectorAll("[data-opt]").forEach(
+            (c) => (values[c.dataset.opt] = c.checked),
+          );
           await onConfirm(values);
         },
       },
@@ -140,7 +156,10 @@ const UI = {
     const btn = overlay.querySelector("#modal-submit-btn");
     const input = overlay.querySelector("#confirm-typed-input");
     btn.disabled = true;
-    input.addEventListener("input", () => (btn.disabled = input.value.trim() !== expected));
+    input.addEventListener(
+      "input",
+      () => (btn.disabled = input.value.trim() !== expected),
+    );
     input.focus();
     return { close };
   },
@@ -148,7 +167,10 @@ const UI = {
   /**
    * Tiny bar chart (inline SVG). values: numbers; labels: optional tooltips.
    */
-  bars(values, { height = 56, labels = [], color = "var(--accent-black)" } = {}) {
+  bars(
+    values,
+    { height = 56, labels = [], color = "var(--accent-black)" } = {},
+  ) {
     const max = Math.max(1, ...values);
     const w = 100 / Math.max(values.length, 1);
     return `<svg class="mini-bars" viewBox="0 0 100 ${height}" preserveAspectRatio="none" style="height:${height}px;">
@@ -169,7 +191,11 @@ const UI = {
       .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "")
       .replace(/\r\n/g, "\n")
       .split("\n")
-      .map((line) => (line.includes("\r") ? line.split("\r").filter(Boolean).pop() || "" : line))
+      .map((line) =>
+        line.includes("\r")
+          ? line.split("\r").filter(Boolean).pop() || ""
+          : line,
+      )
       .join("\n");
   },
 

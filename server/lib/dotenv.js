@@ -4,8 +4,13 @@ const LINE = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=(.*)$/;
 function unquote(raw) {
   const v = raw.trim();
   if (v.length >= 2 && v.startsWith('"') && v.endsWith('"'))
-    return v.slice(1, -1).replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
-  if (v.length >= 2 && v.startsWith("'") && v.endsWith("'")) return v.slice(1, -1);
+    return v
+      .slice(1, -1)
+      .replace(/\\n/g, "\n")
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, "\\");
+  if (v.length >= 2 && v.startsWith("'") && v.endsWith("'"))
+    return v.slice(1, -1);
   const comment = v.search(/\s#/);
   return comment === -1 ? v : v.slice(0, comment).trim();
 }
@@ -55,7 +60,8 @@ export function mergeEnv(text, updates) {
     out.push(`${m[1]}=${quoteEnv(value)}`);
   }
   for (const key of keys) {
-    if (written.has(key) || updates[key] === null || updates[key] === undefined) continue;
+    if (written.has(key) || updates[key] === null || updates[key] === undefined)
+      continue;
     out.push(`${key}=${quoteEnv(updates[key])}`);
   }
   return `${out.join("\n")}\n`;

@@ -3,9 +3,28 @@
  * you reach this panel) first, and rules that would lock out SSH are refused.
  */
 const FW_PRESETS = [
-  { label: "Web (HTTP + HTTPS)", rules: [{ action: "allow", port: "80", proto: "tcp", comment: "HTTP" }, { action: "allow", port: "443", proto: "tcp", comment: "HTTPS" }] },
-  { label: "Email (SMTP, IMAP)", rules: ["25", "465", "587", "993"].map((port) => ({ action: "allow", port, proto: "tcp", comment: "Mail" })) },
-  { label: "Panel (9090)", rules: [{ action: "allow", port: "9090", proto: "tcp", comment: "VPS Panel" }] },
+  {
+    label: "Web (HTTP + HTTPS)",
+    rules: [
+      { action: "allow", port: "80", proto: "tcp", comment: "HTTP" },
+      { action: "allow", port: "443", proto: "tcp", comment: "HTTPS" },
+    ],
+  },
+  {
+    label: "Email (SMTP, IMAP)",
+    rules: ["25", "465", "587", "993"].map((port) => ({
+      action: "allow",
+      port,
+      proto: "tcp",
+      comment: "Mail",
+    })),
+  },
+  {
+    label: "Panel (9090)",
+    rules: [
+      { action: "allow", port: "9090", proto: "tcp", comment: "VPS Panel" },
+    ],
+  },
 ];
 
 function renderFirewall(container) {
@@ -80,7 +99,9 @@ async function loadFirewall() {
                   : fw.pending.length
                     ? fw.pending
                         .map(
-                          (spec) => `<tr><td></td><td colspan="3" class="mono-sm">ufw ${escapeHtml(spec)}</td>
+                          (
+                            spec,
+                          ) => `<tr><td></td><td colspan="3" class="mono-sm">ufw ${escapeHtml(spec)}</td>
                   <td style="text-align:right;"><button class="btn btn-sm btn-ghost" onclick="fwDelete({ spec: ${jsArg(spec)} }, ${jsArg(spec)})">${I.get("trash", { size: 12 })}</button></td></tr>`,
                         )
                         .join("")
@@ -138,11 +159,15 @@ function fwToggle(on) {
       },
     );
   } else {
-    Modal.confirm("Turn off the firewall", "Every port becomes reachable from the internet.", async () => {
-      await api.disableFirewall();
-      toast.success("Firewall off", "");
-      loadFirewall();
-    });
+    Modal.confirm(
+      "Turn off the firewall",
+      "Every port becomes reachable from the internet.",
+      async () => {
+        await api.disableFirewall();
+        toast.success("Firewall off", "");
+        loadFirewall();
+      },
+    );
   }
 }
 
@@ -186,15 +211,19 @@ async function fwBlockIp() {
 }
 
 function fwDelete(target, label) {
-  Modal.confirm("Delete rule", `Remove the rule for <strong>${escapeHtml(label)}</strong>?`, async () => {
-    try {
-      await api.deleteFirewallRule(target);
-      toast.success("Rule deleted", label);
-    } catch (err) {
-      toast.error("Could not delete", err.message);
-    }
-    loadFirewall();
-  });
+  Modal.confirm(
+    "Delete rule",
+    `Remove the rule for <strong>${escapeHtml(label)}</strong>?`,
+    async () => {
+      try {
+        await api.deleteFirewallRule(target);
+        toast.success("Rule deleted", label);
+      } catch (err) {
+        toast.error("Could not delete", err.message);
+      }
+      loadFirewall();
+    },
+  );
 }
 
 window.renderFirewall = renderFirewall;

@@ -69,7 +69,10 @@ function sshAddKey() {
       submitText: "Add key",
       width: 620,
       onSubmit: async () => {
-        await api.addSshKey(document.getElementById("ssh-new-key").value, document.getElementById("ssh-new-label").value.trim());
+        await api.addSshKey(
+          document.getElementById("ssh-new-key").value,
+          document.getElementById("ssh-new-label").value.trim(),
+        );
         toast.success("Key added", "You can now log in with it");
         loadSshKeys();
       },
@@ -78,11 +81,15 @@ function sshAddKey() {
 }
 
 function sshDeleteKey(fingerprint, label) {
-  Modal.confirm("Remove SSH key", `<strong>${escapeHtml(label)}</strong> will no longer be able to log in.`, async () => {
-    await api.deleteSshKey(fingerprint);
-    toast.success("Key removed", label);
-    loadSshKeys();
-  });
+  Modal.confirm(
+    "Remove SSH key",
+    `<strong>${escapeHtml(label)}</strong> will no longer be able to log in.`,
+    async () => {
+      await api.deleteSshKey(fingerprint);
+      toast.success("Key removed", label);
+      loadSshKeys();
+    },
+  );
 }
 
 async function loadDeployKey() {

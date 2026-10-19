@@ -45,7 +45,8 @@ async function loadSsl() {
     renderSslCerts();
   } catch (err) {
     const el = document.getElementById("ssl-certbot");
-    if (el) el.innerHTML = `<div class="card-body"><div class="alert alert-danger">${escapeHtml(err.message)}</div></div>`;
+    if (el)
+      el.innerHTML = `<div class="card-body"><div class="alert alert-danger">${escapeHtml(err.message)}</div></div>`;
   }
 }
 
@@ -128,12 +129,15 @@ function renderSslCerts() {
 }
 
 function sslInstallCertbot(presetEmail) {
-  const email = presetEmail || document.getElementById("certbot-email")?.value.trim();
+  const email =
+    presetEmail || document.getElementById("certbot-email")?.value.trim();
   if (!email) {
     toast.error("Email required", "Enter the email for Let's Encrypt notices");
     return;
   }
-  JobConsole.run(api.installCertbot(email), "Install certbot", { onDone: loadSsl });
+  JobConsole.run(api.installCertbot(email), "Install certbot", {
+    onDone: loadSsl,
+  });
 }
 
 function sslChangeEmail() {
@@ -148,7 +152,10 @@ function sslChangeEmail() {
       onSubmit: async () => {
         const email = document.getElementById("certbot-new-email").value.trim();
         const res = await api.setCertbotEmail(email);
-        if (res.jobId) JobConsole.open(res.jobId, "Update Let's Encrypt account email", { onDone: loadSsl });
+        if (res.jobId)
+          JobConsole.open(res.jobId, "Update Let's Encrypt account email", {
+            onDone: loadSsl,
+          });
         else {
           toast.success("Email saved", email);
           loadSsl();

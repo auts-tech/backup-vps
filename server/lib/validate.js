@@ -74,12 +74,21 @@ export function isSystemPath(p) {
  */
 export function assertSitePath(p, field = "Folder") {
   if (typeof p !== "string" || !p.startsWith("/"))
-    throw httpError(400, `${field} must be an absolute path, e.g. /var/www/my-site`);
+    throw httpError(
+      400,
+      `${field} must be an absolute path, e.g. /var/www/my-site`,
+    );
   if (/[\0\r\n;{}\s'"`$\\]/.test(p))
-    throw httpError(400, `${field} must not contain spaces, quotes or special characters`);
+    throw httpError(
+      400,
+      `${field} must not contain spaces, quotes or special characters`,
+    );
   const clean = resolve(p);
   if (SYSTEM_PATHS.has(clean) || clean.split("/").length < 3)
-    throw httpError(400, `${field} ${clean} is a system folder — use a subfolder such as /var/www/my-site`);
+    throw httpError(
+      400,
+      `${field} ${clean} is a system folder — use a subfolder such as /var/www/my-site`,
+    );
   return clean;
 }
 
@@ -91,8 +100,14 @@ export function assertWebRoot(dir) {
     .trim()
     .replace(/^\/+|\/+$/g, "");
   if (!clean) return "";
-  if (clean.split("/").some((part) => part === ".." || part === ".") || !/^[A-Za-z0-9._/-]{1,120}$/.test(clean))
-    throw httpError(400, "Web root must be a folder inside the website, e.g. public or dist");
+  if (
+    clean.split("/").some((part) => part === ".." || part === ".") ||
+    !/^[A-Za-z0-9._/-]{1,120}$/.test(clean)
+  )
+    throw httpError(
+      400,
+      "Web root must be a folder inside the website, e.g. public or dist",
+    );
   return clean;
 }
 
@@ -140,6 +155,9 @@ export function assertIpOrCidr(value, field = "Address") {
     extra !== undefined ||
     (bits !== undefined && (!/^\d{1,3}$/.test(bits) || Number(bits) > maxBits))
   )
-    throw httpError(400, `${field} must be an IP address or range, e.g. 203.0.113.7 or 10.0.0.0/8`);
+    throw httpError(
+      400,
+      `${field} must be an IP address or range, e.g. 203.0.113.7 or 10.0.0.0/8`,
+    );
   return v;
 }

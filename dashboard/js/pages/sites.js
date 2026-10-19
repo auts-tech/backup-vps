@@ -3,7 +3,13 @@
  * its domains (nginx), code (Git), app process (PM2), database and backups;
  * open one to manage all of it from a single page.
  */
-let sitesState = { sites: [], unlinked: [], tools: {}, filter: "all", search: "" };
+let sitesState = {
+  sites: [],
+  unlinked: [],
+  tools: {},
+  filter: "all",
+  search: "",
+};
 
 function renderSites(container) {
   const I = window.Icons;
@@ -38,11 +44,14 @@ function renderSites(container) {
   // Live status: faster while something is deploying
   const tick = () => {
     const busy = sitesState.sites.some((s) => s.health.state === "deploying");
-    sitesTimer = setTimeout(async () => {
-      if (window.app.currentPage !== "sites") return;
-      await loadSites(true);
-      tick();
-    }, busy ? 3000 : 15000);
+    sitesTimer = setTimeout(
+      async () => {
+        if (window.app.currentPage !== "sites") return;
+        await loadSites(true);
+        tick();
+      },
+      busy ? 3000 : 15000,
+    );
   };
   let sitesTimer;
   tick();
@@ -59,7 +68,8 @@ async function loadSites(quiet = false) {
   } catch (err) {
     if (quiet) return;
     const grid = document.getElementById("sites-grid");
-    if (grid) grid.innerHTML = `<div class="card" style="grid-column:1/-1;">${UI.emptyState("alertTriangle", "Could not load websites", escapeHtml(err.message))}</div>`;
+    if (grid)
+      grid.innerHTML = `<div class="card" style="grid-column:1/-1;">${UI.emptyState("alertTriangle", "Could not load websites", escapeHtml(err.message))}</div>`;
   }
 }
 
@@ -89,11 +99,26 @@ function renderSitesBanners() {
 function siteMatchesFilter(site) {
   const f = sitesState.filter;
   if (f === "live" && site.health.state !== "live") return false;
-  if (f === "attention" && !["error", "stopped"].includes(site.health.state) && site.deploy.last?.status !== "failed") return false;
+  if (
+    f === "attention" &&
+    !["error", "stopped"].includes(site.health.state) &&
+    site.deploy.last?.status !== "failed"
+  )
+    return false;
   if (f === "deploying" && site.health.state !== "deploying") return false;
   const q = sitesState.search;
   if (!q) return true;
-  return [site.name, site.description, site.gitUrl, site.stackLabel, ...(site.domains || [])].some((v) => String(v || "").toLowerCase().includes(q));
+  return [
+    site.name,
+    site.description,
+    site.gitUrl,
+    site.stackLabel,
+    ...(site.domains || []),
+  ].some((v) =>
+    String(v || "")
+      .toLowerCase()
+      .includes(q),
+  );
 }
 
 function renderSitesGrid() {
@@ -104,7 +129,11 @@ function renderSitesGrid() {
   const counts = {
     all: sites.length,
     live: sites.filter((s) => s.health.state === "live").length,
-    attention: sites.filter((s) => ["error", "stopped"].includes(s.health.state) || s.deploy.last?.status === "failed").length,
+    attention: sites.filter(
+      (s) =>
+        ["error", "stopped"].includes(s.health.state) ||
+        s.deploy.last?.status === "failed",
+    ).length,
     deploying: sites.filter((s) => s.health.state === "deploying").length,
   };
   const filters = document.getElementById("sites-filters");
@@ -115,7 +144,10 @@ function renderSitesGrid() {
       ["attention", "Needs attention"],
       ["deploying", "Deploying"],
     ]
-      .map(([id, label]) => `<button class="chip ${sitesState.filter === id ? "active" : ""}" onclick="sitesState.filter='${id}';renderSitesGrid()">${label} · ${counts[id]}</button>`)
+      .map(
+        ([id, label]) =>
+          `<button class="chip ${sitesState.filter === id ? "active" : ""}" onclick="sitesState.filter='${id}';renderSitesGrid()">${label} · ${counts[id]}</button>`,
+      )
       .join("");
 
   if (!sites.length) {
@@ -132,18 +164,23 @@ function renderSitesGrid() {
   }
   const shown = sites.filter(siteMatchesFilter);
   grid.innerHTML =
-    (shown.length ? shown.map(siteCardHtml).join("") : `<div class="muted" style="grid-column:1/-1;padding:30px;text-align:center;">No websites match.</div>`) +
+    (shown.length
+      ? shown.map(siteCardHtml).join("")
+      : `<div class="muted" style="grid-column:1/-1;padding:30px;text-align:center;">No websites match.</div>`) +
     `<button class="site-card site-card-new" onclick="window.app.navigate('new-site')">${I.get("plus", { size: 18 })}<span>New website</span></button>`;
 }
 
 function siteRuntimeText(site) {
   if (site.features.process) {
     const parts = [site.stackLabel, site.port ? `port ${site.port}` : null];
-    if (site.app?.status === "online" && site.app.memory) parts.push(formatBytes(site.app.memory));
+    if (site.app?.status === "online" && site.app.memory)
+      parts.push(formatBytes(site.app.memory));
     return parts.filter(Boolean).join(" · ");
   }
-  if (site.features.external) return `→ ${site.proxyTarget || site.nginx?.proxyPass || "?"}`;
-  if (site.features.php) return `${site.stackLabel} · PHP ${site.phpVersion || site.nginx?.phpVersion || "?"}`;
+  if (site.features.external)
+    return `→ ${site.proxyTarget || site.nginx?.proxyPass || "?"}`;
+  if (site.features.php)
+    return `${site.stackLabel} · PHP ${site.phpVersion || site.nginx?.phpVersion || "?"}`;
   return site.stackLabel;
 }
 
@@ -156,11 +193,12 @@ function siteCardHtml(site) {
   const gitRow = site.gitUrl
     ? `<div class="site-meta-row">${I.get("gitBranch", { size: 13 })}<span>${escapeHtml(site.git?.branch || site.branch || "")}</span>${site.git?.commit ? UI.commit(site.git.commit) : ""}</div>`
     : `<div class="site-meta-row">${I.get("folder", { size: 13 })}<span class="truncate mono-sm" title="${escapeHtml(site.deployPath || "")}">${escapeHtml(site.deployPath || "No folder")}</span></div>`;
-  const deployRow = site.provision?.status === "failed"
-    ? `<div class="site-meta-row" style="color:var(--color-red);">${I.get("alertCircle", { size: 13, color: "var(--color-red)" })}<span class="truncate">Setup failed — open to retry</span></div>`
-    : last
-      ? `<div class="site-meta-row">${I.get(last.status === "failed" ? "alertCircle" : "rocket", { size: 13, color: last.status === "failed" ? "var(--color-red)" : undefined })}<span>${last.status === "running" ? "Deploying now…" : `${last.trigger === "setup" ? "Set up" : "Deployed"} ${UI.timeAgo(last.finishedAt || last.startedAt)}`}</span>${last.status === "failed" ? '<span class="badge badge-danger">failed</span>' : last.status === "warning" ? '<span class="badge badge-warning">warning</span>' : ""}</div>`
-      : "";
+  const deployRow =
+    site.provision?.status === "failed"
+      ? `<div class="site-meta-row" style="color:var(--color-red);">${I.get("alertCircle", { size: 13, color: "var(--color-red)" })}<span class="truncate">Setup failed — open to retry</span></div>`
+      : last
+        ? `<div class="site-meta-row">${I.get(last.status === "failed" ? "alertCircle" : "rocket", { size: 13, color: last.status === "failed" ? "var(--color-red)" : undefined })}<span>${last.status === "running" ? "Deploying now…" : `${last.trigger === "setup" ? "Set up" : "Deployed"} ${UI.timeAgo(last.finishedAt || last.startedAt)}`}</span>${last.status === "failed" ? '<span class="badge badge-danger">failed</span>' : last.status === "warning" ? '<span class="badge badge-warning">warning</span>' : ""}</div>`
+        : "";
   const ssl = site.primaryDomain
     ? site.ssl.enabled
       ? `<span class="badge ${site.ssl.daysLeft !== null && site.ssl.daysLeft < 14 ? "badge-warning" : "badge-success"}">${I.get("lock", { size: 10 })} HTTPS${site.ssl.daysLeft !== null ? ` · ${site.ssl.daysLeft}d` : ""}</span>`
@@ -288,7 +326,10 @@ async function siteDeploy(id, name, onDone) {
     const res = await api.deploySite(id);
     JobConsole.open(res.jobId, `Deploy ${name}`, { onDone });
   } catch (err) {
-    if (err.data?.jobId) JobConsole.open(err.data.jobId, `Deploy ${name} (already running)`, { onDone });
+    if (err.data?.jobId)
+      JobConsole.open(err.data.jobId, `Deploy ${name} (already running)`, {
+        onDone,
+      });
     else toast.error("Deploy failed", err.message);
   }
   setTimeout(() => onDone?.(), 600);

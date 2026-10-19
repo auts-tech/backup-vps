@@ -16,7 +16,9 @@ router.get("/suggest", async (req, res) => {
 
 // POST /api/v1/sites/inspect — { gitUrl, branch } branches + detected stack, commands, PHP version
 router.post("/inspect", async (req, res) => {
-  res.json(await SiteManager.inspectRepository(req.body.gitUrl, req.body.branch));
+  res.json(
+    await SiteManager.inspectRepository(req.body.gitUrl, req.body.branch),
+  );
 });
 
 // GET /api/v1/sites/dns?domain= — Where a domain points, and whether that is this server
@@ -66,7 +68,8 @@ function startDeploy(res, fn) {
     res.json(fn());
   } catch (err) {
     // Let the dashboard attach to the deployment that is already running
-    if (err.jobId) return res.status(409).json({ error: err.message, jobId: err.jobId });
+    if (err.jobId)
+      return res.status(409).json({ error: err.message, jobId: err.jobId });
     throw err;
   }
 }
@@ -74,21 +77,33 @@ function startDeploy(res, fn) {
 // POST /api/v1/sites/:id/deploy — Pull, build and restart → { jobId, deployId }
 router.post("/:id/deploy", (req, res) => {
   const site = getSite(req.params.id);
-  startDeploy(res, () => DeployEngine.deploy(site, { trigger: "manual", by: req.user?.email || null }));
+  startDeploy(res, () =>
+    DeployEngine.deploy(site, {
+      trigger: "manual",
+      by: req.user?.email || null,
+    }),
+  );
 });
 
 // POST /api/v1/sites/:id/rollback — { commit } Check out an earlier commit, build and restart
 router.post("/:id/rollback", (req, res) => {
   const site = getSite(req.params.id);
   startDeploy(res, () =>
-    DeployEngine.deploy(site, { trigger: "rollback", commit: String(req.body.commit || ""), by: req.user?.email || null }),
+    DeployEngine.deploy(site, {
+      trigger: "rollback",
+      commit: String(req.body.commit || ""),
+      by: req.user?.email || null,
+    }),
   );
 });
 
 // GET /api/v1/sites/:id/deployments — History, newest first
 router.get("/:id/deployments", (req, res) => {
   getSite(req.params.id);
-  res.json({ deployments: DeployEngine.history(req.params.id), running: DeployEngine.running(req.params.id)?.id || null });
+  res.json({
+    deployments: DeployEngine.history(req.params.id),
+    running: DeployEngine.running(req.params.id)?.id || null,
+  });
 });
 
 // GET /api/v1/sites/:id/deployments/:deployId/log
@@ -116,7 +131,9 @@ router.post("/:id/app/:action", async (req, res) => {
 
 // GET /api/v1/sites/:id/logs?type=access|error|out|err&lines=200
 router.get("/:id/logs", async (req, res) => {
-  res.json(await SiteManager.logs(req.params.id, req.query.type, req.query.lines));
+  res.json(
+    await SiteManager.logs(req.params.id, req.query.type, req.query.lines),
+  );
 });
 
 // ── Domains & HTTPS ────────────────────────────────────────
@@ -133,7 +150,9 @@ router.post("/:id/ssl", (req, res) => {
 
 // POST /api/v1/sites/:id/enabled — { enabled } Take the site online/offline in nginx
 router.post("/:id/enabled", async (req, res) => {
-  res.json(await SiteManager.setEnabled(req.params.id, req.body.enabled !== false));
+  res.json(
+    await SiteManager.setEnabled(req.params.id, req.body.enabled !== false),
+  );
 });
 
 // ── Environment (.env) ─────────────────────────────────────
@@ -156,7 +175,9 @@ router.post("/:id/env/apply", async (req, res) => {
 
 // POST /api/v1/sites/:id/database — { writeEnv } Create a database + user for the website
 router.post("/:id/database", async (req, res) => {
-  res.status(201).json(await SiteManager.createDatabaseFor(req.params.id, req.body));
+  res
+    .status(201)
+    .json(await SiteManager.createDatabaseFor(req.params.id, req.body));
 });
 
 // PUT /api/v1/sites/:id/database — { name, user, password } Link an existing database
@@ -192,7 +213,9 @@ router.post("/:id/backups/restore", (req, res) => {
 
 // PUT /api/v1/sites/:id/backups/schedule — { schedule: "0 2 * * *" | null }
 router.put("/:id/backups/schedule", async (req, res) => {
-  res.json(await SiteManager.setBackupSchedule(req.params.id, req.body.schedule));
+  res.json(
+    await SiteManager.setBackupSchedule(req.params.id, req.body.schedule),
+  );
 });
 
 // PUT /api/v1/sites/:id/scheduler — { enabled } Laravel scheduler cron entry

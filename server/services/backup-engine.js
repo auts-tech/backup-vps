@@ -32,7 +32,10 @@ export const DEFAULT_BACKUP_EXCLUDES = ["node_modules"];
 function formatBytes(bytes) {
   if (!bytes) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const i = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
   return `${(bytes / 1024 ** i).toFixed(1)} ${units[i]}`;
 }
 
@@ -500,9 +503,13 @@ export class BackupEngine {
    */
   static _mysqlDefaults(db) {
     try {
-      if (MysqlManager.getCreds()) return { file: MysqlManager.defaultsFile(), temp: false };
+      if (MysqlManager.getCreds())
+        return { file: MysqlManager.defaultsFile(), temp: false };
     } catch {}
-    const quote = (v) => `"${String(v ?? "").replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+    const quote = (v) =>
+      `"${String(v ?? "")
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"')}"`;
     const file = join("/tmp", `vps-panel-my-${process.pid}-${Date.now()}.cnf`);
     writeFileSync(
       file,
@@ -517,7 +524,10 @@ export class BackupEngine {
    */
   static async _dumpMysql(db, out) {
     const { dump } = await MysqlManager.binaries();
-    if (!dump) throw new Error("mysqldump is not installed (apt install mariadb-client)");
+    if (!dump)
+      throw new Error(
+        "mysqldump is not installed (apt install mariadb-client)",
+      );
     const defaults = BackupEngine._mysqlDefaults(db);
     try {
       const child = spawn(
@@ -538,22 +548,28 @@ export class BackupEngine {
       const exit = new Promise((resolve) => child.on("close", resolve));
       await pipeline(child.stdout, createGzip(), createWriteStream(out));
       const code = await exit;
-      if (code !== 0) throw new Error(`mysqldump failed: ${stderr.trim() || `exit ${code}`}`);
+      if (code !== 0)
+        throw new Error(`mysqldump failed: ${stderr.trim() || `exit ${code}`}`);
     } finally {
       if (defaults.temp) rmSync(defaults.file, { force: true });
     }
   }
 
   static async _dumpPostgres(db, out) {
-    const child = spawn("pg_dump", ["-U", db.user, "-h", "localhost", db.name], {
-      env: cleanEnv({ PGPASSWORD: db.password || "" }),
-    });
+    const child = spawn(
+      "pg_dump",
+      ["-U", db.user, "-h", "localhost", db.name],
+      {
+        env: cleanEnv({ PGPASSWORD: db.password || "" }),
+      },
+    );
     let stderr = "";
     child.stderr.on("data", (d) => (stderr += d));
     const exit = new Promise((resolve) => child.on("close", resolve));
     await pipeline(child.stdout, createGzip(), createWriteStream(out));
     const code = await exit;
-    if (code !== 0) throw new Error(`pg_dump failed: ${stderr.trim() || `exit ${code}`}`);
+    if (code !== 0)
+      throw new Error(`pg_dump failed: ${stderr.trim() || `exit ${code}`}`);
   }
 
   /**
@@ -592,7 +608,8 @@ export class BackupEngine {
             ...BackupEngine.rcloneConfigArgs(),
             "--transfers=4",
           ]);
-          if (code !== 0) throw new Error("Download failed — check the storage settings");
+          if (code !== 0)
+            throw new Error("Download failed — check the storage settings");
           const files = readdirSync(restoreDir);
           if (!files.length) throw new Error("The backup folder is empty");
           ctx.log(`Downloaded ${files.length} file(s): ${files.join(", ")}`);
@@ -603,21 +620,33 @@ export class BackupEngine {
         when: () => options.restoreDb !== false && !!project.database?.name,
         run: async (ctx) => {
           const [dump] = find("db_", ".sql.gz");
-          if (!dump) return ctx.log("This backup has no database dump — skipped.");
+          if (!dump)
+            return ctx.log("This backup has no database dump — skipped.");
           const { client } = await MysqlManager.binaries();
           if (!client) throw new Error("The mysql client is not installed");
           const defaults = BackupEngine._mysqlDefaults(project.database);
           try {
             // The database may have been dropped since the backup was taken
-            await run(client, [`--defaults-extra-file=${defaults.file}`, "-e", `CREATE DATABASE IF NOT EXISTS \`${project.database.name.replace(/`/g, "")}\``]);
-            ctx.log(`Importing ${basename(dump)} into ${project.database.name}...`);
-            const child = spawn(client, [`--defaults-extra-file=${defaults.file}`, project.database.name], { env: cleanEnv() });
+            await run(client, [
+              `--defaults-extra-file=${defaults.file}`,
+              "-e",
+              `CREATE DATABASE IF NOT EXISTS \`${project.database.name.replace(/`/g, "")}\``,
+            ]);
+            ctx.log(
+              `Importing ${basename(dump)} into ${project.database.name}...`,
+            );
+            const child = spawn(
+              client,
+              [`--defaults-extra-file=${defaults.file}`, project.database.name],
+              { env: cleanEnv() },
+            );
             let stderr = "";
             child.stderr.on("data", (d) => (stderr += d));
             const exit = new Promise((resolve) => child.on("close", resolve));
             await pipeline(createReadStream(dump), createGunzip(), child.stdin);
             const code = await exit;
-            if (code !== 0) throw new Error(stderr.trim() || `mysql exited with ${code}`);
+            if (code !== 0)
+              throw new Error(stderr.trim() || `mysql exited with ${code}`);
             ctx.log("Database restored.");
           } finally {
             if (defaults.temp) rmSync(defaults.file, { force: true });
@@ -629,17 +658,25 @@ export class BackupEngine {
         when: () => options.restoreFiles !== false,
         run: async (ctx) => {
           const archives = find("files_", ".tar.gz");
-          if (!archives.length) return ctx.log("This backup has no file archives — skipped.");
+          if (!archives.length)
+            return ctx.log("This backup has no file archives — skipped.");
           for (const archive of archives) {
             // Archives hold "<folder>/..." — extract next to the folder they came from
-            const list = await run("tar", ["tzf", archive], { timeout: 600000 });
+            const list = await run("tar", ["tzf", archive], {
+              timeout: 600000,
+            });
             const top = (list.stdout.split("\n")[0] || "").split("/")[0];
-            const origin = (project.backupDirs || []).find((d) => basename(d) === top);
-            const dest = origin ? dirname(origin) : join(project.deployPath || "/tmp", `restored-${backupName}`);
+            const origin = (project.backupDirs || []).find(
+              (d) => basename(d) === top,
+            );
+            const dest = origin
+              ? dirname(origin)
+              : join(project.deployPath || "/tmp", `restored-${backupName}`);
             mkdirSync(dest, { recursive: true });
             ctx.log(`Extracting ${basename(archive)} → ${join(dest, top)}`);
             const code = await ctx.exec("tar", ["xzf", archive, "-C", dest]);
-            if (code !== 0) throw new Error(`Extracting ${basename(archive)} failed`);
+            if (code !== 0)
+              throw new Error(`Extracting ${basename(archive)} failed`);
           }
         },
       },
@@ -648,20 +685,27 @@ export class BackupEngine {
         when: () => options.restoreEnv !== false && !!project.deployPath,
         run: async (ctx) => {
           const [envFile] = find("env_", ".env");
-          if (!envFile) return ctx.log("This backup has no .env file — skipped.");
+          if (!envFile)
+            return ctx.log("This backup has no .env file — skipped.");
           copyFileSync(envFile, join(project.deployPath, ".env"));
           ctx.log(`Restored ${join(project.deployPath, ".env")}`);
         },
       },
     ];
 
-    return JobRunner.pipeline(`Restore ${project.name} from ${backupName}`, steps, {
-      meta: { kind: "restore", siteId: project.id },
-      onExit: (job) => {
-        rmSync(restoreDir, { recursive: true, force: true });
-        BackupEngine.log(`[${project.name}] Restore from ${backupName}: ${job.status}`);
+    return JobRunner.pipeline(
+      `Restore ${project.name} from ${backupName}`,
+      steps,
+      {
+        meta: { kind: "restore", siteId: project.id },
+        onExit: (job) => {
+          rmSync(restoreDir, { recursive: true, force: true });
+          BackupEngine.log(
+            `[${project.name}] Restore from ${backupName}: ${job.status}`,
+          );
+        },
       },
-    });
+    );
   }
 
   /**

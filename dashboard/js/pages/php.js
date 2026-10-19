@@ -321,8 +321,12 @@ async function loadComposer() {
     el.innerHTML = `<div class="alert alert-danger">${escapeHtml(status.error)}</div>`;
     return;
   }
-  const phpSites = (sites.sites || []).filter((s) => s.features?.php && s.deployPath);
-  const versions = (phpState.data?.versions || []).filter((v) => v.cliInstalled).map((v) => v.version);
+  const phpSites = (sites.sites || []).filter(
+    (s) => s.features?.php && s.deployPath,
+  );
+  const versions = (phpState.data?.versions || [])
+    .filter((v) => v.cliInstalled)
+    .map((v) => v.version);
   el.innerHTML = `
     <div class="card">
       <div class="card-header">
@@ -352,7 +356,14 @@ async function loadComposer() {
           </div>
           <div class="field-row">
             <div class="form-group"><label class="form-label">Command</label>
-              <select class="form-select" id="cmp-cmd" onchange="composerRenderFlags()">${Object.keys(status.commands).map((c) => `<option value="${c}">composer ${c} — ${escapeHtml(COMPOSER_LABELS[c] || "")}</option>`).join("")}</select></div>
+              <select class="form-select" id="cmp-cmd" onchange="composerRenderFlags()">${Object.keys(
+                status.commands,
+              )
+                .map(
+                  (c) =>
+                    `<option value="${c}">composer ${c} — ${escapeHtml(COMPOSER_LABELS[c] || "")}</option>`,
+                )
+                .join("")}</select></div>
             <div class="form-group" id="cmp-pkg-group" style="display:none;"><label class="form-label">Package(s)</label><input class="form-input mono-input" id="cmp-pkg" placeholder="laravel/sanctum  or  guzzlehttp/guzzle:^7.9"></div>
           </div>
           <div id="cmp-flags" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;"></div>
@@ -372,29 +383,54 @@ async function loadComposer() {
 function composerPickSite() {
   const sel = document.getElementById("cmp-site");
   if (!sel) return;
-  document.getElementById("cmp-dir-group").style.display = sel.value ? "none" : "";
+  document.getElementById("cmp-dir-group").style.display = sel.value
+    ? "none"
+    : "";
   const php = sel.selectedOptions[0]?.dataset.php;
   const phpSel = document.getElementById("cmp-php");
-  if (php && [...phpSel.options].some((o) => o.value === php)) phpSel.value = php;
+  if (php && [...phpSel.options].some((o) => o.value === php))
+    phpSel.value = php;
 }
 
 function composerRenderFlags() {
   const cmd = document.getElementById("cmp-cmd").value;
-  const defaults = { install: ["--no-dev", "--optimize-autoloader"], "dump-autoload": ["--optimize"] };
-  document.getElementById("cmp-pkg-group").style.display = ["require", "remove"].includes(cmd) ? "" : "none";
-  document.getElementById("cmp-flags").innerHTML = (window.composerCommands[cmd] || [])
-    .map((f) => `<label class="form-check"><input type="checkbox" class="cmp-flag" value="${f}" ${(defaults[cmd] || []).includes(f) ? "checked" : ""}><code>${f}</code></label>`)
+  const defaults = {
+    install: ["--no-dev", "--optimize-autoloader"],
+    "dump-autoload": ["--optimize"],
+  };
+  document.getElementById("cmp-pkg-group").style.display = [
+    "require",
+    "remove",
+  ].includes(cmd)
+    ? ""
+    : "none";
+  document.getElementById("cmp-flags").innerHTML = (
+    window.composerCommands[cmd] || []
+  )
+    .map(
+      (f) =>
+        `<label class="form-check"><input type="checkbox" class="cmp-flag" value="${f}" ${(defaults[cmd] || []).includes(f) ? "checked" : ""}><code>${f}</code></label>`,
+    )
     .join("");
 }
 
 function composerRun() {
   const site = document.getElementById("cmp-site")?.value;
   const dir = site || document.getElementById("cmp-dir").value.trim();
-  if (!dir) return toast.error("Folder missing", "Choose a project or enter a folder");
+  if (!dir)
+    return toast.error("Folder missing", "Choose a project or enter a folder");
   const command = document.getElementById("cmp-cmd").value;
-  const flags = [...document.querySelectorAll(".cmp-flag:checked")].map((c) => c.value);
+  const flags = [...document.querySelectorAll(".cmp-flag:checked")].map(
+    (c) => c.value,
+  );
   JobConsole.run(
-    api.runComposer({ dir, command, flags, version: document.getElementById("cmp-php").value, packageName: document.getElementById("cmp-pkg")?.value.trim() }),
+    api.runComposer({
+      dir,
+      command,
+      flags,
+      version: document.getElementById("cmp-php").value,
+      packageName: document.getElementById("cmp-pkg")?.value.trim(),
+    }),
     `composer ${command}`,
   );
 }

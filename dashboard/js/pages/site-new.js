@@ -635,6 +635,9 @@ function nsShowProgress(res) {
       const detail = await api.getSite(site.id).catch(() => null);
       const ok = job.status === "completed";
       const url = detail?.url;
+      window.app.setTitle(
+        ok ? `${site.name} is ready` : `Setup of ${site.name} stopped`,
+      );
       done.innerHTML = ok
         ? `<div class="alert alert-success" style="margin-bottom:14px;">${I.get("checkCircle", { size: 18 })}<div style="flex:1;"><strong>${escapeHtml(site.name)} is ready.</strong>${url ? ` It answers on <a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="text-decoration:underline;">${escapeHtml(url)}</a>${url.startsWith("http:") ? " (point the DNS here, then enable HTTPS on the Domains tab)" : ""}.` : " Add a domain on the Domains tab when you're ready."}</div>
             ${url ? `<a class="btn btn-sm btn-secondary" href="${escapeHtml(url)}" target="_blank" rel="noopener">${I.get("externalLink", { size: 12 })}<span>Visit</span></a>` : ""}

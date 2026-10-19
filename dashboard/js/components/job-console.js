@@ -6,18 +6,24 @@
 const STEP_ICONS = {
   pending: '<span class="step-idle"></span>',
   running: '<span class="spinner spinner-sm"></span>',
-  done: () => Icons.get("checkCircle", { size: 15, color: "var(--color-green)" }),
-  warning: () => Icons.get("alertTriangle", { size: 15, color: "var(--color-amber)" }),
+  done: () =>
+    Icons.get("checkCircle", { size: 15, color: "var(--color-green)" }),
+  warning: () =>
+    Icons.get("alertTriangle", { size: 15, color: "var(--color-amber)" }),
   failed: () => Icons.get("xCircle", { size: 15, color: "var(--color-red)" }),
   skipped: '<span class="step-skip">–</span>',
 };
 
 class JobConsole {
   static stepsHtml(steps) {
-    // Skipped steps are noise once the job is done; keep them while running for context
+    // Skipped steps (not needed for this website) are left out
     return (steps || [])
+      .filter((s) => s.status !== "skipped")
       .map((s) => {
-        const icon = typeof STEP_ICONS[s.status] === "function" ? STEP_ICONS[s.status]() : STEP_ICONS[s.status] || "";
+        const icon =
+          typeof STEP_ICONS[s.status] === "function"
+            ? STEP_ICONS[s.status]()
+            : STEP_ICONS[s.status] || "";
         const time =
           s.startedAt && s.finishedAt
             ? `<span class="step-time">${UI.duration(Math.max(0, Math.round((new Date(s.finishedAt) - new Date(s.startedAt)) / 1000)))}</span>`
@@ -91,10 +97,13 @@ class JobConsole {
         }
         if (job.startedAt) {
           const end = job.finishedAt ? new Date(job.finishedAt) : new Date();
-          elapsed.textContent = UI.duration(Math.max(0, Math.round((end - new Date(job.startedAt)) / 1000)));
+          elapsed.textContent = UI.duration(
+            Math.max(0, Math.round((end - new Date(job.startedAt)) / 1000)),
+          );
         }
         if (job.output) {
-          const atBottom = out.scrollTop + out.clientHeight >= out.scrollHeight - 30;
+          const atBottom =
+            out.scrollTop + out.clientHeight >= out.scrollHeight - 30;
           out.textContent += UI.cleanOutput(job.output);
           if (atBottom) out.scrollTop = out.scrollHeight;
         }
@@ -126,7 +135,9 @@ class JobConsole {
        <div class="form-hint" style="margin-top:8px;">You can close this window — the job keeps running on the server.</div>`,
       { width: 880 },
     );
-    JobConsole.attach(overlay.querySelector("#job-console-host"), jobId, { onDone });
+    JobConsole.attach(overlay.querySelector("#job-console-host"), jobId, {
+      onDone,
+    });
     return { close };
   }
 
@@ -137,10 +148,15 @@ class JobConsole {
     try {
       const job = await api.getJob(jobId, offset);
       if (job.status === "running") {
-        setTimeout(() => JobConsole.watch(jobId, job.nextOffset, onDone, title || job.title), 2000);
+        setTimeout(
+          () =>
+            JobConsole.watch(jobId, job.nextOffset, onDone, title || job.title),
+          2000,
+        );
         return;
       }
-      if (job.status === "completed") toast.success("Finished", title || job.title);
+      if (job.status === "completed")
+        toast.success("Finished", title || job.title);
       else toast.error("Job failed", title || job.title);
       if (onDone) onDone(job);
     } catch {}

@@ -69,8 +69,16 @@ export function detectStack(dir) {
     ];
     if (server.some((s) => d[s])) return "node";
     // Front-end apps: `npm start` of Create React App / Vite is only a dev server
-    const spa = ["react", "vue", "svelte", "@angular/core", "solid-js", "preact"];
-    if (pkg.scripts?.build && !d.gatsby && !d.astro && spa.some((s) => d[s])) return "react";
+    const spa = [
+      "react",
+      "vue",
+      "svelte",
+      "@angular/core",
+      "solid-js",
+      "preact",
+    ];
+    if (pkg.scripts?.build && !d.gatsby && !d.astro && spa.some((s) => d[s]))
+      return "react";
     if (pkg.scripts?.start || pkg.main) return "node";
     if (pkg.scripts?.build) return "static"; // other front-end builds (Astro, Gatsby…) served as files
     return "node";

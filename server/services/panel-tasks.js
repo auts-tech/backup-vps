@@ -65,9 +65,17 @@ export async function siteCronJobs(site) {
   const jobs = await CronManager.list().catch(() => []);
   const backupTask = ` backup ${site.id} `;
   return {
-    backups: jobs.filter((j) => j.command.includes(backupTask) || j.command.includes(` backup ${site.id}'`)),
+    backups: jobs.filter(
+      (j) =>
+        j.command.includes(backupTask) ||
+        j.command.includes(` backup ${site.id}'`),
+    ),
     scheduler: site.deployPath
-      ? jobs.filter((j) => j.command.includes("artisan schedule:run") && j.command.includes(site.deployPath))
+      ? jobs.filter(
+          (j) =>
+            j.command.includes("artisan schedule:run") &&
+            j.command.includes(site.deployPath),
+        )
       : [],
   };
 }

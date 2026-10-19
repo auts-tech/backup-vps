@@ -9,17 +9,37 @@ const SD_TABS = [
   { id: "overview", label: "Overview", icon: "dashboard" },
   { id: "deployments", label: "Deployments", icon: "rocket" },
   { id: "domains", label: "Domains & SSL", icon: "globe" },
-  { id: "env", label: "Environment", icon: "sliders", when: (s) => s.features.env && s.deployPath },
+  {
+    id: "env",
+    label: "Environment",
+    icon: "sliders",
+    when: (s) => s.features.env && s.deployPath,
+  },
   { id: "app", label: "App", icon: "cpu", when: (s) => s.features.process },
   { id: "php", label: "PHP", icon: "code", when: (s) => s.features.php },
-  { id: "database", label: "Database", icon: "database", when: (s) => !s.features.external },
-  { id: "backups", label: "Backups", icon: "archive", when: (s) => !!s.deployPath },
+  {
+    id: "database",
+    label: "Database",
+    icon: "database",
+    when: (s) => !s.features.external,
+  },
+  {
+    id: "backups",
+    label: "Backups",
+    icon: "archive",
+    when: (s) => !!s.deployPath,
+  },
   { id: "logs", label: "Logs & Traffic", icon: "barChart" },
   { id: "settings", label: "Settings", icon: "settings" },
 ];
 
 function renderSiteDetail(container, params = []) {
-  sd = { id: params[0], site: null, tab: params[1] || "overview", consoles: [] };
+  sd = {
+    id: params[0],
+    site: null,
+    tab: params[1] || "overview",
+    consoles: [],
+  };
   container.innerHTML = `<div id="sd-root"><div style="text-align:center;padding:60px;"><div class="spinner spinner-lg"></div></div></div>`;
   window.app.onLeave(() => {
     clearInterval(sd.timer);
@@ -29,8 +49,12 @@ function renderSiteDetail(container, params = []) {
     // Keep status fresh; quick while something runs
     sd.timer = setInterval(() => {
       if (window.app.currentPage !== "site") return clearInterval(sd.timer);
-      const busy = sd.site && (sd.site.health.state === "deploying" || sd.site.provision?.status === "running");
-      if (busy || Date.now() - (sd.loadedAt || 0) > 20000) sdLoad({ quiet: true });
+      const busy =
+        sd.site &&
+        (sd.site.health.state === "deploying" ||
+          sd.site.provision?.status === "running");
+      if (busy || Date.now() - (sd.loadedAt || 0) > 20000)
+        sdLoad({ quiet: true });
     }, 4000);
   });
 }
@@ -54,7 +78,8 @@ async function sdLoad({ quiet = false, rerenderTab = false } = {}) {
       prev?.deploy.last?.id !== s.deploy.last?.id ||
       prev?.deploy.last?.status !== s.deploy.last?.status ||
       prev?.provision?.status !== s.provision?.status;
-    if (changed && ["overview", "deployments", "app"].includes(sd.tab)) sdRenderTab();
+    if (changed && ["overview", "deployments", "app"].includes(sd.tab))
+      sdRenderTab();
   } catch (err) {
     if (quiet) return;
     document.getElementById("sd-root").innerHTML = `
@@ -85,7 +110,9 @@ function sdSwitchTab(tab) {
   sd.consoles = [];
   sd.tab = tab;
   history.replaceState(null, "", `#site/${sd.id}/${tab}`);
-  document.querySelectorAll("#sd-tabs .tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === tab));
+  document
+    .querySelectorAll("#sd-tabs .tab")
+    .forEach((t) => t.classList.toggle("active", t.dataset.tab === tab));
   sdRenderTab();
 }
 
@@ -113,11 +140,20 @@ function sdHeaderHtml() {
   const s = sd.site;
   const I = window.Icons;
   const sub = [];
-  if (s.url) sub.push(`<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${I.get(s.ssl.enabled ? "lock" : "globe", { size: 12 })} ${escapeHtml(s.primaryDomain)}</a>`);
+  if (s.url)
+    sub.push(
+      `<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${I.get(s.ssl.enabled ? "lock" : "globe", { size: 12 })} ${escapeHtml(s.primaryDomain)}</a>`,
+    );
   else sub.push(`<span>${I.get("globe", { size: 12 })} No domain yet</span>`);
   sub.push(`<span>${escapeHtml(s.stackLabel)}</span>`);
-  if (s.gitUrl) sub.push(`<span>${I.get("gitBranch", { size: 12 })} ${escapeHtml(s.branch || "")}</span>`);
-  if (s.deployPath) sub.push(`<span class="mono-sm">${escapeHtml(s.deployPath)}</span>`);
+  if (s.gitUrl)
+    sub.push(
+      `<span>${I.get("gitBranch", { size: 12 })} ${escapeHtml(s.branch || "")}</span>`,
+    );
+  if (s.deployPath)
+    sub.push(
+      `<span class="mono-sm truncate" style="max-width:420px;" title="${escapeHtml(s.deployPath)}">${escapeHtml(s.deployPath)}</span>`,
+    );
   const deploying = s.health.state === "deploying";
   return `
     <div class="site-hero">
@@ -131,8 +167,12 @@ function sdHeaderHtml() {
       <div class="site-hero-actions">
         ${s.url ? `<a class="btn btn-secondary" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${I.get("externalLink", { size: 13 })}<span>Visit</span></a>` : ""}
         ${s.features.process ? `<button class="btn btn-secondary" onclick="sdAppAction('restart')" ${deploying ? "disabled" : ""}>${I.get("refresh", { size: 13 })}<span>Restart</span></button>` : ""}
-        ${s.deployPath ? `<button class="btn btn-secondary" onclick="openInFileManager(${jsArg(s.deployPath)})" title="Open in File Manager">${I.get("folder", { size: 13 })}</button>
-        <button class="btn btn-secondary" onclick="openTerminalIn(${jsArg(s.deployPath)})" title="Terminal in this folder">${I.get("terminal", { size: 13 })}</button>` : ""}
+        ${
+          s.deployPath
+            ? `<button class="btn btn-secondary" onclick="openInFileManager(${jsArg(s.deployPath)})" title="Open in File Manager">${I.get("folder", { size: 13 })}</button>
+        <button class="btn btn-secondary" onclick="openTerminalIn(${jsArg(s.deployPath)})" title="Terminal in this folder">${I.get("terminal", { size: 13 })}</button>`
+            : ""
+        }
         ${s.deployPath && !s.features.external ? `<button class="btn btn-primary" onclick="sdDeploy()" ${deploying ? "disabled" : ""}>${I.get("rocket", { size: 13, color: "#fff" })}<span>${deploying ? "Deploying…" : s.gitUrl ? "Deploy" : "Rebuild"}</span></button>` : ""}
       </div>
     </div>`;
@@ -162,30 +202,94 @@ function sdOverview(el) {
 
   const runtime = s.features.process
     ? s.app && s.app.status === "online"
-      ? { value: `Online · pid ${s.app.pid}`, sub: `Up ${UI.uptime(s.app.uptime)} · ${s.app.memory ? formatBytes(s.app.memory) : "—"} RAM · ${s.app.cpu ?? 0}% CPU · ${s.app.restarts} restarts` }
-      : { value: s.health.label, sub: `${s.startCommand || "no start command"} · port ${s.port || "—"}` }
+      ? {
+          value: `Online · pid ${s.app.pid}`,
+          sub: `Up ${UI.uptime(s.app.uptime)} · ${s.app.memory ? formatBytes(s.app.memory) : "—"} RAM · ${s.app.cpu ?? 0}% CPU · ${s.app.restarts} restarts`,
+        }
+      : {
+          value: s.health.label,
+          sub: `${s.startCommand || "no start command"} · port ${s.port || "—"}`,
+        }
     : s.features.php
-      ? { value: `PHP ${s.phpVersion || s.nginx?.phpVersion || "—"}`, sub: "Served by PHP-FPM through nginx" }
+      ? {
+          value: `PHP ${s.phpVersion || s.nginx?.phpVersion || "—"}`,
+          sub: "Served by PHP-FPM through nginx",
+        }
       : s.features.external
-        ? { value: "Reverse proxy", sub: `→ ${s.proxyTarget || s.nginx?.proxyPass || "—"}` }
-        : { value: "Static files", sub: s.webRoot ? `Serving ${s.webRoot}/` : "Served directly by nginx" };
+        ? {
+            value: "Reverse proxy",
+            sub: `→ ${s.proxyTarget || s.nginx?.proxyPass || "—"}`,
+          }
+        : {
+            value: "Static files",
+            sub: s.webRoot
+              ? `Serving ${s.webRoot}/`
+              : "Served directly by nginx",
+          };
 
   const checks = [
-    { done: s.domains.length > 0, title: "Add a domain", desc: "Point a domain at this website", tab: "domains" },
-    { done: s.ssl.enabled, title: "Enable HTTPS", desc: "Free Let's Encrypt certificate, renewed automatically", tab: "domains", show: s.domains.length > 0 },
-    { done: !!s.history.find((h) => h.status === "success" || h.status === "warning"), title: "Deploy successfully", desc: "Build and start the latest code", tab: "deployments", show: !s.features.external },
-    { done: s.deploy.autoDeploy, title: "Deploy on every push", desc: "Connect a GitHub/GitLab webhook", tab: "deployments", show: !!s.gitUrl },
-    { done: !!s.database, title: "Create a database", desc: "MySQL database + user, credentials in .env", tab: "database", show: ["laravel", "wordpress"].includes(s.type) },
-    { done: s.cron.backups.length > 0, title: "Schedule backups", desc: "Daily backup of files, .env and database", tab: "backups", show: !!s.deployPath },
-    { done: s.cron.scheduler, title: "Run the Laravel scheduler", desc: "php artisan schedule:run every minute", tab: "php", show: s.type === "laravel" },
+    {
+      done: s.domains.length > 0,
+      title: "Add a domain",
+      desc: "Point a domain at this website",
+      tab: "domains",
+    },
+    {
+      done: s.ssl.enabled,
+      title: "Enable HTTPS",
+      desc: "Free Let's Encrypt certificate, renewed automatically",
+      tab: "domains",
+      show: s.domains.length > 0,
+    },
+    {
+      done: !!s.history.find(
+        (h) => h.status === "success" || h.status === "warning",
+      ),
+      title: "Deploy successfully",
+      desc: "Build and start the latest code",
+      tab: "deployments",
+      show: !s.features.external,
+    },
+    {
+      done: s.deploy.autoDeploy,
+      title: "Deploy on every push",
+      desc: "Connect a GitHub/GitLab webhook",
+      tab: "deployments",
+      show: !!s.gitUrl,
+    },
+    {
+      done: !!s.database,
+      title: "Create a database",
+      desc: "MySQL database + user, credentials in .env",
+      tab: "database",
+      show: ["laravel", "wordpress"].includes(s.type),
+    },
+    {
+      done: s.cron.backups.length > 0,
+      title: "Schedule backups",
+      desc: "Daily backup of files, .env and database",
+      tab: "backups",
+      show: !!s.deployPath,
+    },
+    {
+      done: s.cron.scheduler,
+      title: "Run the Laravel scheduler",
+      desc: "php artisan schedule:run every minute",
+      tab: "php",
+      show: s.type === "laravel",
+    },
   ].filter((c) => c.show !== false);
   const doneCount = checks.filter((c) => c.done).length;
 
   el.innerHTML = `
     ${provisioning ? `<div class="card" style="margin-bottom:20px;"><div class="card-header"><h3 class="card-title">${I.get("rocket", { size: 16 })}<span>Setting up this website…</span></h3></div><div class="card-body" id="sd-provision"></div></div>` : ""}
-    ${failed ? `<div class="alert alert-danger" style="margin-bottom:20px;">${I.get("alertCircle", { size: 18 })}<div style="flex:1;"><strong>Setup did not finish.</strong> ${escapeHtml(s.provision.error || "")}</div>
+    ${
+      failed
+        ? `<div class="alert alert-danger" style="margin-bottom:20px;">${I.get("alertCircle", { size: 18 })}<div style="flex:1;"><strong>Setup did not finish.</strong> ${escapeHtml(s.provision.error || "")}</div>
       <button class="btn btn-sm btn-secondary" onclick="sdShowJobOrLog(${jsArg(s.provision.jobId)})">View log</button>
-      <button class="btn btn-sm btn-primary" onclick="sdRetrySetup()">${I.get("refresh", { size: 12, color: "#fff" })}<span>Retry setup</span></button></div>` : ""}
+      <button class="btn btn-sm btn-primary" onclick="sdRetrySetup()">${I.get("refresh", { size: 12, color: "#fff" })}<span>Retry setup</span></button></div>`
+        : ""
+    }
     <div class="info-grid">
       <div class="info-card">
         <div class="info-card-label">${I.get("globe", { size: 12 })}Website</div>
@@ -238,8 +342,12 @@ function sdOverview(el) {
         <div class="card">
           <div class="card-header"><h3 class="card-title">${I.get("zap", { size: 16 })}<span>Quick actions</span></h3></div>
           <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            ${s.deployPath ? `<button class="btn btn-secondary" onclick="openInFileManager(${jsArg(s.deployPath)})">${I.get("folder", { size: 13 })}<span>Files</span></button>
-            <button class="btn btn-secondary" onclick="openTerminalIn(${jsArg(s.deployPath)})">${I.get("terminal", { size: 13 })}<span>Terminal</span></button>` : ""}
+            ${
+              s.deployPath
+                ? `<button class="btn btn-secondary" onclick="openInFileManager(${jsArg(s.deployPath)})">${I.get("folder", { size: 13 })}<span>Files</span></button>
+            <button class="btn btn-secondary" onclick="openTerminalIn(${jsArg(s.deployPath)})">${I.get("terminal", { size: 13 })}<span>Terminal</span></button>`
+                : ""
+            }
             ${s.features.env && s.deployPath ? `<button class="btn btn-secondary" onclick="sdSwitchTab('env')">${I.get("sliders", { size: 13 })}<span>Edit .env</span></button>` : ""}
             ${s.deployPath ? `<button class="btn btn-secondary" onclick="sdBackupNow()">${I.get("archive", { size: 13 })}<span>Back up now</span></button>` : ""}
             <button class="btn btn-secondary" onclick="sdSwitchTab('logs')">${I.get("fileText", { size: 13 })}<span>Logs</span></button>
@@ -248,13 +356,29 @@ function sdOverview(el) {
         </div>
         <div class="card">
           <div class="card-header"><h3 class="card-title">${I.get("clock", { size: 16 })}<span>Recent deployments</span></h3><button class="btn btn-sm btn-ghost" onclick="sdSwitchTab('deployments')">All</button></div>
-          ${s.history.length ? `<ul class="checklist">${s.history.slice(0, 5).map((h) => `<li>${sdStatusIcon(h.status)}<span class="check-title">${h.commit ? UI.commit(h.commit) : escapeHtml(sdTriggerText(h))}<span class="check-desc">${escapeHtml(sdTriggerText(h))} · ${UI.timeAgo(h.finishedAt || h.startedAt)}</span></span></li>`).join("")}</ul>` : `<div class="card-body muted" style="font-size:13px;">No deployments yet.</div>`}
+          ${
+            s.history.length
+              ? `<ul class="checklist">${s.history
+                  .slice(0, 5)
+                  .map(
+                    (h) =>
+                      `<li>${sdStatusIcon(h.status)}<span class="check-title">${h.commit ? UI.commit(h.commit) : escapeHtml(sdTriggerText(h))}<span class="check-desc">${escapeHtml(sdTriggerText(h))} · ${UI.timeAgo(h.finishedAt || h.startedAt)}</span></span></li>`,
+                  )
+                  .join("")}</ul>`
+              : `<div class="card-body muted" style="font-size:13px;">No deployments yet.</div>`
+          }
         </div>
       </div>
     </div>`;
 
   if (provisioning && s.provision.jobId) {
-    sd.consoles.push(JobConsole.attach(document.getElementById("sd-provision"), s.provision.jobId, { onDone: () => sdLoad({ rerenderTab: true }) }));
+    sd.consoles.push(
+      JobConsole.attach(
+        document.getElementById("sd-provision"),
+        s.provision.jobId,
+        { onDone: () => sdLoad({ rerenderTab: true }) },
+      ),
+    );
   }
   if (s.disk && s.disk.bytes === null) setTimeout(() => sdRefreshDisk(), 3000);
 }
@@ -269,18 +393,38 @@ async function sdRefreshDisk() {
 }
 
 function sdStatusText(status) {
-  return { success: "Succeeded", warning: "Succeeded with warnings", failed: "Failed", running: "Running", cancelled: "Cancelled" }[status] || status;
+  return (
+    {
+      success: "Succeeded",
+      warning: "Succeeded with warnings",
+      failed: "Failed",
+      running: "Running",
+      cancelled: "Cancelled",
+    }[status] || status
+  );
 }
 
 function sdStatusIcon(status) {
-  if (status === "success") return Icons.get("checkCircle", { size: 16, color: "var(--color-green)" });
-  if (status === "warning") return Icons.get("alertTriangle", { size: 16, color: "var(--color-amber)" });
+  if (status === "success")
+    return Icons.get("checkCircle", { size: 16, color: "var(--color-green)" });
+  if (status === "warning")
+    return Icons.get("alertTriangle", {
+      size: 16,
+      color: "var(--color-amber)",
+    });
   if (status === "running") return '<span class="spinner spinner-sm"></span>';
   return Icons.get("xCircle", { size: 16, color: "var(--color-red)" });
 }
 
 function sdTriggerText(h) {
-  const t = { manual: "Deployed manually", webhook: "Git push", rollback: "Rollback", setup: "Initial setup", api: "API" }[h.trigger] || h.trigger;
+  const t =
+    {
+      manual: "Deployed manually",
+      webhook: "Git push",
+      rollback: "Rollback",
+      setup: "Initial setup",
+      api: "API",
+    }[h.trigger] || h.trigger;
   return h.by ? `${t} by ${h.by}` : t;
 }
 
@@ -301,7 +445,11 @@ async function sdShowJobOrLog(jobId) {
   try {
     const job = await api.getJob(jobId, 0);
     if (job.status === "running") return JobConsole.open(jobId, job.title);
-    Modal.show(escapeHtml(job.title), `<ul class="job-steps">${JobConsole.stepsHtml(job.steps)}</ul><pre class="job-output" style="max-height:60vh;">${escapeHtml(UI.cleanOutput(job.output))}</pre>`, { width: 900 });
+    Modal.show(
+      escapeHtml(job.title),
+      `<ul class="job-steps">${JobConsole.stepsHtml(job.steps)}</ul><pre class="job-output" style="max-height:60vh;">${escapeHtml(UI.cleanOutput(job.output))}</pre>`,
+      { width: 900 },
+    );
   } catch {
     const entry = sd.site.history.find((h) => h.jobId === jobId);
     if (entry) sdShowLog(entry.id);
@@ -380,7 +528,10 @@ async function sdDeployments(el) {
     sd.consoles.push(
       JobConsole.attach(document.getElementById("sd-live"), running, {
         onDone: (job) => {
-          toast[job.status === "completed" ? "success" : "error"](job.status === "completed" ? "Deployed" : "Deployment failed", s.name);
+          toast[job.status === "completed" ? "success" : "error"](
+            job.status === "completed" ? "Deployed" : "Deployment failed",
+            s.name,
+          );
           sdLoad({ rerenderTab: true });
         },
       }),
@@ -390,8 +541,14 @@ async function sdDeployments(el) {
 
 function sdHistoryRow(h, index) {
   const I = window.Icons;
-  const current = sd.site.git?.commit?.hash && h.commit?.hash === sd.site.git.commit.hash;
-  const canRollback = h.commit && sd.site.gitUrl && !current && (h.status === "success" || h.status === "warning") && !sd.site.deploy.running;
+  const current =
+    sd.site.git?.commit?.hash && h.commit?.hash === sd.site.git.commit.hash;
+  const canRollback =
+    h.commit &&
+    sd.site.gitUrl &&
+    !current &&
+    (h.status === "success" || h.status === "warning") &&
+    !sd.site.deploy.running;
   return `
     <tr>
       <td><span class="deploy-row-status">${sdStatusIcon(h.status)}${escapeHtml(sdStatusText(h.status))}</span>${h.error ? `<div class="muted truncate" style="font-size:11px;max-width:220px;" title="${escapeHtml(h.error)}">${escapeHtml(h.error)}</div>` : ""}</td>
@@ -399,8 +556,8 @@ function sdHistoryRow(h, index) {
       <td style="white-space:nowrap;font-size:12px;">${escapeHtml(UI.dateTime(h.startedAt))}<div class="muted" style="font-size:11px;">${UI.timeAgo(h.startedAt)}</div></td>
       <td class="mono-sm">${h.status === "running" ? '<span class="spinner spinner-sm"></span>' : UI.duration(h.duration)}</td>
       <td style="text-align:right;white-space:nowrap;">
-        <button class="btn btn-sm btn-secondary" onclick="sdShowLog(${jsArg(h.id)})">${I.get("fileText", { size: 12 })}<span>Log</span></button>
-        ${canRollback ? `<button class="btn btn-sm btn-secondary" onclick="sdRollback(${jsArg(h.commit.hash)}, ${jsArg(h.commit.short)})" title="Deploy this commit again">${I.get("rotateCcw", { size: 12 })}<span>Roll back</span></button>` : ""}
+        <button class="btn btn-sm btn-secondary btn-icon-only" onclick="sdShowLog(${jsArg(h.id)})" title="View log">${I.get("fileText", { size: 13 })}</button>
+        ${canRollback ? `<button class="btn btn-sm btn-secondary btn-icon-only" onclick="sdRollback(${jsArg(h.commit.hash)}, ${jsArg(h.commit.short)})" title="Roll back to this commit">${I.get("rotateCcw", { size: 13 })}</button>` : ""}
       </td>
     </tr>`;
 }
@@ -456,7 +613,10 @@ async function sdCheckPending() {
 async function sdToggleAutoDeploy(enabled) {
   try {
     await api.setAutoDeploy(sd.id, enabled);
-    toast.success(enabled ? "Push-to-deploy on" : "Push-to-deploy off", sd.site.name);
+    toast.success(
+      enabled ? "Push-to-deploy on" : "Push-to-deploy off",
+      sd.site.name,
+    );
   } catch (err) {
     toast.error("Failed", err.message);
   }
@@ -465,16 +625,22 @@ async function sdToggleAutoDeploy(enabled) {
 }
 
 function sdRotateSecret() {
-  Modal.confirm("New webhook secret", "The old secret stops working — update it in GitHub/GitLab afterwards.", async () => {
-    await api.setAutoDeploy(sd.id, true, true);
-    await sdLoad({ quiet: true });
-    sdRenderTab();
-  });
+  Modal.confirm(
+    "New webhook secret",
+    "The old secret stops working — update it in GitHub/GitLab afterwards.",
+    async () => {
+      await api.setAutoDeploy(sd.id, true, true);
+      await sdLoad({ quiet: true });
+      sdRenderTab();
+    },
+  );
 }
 
 async function sdSaveScript() {
   try {
-    await api.updateSite(sd.id, { deploy: { script: document.getElementById("sd-script").value } });
+    await api.updateSite(sd.id, {
+      deploy: { script: document.getElementById("sd-script").value },
+    });
     toast.success("Deploy script saved", "Used from the next deployment");
     await sdLoad({ quiet: true });
   } catch (err) {
@@ -485,7 +651,12 @@ async function sdSaveScript() {
 async function sdSaveResetHard(on) {
   try {
     await api.updateSite(sd.id, { deploy: { resetHard: on } });
-    toast.success("Saved", on ? "Server changes are discarded on deploy" : "Deploys keep server changes (fast-forward only)");
+    toast.success(
+      "Saved",
+      on
+        ? "Server changes are discarded on deploy"
+        : "Deploys keep server changes (fast-forward only)",
+    );
   } catch (err) {
     toast.error("Save failed", err.message);
   }
@@ -497,7 +668,9 @@ function sdDomains(el) {
   const s = sd.site;
   const I = window.Icons;
   sd.domainDraft = [...s.domains];
-  const webRootEditable = ["static", "react", "php", "wordpress"].includes(s.type);
+  const webRootEditable = ["static", "react", "php", "wordpress"].includes(
+    s.type,
+  );
   el.innerHTML = `
     <div class="two-col">
       <div class="stack-gap">
@@ -587,8 +760,12 @@ function sdRenderDomainList() {
 
 function sdAddDomain() {
   const input = document.getElementById("sd-domain-add");
-  const parts = input.value.toLowerCase().split(/[\s,]+/).filter(Boolean);
-  for (const d of parts) if (!sd.domainDraft.includes(d)) sd.domainDraft.push(d);
+  const parts = input.value
+    .toLowerCase()
+    .split(/[\s,]+/)
+    .filter(Boolean);
+  for (const d of parts)
+    if (!sd.domainDraft.includes(d)) sd.domainDraft.push(d);
   input.value = "";
   sdRenderDomainList();
 }
@@ -606,21 +783,32 @@ function sdDomainPrimary(i) {
 
 async function sdSaveDomains() {
   sdAddDomain();
-  if (!sd.domainDraft.length) return toast.error("Add a domain", "A website needs at least one domain — use the Online switch to take it offline");
+  if (!sd.domainDraft.length)
+    return toast.error(
+      "Add a domain",
+      "A website needs at least one domain — use the Online switch to take it offline",
+    );
   try {
     const res = await api.setSiteDomains(sd.id, sd.domainDraft);
     toast.success("Domains saved", sd.domainDraft.join(", "));
-    if (res.jobId) JobConsole.open(res.jobId, "Update HTTPS certificate", { onDone: () => sdLoad({ rerenderTab: true }) });
+    if (res.jobId)
+      JobConsole.open(res.jobId, "Update HTTPS certificate", {
+        onDone: () => sdLoad({ rerenderTab: true }),
+      });
     sdLoad({ rerenderTab: true });
   } catch (err) {
-    Modal.show("Could not save domains", `<pre class="job-output">${escapeHtml(err.message)}</pre>`);
+    Modal.show(
+      "Could not save domains",
+      `<pre class="job-output">${escapeHtml(err.message)}</pre>`,
+    );
   }
 }
 
 async function sdSaveWebServer() {
   const body = {};
   const wr = document.getElementById("sd-webroot");
-  if (wr && wr.value.trim() !== (sd.site.webRoot || "")) body.webRoot = wr.value.trim();
+  if (wr && wr.value.trim() !== (sd.site.webRoot || ""))
+    body.webRoot = wr.value.trim();
   const mb = document.getElementById("sd-maxbody").value.trim();
   if (mb && mb !== sd.site.maxBodySize) body.maxBodySize = mb;
   if (!Object.keys(body).length) return toast.info("Nothing changed", "");
@@ -629,7 +817,10 @@ async function sdSaveWebServer() {
     toast.success("Saved & reloaded", "nginx");
     sdLoad({ rerenderTab: true });
   } catch (err) {
-    Modal.show("Could not save", `<pre class="job-output">${escapeHtml(err.message)}</pre>`);
+    Modal.show(
+      "Could not save",
+      `<pre class="job-output">${escapeHtml(err.message)}</pre>`,
+    );
   }
 }
 
@@ -646,9 +837,13 @@ async function sdSetEnabled(enabled) {
 function sdIssueSsl() {
   const email = document.getElementById("sd-ssl-email").value.trim();
   const redirect = document.getElementById("sd-ssl-redirect").checked;
-  JobConsole.run(api.issueSiteSsl(sd.id, { email: email || undefined, redirect }), `HTTPS for ${sd.site.primaryDomain}`, {
-    onDone: () => sdLoad({ rerenderTab: true }),
-  });
+  JobConsole.run(
+    api.issueSiteSsl(sd.id, { email: email || undefined, redirect }),
+    `HTTPS for ${sd.site.primaryDomain}`,
+    {
+      onDone: () => sdLoad({ rerenderTab: true }),
+    },
+  );
 }
 
 // ── Environment ─────────────────────────────────────────────
@@ -664,7 +859,9 @@ async function sdEnv(el) {
     return;
   }
   sd.envRows = env.vars.map((v) => ({ ...v }));
-  const missing = env.example.filter((e) => !env.vars.some((v) => v.key === e.key));
+  const missing = env.example.filter(
+    (e) => !env.vars.some((v) => v.key === e.key),
+  );
   const s = sd.site;
   el.innerHTML = `
     <div class="card">
@@ -677,7 +874,16 @@ async function sdEnv(el) {
         </div>
       </div>
       ${!env.exists ? `<div class="alert alert-info" style="margin:14px 18px 0;font-size:13px;">${I.get("info", { size: 15 })}<div>No .env file yet — add variables below and save to create it.</div></div>` : ""}
-      ${missing.length ? `<div class="alert alert-warning" style="margin:14px 18px 0;font-size:13px;">${I.get("alertTriangle", { size: 15 })}<div style="flex:1;">${missing.length} variable(s) from <code>.env.example</code> are missing: ${missing.slice(0, 6).map((m) => `<code>${escapeHtml(m.key)}</code>`).join(" ")}${missing.length > 6 ? "…" : ""}</div><button class="btn btn-sm btn-secondary" onclick='sdEnvAddMissing(${escapeHtml(JSON.stringify(missing))})'>Add them</button></div>` : ""}
+      ${
+        missing.length
+          ? `<div class="alert alert-warning" style="margin:14px 18px 0;font-size:13px;">${I.get("alertTriangle", { size: 15 })}<div style="flex:1;">${missing.length} variable(s) from <code>.env.example</code> are missing: ${missing
+              .slice(0, 6)
+              .map((m) => `<code>${escapeHtml(m.key)}</code>`)
+              .join(
+                " ",
+              )}${missing.length > 6 ? "…" : ""}</div><button class="btn btn-sm btn-secondary" onclick='sdEnvAddMissing(${escapeHtml(JSON.stringify(missing))})'>Add them</button></div>`
+          : ""
+      }
       <div class="table-container" style="border:none;border-radius:0;margin-top:8px;">
         <table class="table env-table"><thead><tr><th class="env-key">Name</th><th>Value</th><th style="width:50px;"></th></tr></thead><tbody id="sd-env-rows"></tbody></table>
       </div>
@@ -717,7 +923,9 @@ function sdEnvAdd() {
 }
 
 function sdEnvAddMissing(missing) {
-  for (const m of missing) if (!sd.envRows.some((r) => r.key === m.key)) sd.envRows.push({ key: m.key, value: m.value, show: true });
+  for (const m of missing)
+    if (!sd.envRows.some((r) => r.key === m.key))
+      sd.envRows.push({ key: m.key, value: m.value, show: true });
   sdEnvRender();
   toast.info("Added", "Review the values, then save");
 }
@@ -727,7 +935,9 @@ async function sdEnvSave(apply) {
   const dup = vars.find((r, i) => vars.findIndex((x) => x.key === r.key) !== i);
   if (dup) return toast.error("Duplicate name", dup.key);
   try {
-    await api.saveSiteEnv(sd.id, { vars: vars.map(({ key, value }) => ({ key, value })) });
+    await api.saveSiteEnv(sd.id, {
+      vars: vars.map(({ key, value }) => ({ key, value })),
+    });
     if (apply) {
       const r = await api.applySiteEnv(sd.id);
       toast.success("Saved", r.message);
@@ -805,12 +1015,18 @@ function sdApp(el) {
 
 async function sdAppLogs(type) {
   if (type) sd.appLogType = type;
-  document.querySelectorAll("[data-log]").forEach((b) => b.classList.toggle("active", b.dataset.log === sd.appLogType));
+  document
+    .querySelectorAll("[data-log]")
+    .forEach((b) =>
+      b.classList.toggle("active", b.dataset.log === sd.appLogType),
+    );
   const pre = document.getElementById("sd-app-log");
   if (!pre) return;
   try {
     const r = await api.getSiteLogs(sd.id, sd.appLogType, 300);
-    pre.textContent = r.lines.length ? UI.cleanOutput(r.lines.join("\n")) : "No output yet.";
+    pre.textContent = r.lines.length
+      ? UI.cleanOutput(r.lines.join("\n"))
+      : "No output yet.";
     pre.scrollTop = pre.scrollHeight;
     const p = document.getElementById("sd-app-log-path");
     if (p && r.path) p.innerHTML = `<code>${escapeHtml(r.path)}</code>`;
@@ -825,7 +1041,10 @@ async function sdAppAction(action) {
     await api.siteApp(sd.id, action);
     toast.success(action === "stop" ? "Stopped" : "Running", sd.site.name);
   } catch (err) {
-    Modal.show(`Could not ${action} the app`, `<pre class="job-output">${escapeHtml(err.message)}</pre>`);
+    Modal.show(
+      `Could not ${action} the app`,
+      `<pre class="job-output">${escapeHtml(err.message)}</pre>`,
+    );
   }
   setTimeout(() => sdLoad({ rerenderTab: true }), 1500);
 }
@@ -837,10 +1056,14 @@ async function sdSaveRun() {
       port: document.getElementById("sd-port").value.trim(),
     });
     if (res.restartNeeded) {
-      Modal.show("Restart to apply", `<p style="font-size:13px;">Saved. The app keeps running with the old settings until it restarts.</p>`, {
-        submitText: "Restart now",
-        onSubmit: () => sdAppAction("restart"),
-      });
+      Modal.show(
+        "Restart to apply",
+        `<p style="font-size:13px;">Saved. The app keeps running with the old settings until it restarts.</p>`,
+        {
+          submitText: "Restart now",
+          onSubmit: () => sdAppAction("restart"),
+        },
+      );
     } else toast.success("Saved", "");
     sdLoad({ quiet: true });
   } catch (err) {
@@ -873,14 +1096,18 @@ function sdPhp(el) {
             ? `<div class="card">
           <div class="card-header"><h3 class="card-title">${I.get("package", { size: 16 })}<span>Composer</span></h3>${s.tools.composer === false ? '<span class="badge badge-warning">not installed</span>' : '<span class="badge badge-success">installed</span>'}</div>
           <div class="card-body">
-            ${s.tools.composer === false ? `<p style="font-size:13px;margin-bottom:10px;">Composer is installed automatically on the next deploy that uses it — or now:</p><button class="btn btn-primary" onclick="JobConsole.run(api.installComposer(), 'Install Composer', { onDone: () => sdLoad({ rerenderTab: true }) })">Install Composer</button>` : `
+            ${
+              s.tools.composer === false
+                ? `<p style="font-size:13px;margin-bottom:10px;">Composer is installed automatically on the next deploy that uses it — or now:</p><button class="btn btn-primary" onclick="JobConsole.run(api.installComposer(), 'Install Composer', { onDone: () => sdLoad({ rerenderTab: true }) })">Install Composer</button>`
+                : `
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button class="btn btn-secondary" onclick="sdComposer('install', ['--no-dev','--optimize-autoloader'])">composer install --no-dev</button>
               <button class="btn btn-secondary" onclick="sdComposer('update', [])">composer update</button>
               <button class="btn btn-secondary" onclick="sdComposer('dump-autoload', ['--optimize'])">dump-autoload -o</button>
               <a class="btn btn-ghost" href="#php">More…</a>
             </div>
-            <div class="form-hint" style="margin-top:8px;">Runs in ${escapeHtml(s.deployPath)} with PHP ${escapeHtml(s.phpVersion || "")}.</div>`}
+            <div class="form-hint" style="margin-top:8px;">Runs in ${escapeHtml(s.deployPath)} with PHP ${escapeHtml(s.phpVersion || "")}.</div>`
+            }
           </div>
         </div>`
             : ""
@@ -900,16 +1127,32 @@ function sdPhp(el) {
 
 async function sdSavePhp() {
   try {
-    await api.updateSite(sd.id, { phpVersion: document.getElementById("sd-php").value });
-    toast.success("PHP version switched", document.getElementById("sd-php").value);
+    await api.updateSite(sd.id, {
+      phpVersion: document.getElementById("sd-php").value,
+    });
+    toast.success(
+      "PHP version switched",
+      document.getElementById("sd-php").value,
+    );
     sdLoad({ rerenderTab: true });
   } catch (err) {
-    Modal.show("Could not switch PHP", `<pre class="job-output">${escapeHtml(err.message)}</pre>`);
+    Modal.show(
+      "Could not switch PHP",
+      `<pre class="job-output">${escapeHtml(err.message)}</pre>`,
+    );
   }
 }
 
 function sdComposer(command, flags) {
-  JobConsole.run(api.runComposer({ dir: sd.site.deployPath, version: sd.site.phpVersion || "default", command, flags }), `composer ${command} — ${sd.site.name}`);
+  JobConsole.run(
+    api.runComposer({
+      dir: sd.site.deployPath,
+      version: sd.site.phpVersion || "default",
+      command,
+      flags,
+    }),
+    `composer ${command} — ${sd.site.name}`,
+  );
 }
 
 async function sdToggleScheduler(enabled) {
@@ -1002,7 +1245,10 @@ async function sdCreateDb() {
   try {
     const writeEnv = document.getElementById("sd-db-env")?.checked ?? false;
     const r = await api.createSiteDatabase(sd.id, writeEnv);
-    toast.success("Database created", `${r.database.name}${r.envUpdated ? " · .env updated" : ""}`);
+    toast.success(
+      "Database created",
+      `${r.database.name}${r.envUpdated ? " · .env updated" : ""}`,
+    );
     await sdLoad({ rerenderTab: true });
   } catch (err) {
     toast.error("Could not create the database", err.message);
@@ -1026,10 +1272,14 @@ async function sdLinkDb() {
 function sdUnlinkDb(drop) {
   const name = sd.site.database.name;
   if (!drop)
-    return Modal.confirm("Unlink database", `Stop managing <code>${escapeHtml(name)}</code> with this website? The database is kept.`, async () => {
-      await api.unlinkSiteDatabase(sd.id, false);
-      sdLoad({ rerenderTab: true });
-    });
+    return Modal.confirm(
+      "Unlink database",
+      `Stop managing <code>${escapeHtml(name)}</code> with this website? The database is kept.`,
+      async () => {
+        await api.unlinkSiteDatabase(sd.id, false);
+        sdLoad({ rerenderTab: true });
+      },
+    );
   UI.confirmTyped({
     title: "Delete database",
     message: `This permanently deletes <strong>${escapeHtml(name)}</strong> and its user. Make a backup first if you might need the data.`,
@@ -1087,7 +1337,9 @@ async function sdBackups(el) {
                 b.backups.length
                   ? b.backups
                       .map(
-                        (x) => `<tr><td class="mono-sm">${escapeHtml(x.name)}</td><td style="font-size:12px;">${x.date ? escapeHtml(new Date(x.date).toLocaleString()) : "—"}</td>
+                        (
+                          x,
+                        ) => `<tr><td class="mono-sm">${escapeHtml(x.name)}</td><td style="font-size:12px;">${x.date ? escapeHtml(new Date(x.date).toLocaleString()) : "—"}</td>
                   <td style="text-align:right;"><button class="btn btn-sm btn-secondary" onclick="sdRestore(${jsArg(x.name)})">${I.get("rotateCcw", { size: 12 })}<span>Restore</span></button></td></tr>`,
                       )
                       .join("")
@@ -1127,7 +1379,8 @@ async function sdBackupNow() {
     const r = await api.backupSite(sd.id);
     if (r.success === false) throw new Error(r.error);
     toast.success("Backup started", sd.site.name);
-    if (sd.tab === "backups") setTimeout(() => sd.tab === "backups" && sdRenderTab(), 1500);
+    if (sd.tab === "backups")
+      setTimeout(() => sd.tab === "backups" && sdRenderTab(), 1500);
   } catch (err) {
     toast.error("Backup failed", err.message);
   }
@@ -1137,7 +1390,10 @@ async function sdSaveBackupSchedule() {
   const schedule = document.getElementById("sd-backup-schedule").value;
   try {
     await api.setSiteBackupSchedule(sd.id, schedule || null);
-    toast.success(schedule ? "Automatic backups on" : "Automatic backups off", "");
+    toast.success(
+      schedule ? "Automatic backups on" : "Automatic backups off",
+      "",
+    );
     await sdLoad({ quiet: true });
     sdRenderTab();
   } catch (err) {
@@ -1198,7 +1454,12 @@ async function sdLogs(el) {
         ]
       : []),
   ];
-  sd.logType = sd.logType && types.some(([t]) => t === sd.logType) ? sd.logType : s.nginx ? "access" : types[types.length - 1][0];
+  sd.logType =
+    sd.logType && types.some(([t]) => t === sd.logType)
+      ? sd.logType
+      : s.nginx
+        ? "access"
+        : types[types.length - 1][0];
   el.innerHTML = `
     <div id="sd-traffic"></div>
     <div class="card">
@@ -1217,14 +1478,22 @@ async function sdLogs(el) {
 
 async function sdLoadLog(type) {
   if (type) sd.logType = type;
-  document.querySelectorAll("[data-sdlog]").forEach((b) => b.classList.toggle("active", b.dataset.sdlog === sd.logType));
+  document
+    .querySelectorAll("[data-sdlog]")
+    .forEach((b) =>
+      b.classList.toggle("active", b.dataset.sdlog === sd.logType),
+    );
   const pre = document.getElementById("sd-log");
   if (!pre) return;
   try {
     const r = await api.getSiteLogs(sd.id, sd.logType, 400);
-    pre.textContent = r.lines.length ? UI.cleanOutput(r.lines.join("\n")) : "No entries yet.";
+    pre.textContent = r.lines.length
+      ? UI.cleanOutput(r.lines.join("\n"))
+      : "No entries yet.";
     pre.scrollTop = pre.scrollHeight;
-    document.getElementById("sd-log-path").innerHTML = r.path ? `<code>${escapeHtml(r.path)}</code>` : "";
+    document.getElementById("sd-log-path").innerHTML = r.path
+      ? `<code>${escapeHtml(r.path)}</code>`
+      : "";
   } catch (err) {
     pre.textContent = err.message;
   }
@@ -1261,7 +1530,17 @@ async function sdTraffic(days) {
           <div><div class="stat-mini-label">Errors (4xx/5xx)</div><div class="stat-mini-value" style="color:${t.status["5xx"] ? "var(--color-red)" : "inherit"};">${errors.toLocaleString()}</div></div>
         </div>
         <div style="font-size:12px;font-weight:600;margin-bottom:6px;">${days === 1 ? "Requests per hour (last 24 h)" : `Requests per day (last ${days} days)`}</div>
-        ${days === 1 ? UI.bars(t.hourly.map((h) => h.requests), { labels: t.hourly.map((_, i) => `${23 - i}h ago`) }) : UI.bars(t.daily.map((d) => d.requests), { labels: t.daily.map((d) => d.date) })}
+        ${
+          days === 1
+            ? UI.bars(
+                t.hourly.map((h) => h.requests),
+                { labels: t.hourly.map((_, i) => `${23 - i}h ago`) },
+              )
+            : UI.bars(
+                t.daily.map((d) => d.requests),
+                { labels: t.daily.map((d) => d.date) },
+              )
+        }
         <div class="field-row" style="margin-top:18px;align-items:start;">
           <div><div style="font-size:12px;font-weight:600;margin-bottom:6px;">Top pages</div>${list(t.topPaths)}</div>
           <div><div style="font-size:12px;font-weight:600;margin-bottom:6px;">Referrers</div>${list(t.topReferrers)}<div style="font-size:12px;font-weight:600;margin:12px 0 6px;">Not found (404)</div>${list(t.notFound)}</div>
@@ -1344,12 +1623,43 @@ function sdDeleteSite() {
     expected: s.name,
     confirmText: "Delete website",
     options: [
-      ...(s.nginx ? [{ id: "removeNginx", label: "Remove the nginx site and its certificate", hint: `${s.domains.join(", ")} stop being served`, checked: true }] : []),
-      ...(s.deployPath ? [{ id: "deleteFiles", label: `Delete all files in ${s.deployPath}`, hint: "Cannot be undone", danger: true }] : []),
-      ...(s.database ? [{ id: "dropDatabase", label: `Delete database ${s.database.name} and its user`, hint: "Cannot be undone", danger: true }] : []),
+      ...(s.nginx
+        ? [
+            {
+              id: "removeNginx",
+              label: "Remove the nginx site and its certificate",
+              hint: `${s.domains.join(", ")} stop being served`,
+              checked: true,
+            },
+          ]
+        : []),
+      ...(s.deployPath
+        ? [
+            {
+              id: "deleteFiles",
+              label: `Delete all files in ${s.deployPath}`,
+              hint: "Cannot be undone",
+              danger: true,
+            },
+          ]
+        : []),
+      ...(s.database
+        ? [
+            {
+              id: "dropDatabase",
+              label: `Delete database ${s.database.name} and its user`,
+              hint: "Cannot be undone",
+              danger: true,
+            },
+          ]
+        : []),
     ],
     onConfirm: async (opts) => {
-      const res = await api.deleteSite(s.id, { removeNginx: opts.removeNginx !== false, deleteFiles: !!opts.deleteFiles, dropDatabase: !!opts.dropDatabase });
+      const res = await api.deleteSite(s.id, {
+        removeNginx: opts.removeNginx !== false,
+        deleteFiles: !!opts.deleteFiles,
+        dropDatabase: !!opts.dropDatabase,
+      });
       JobConsole.open(res.jobId, `Delete ${s.name}`, {
         onDone: (job) => {
           if (job.status === "completed") {

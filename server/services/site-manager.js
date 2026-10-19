@@ -32,10 +32,19 @@ import {
   suggestWebRoot,
 } from "../lib/stacks.js";
 import { parseEnv, mergeEnv, isValidEnvKey } from "../lib/dotenv.js";
-import { NginxManager, normalizeDomains, SITES_AVAILABLE } from "./nginx-manager.js";
+import {
+  NginxManager,
+  normalizeDomains,
+  SITES_AVAILABLE,
+} from "./nginx-manager.js";
 import { ProcessManager } from "./process-manager.js";
 import { DeployEngine } from "./deploy-engine.js";
-import { MysqlManager, assertDbName, assertUser, PANEL_USER } from "./mysql-manager.js";
+import {
+  MysqlManager,
+  assertDbName,
+  assertUser,
+  PANEL_USER,
+} from "./mysql-manager.js";
 import { JobRunner } from "./job-runner.js";
 import { CronManager } from "./cron-manager.js";
 import { PhpManager } from "./php-manager.js";
@@ -47,7 +56,15 @@ import { trafficStats, checkDns, diskUsage } from "./site-insights.js";
 export const SITES_ROOT = process.env.PANEL_SITES_ROOT || "/var/www";
 
 // Stacks whose code reads a .env file
-const ENV_STACKS = new Set(["node", "next", "react", "laravel", "php", "static", "python"]);
+const ENV_STACKS = new Set([
+  "node",
+  "next",
+  "react",
+  "laravel",
+  "php",
+  "static",
+  "python",
+]);
 
 const NGINX_INSTALL_SCRIPT = `
 apt_get update
@@ -83,7 +100,9 @@ export function normalizeSite(p) {
     gitUrl: p.gitUrl || "",
     branch: p.branch || (p.gitUrl ? "main" : null),
     port: p.port ? Number(p.port) : null,
-    startCommand: p.startCommand || (stack.process ? defaultStartCommand(type, p.deployPath) : ""),
+    startCommand:
+      p.startCommand ||
+      (stack.process ? defaultStartCommand(type, p.deployPath) : ""),
     proxyTarget: p.proxyTarget || "",
     phpVersion: p.phpVersion || null,
     siteName: p.siteName || null,
@@ -95,7 +114,9 @@ export function normalizeSite(p) {
     },
     database: p.database || { type: "mysql", name: "", user: "", password: "" },
     backupDirs: Array.isArray(p.backupDirs) ? p.backupDirs : [],
-    backupExcludes: Array.isArray(p.backupExcludes) ? p.backupExcludes : DEFAULT_BACKUP_EXCLUDES,
+    backupExcludes: Array.isArray(p.backupExcludes)
+      ? p.backupExcludes
+      : DEFAULT_BACKUP_EXCLUDES,
   };
 }
 
@@ -141,27 +162,43 @@ function publicSite(site) {
       hasWebhook: !!deploy.webhookSecret,
     },
     database: database.name
-      ? { type: database.type || "mysql", name: database.name, user: database.user, hasPassword: !!database.password }
+      ? {
+          type: database.type || "mysql",
+          name: database.name,
+          user: database.user,
+          hasPassword: !!database.password,
+        }
       : null,
     provision: provision
-      ? { status: provision.status, jobId: provision.jobId || null, error: provision.error || null, startedAt: provision.startedAt }
+      ? {
+          status: provision.status,
+          jobId: provision.jobId || null,
+          error: provision.error || null,
+          startedAt: provision.startedAt,
+        }
       : null,
   };
 }
 
 function health(site, { stack, app, nginx, deploying }) {
-  if (site.provision?.status === "running") return { state: "deploying", label: "Setting up" };
-  if (site.provision?.status === "failed") return { state: "error", label: "Setup failed" };
+  if (site.provision?.status === "running")
+    return { state: "deploying", label: "Setting up" };
+  if (site.provision?.status === "failed")
+    return { state: "error", label: "Setup failed" };
   if (deploying) return { state: "deploying", label: "Deploying" };
   if (stack.process) {
-    if (!app || app.status === "pm2-missing") return { state: "error", label: "PM2 not installed" };
+    if (!app || app.status === "pm2-missing")
+      return { state: "error", label: "PM2 not installed" };
     if (app.status === "online") {
-      if (nginx && !nginx.enabled) return { state: "disabled", label: "Site disabled" };
+      if (nginx && !nginx.enabled)
+        return { state: "disabled", label: "Site disabled" };
       return { state: "live", label: nginx ? "Live" : "Running" };
     }
     if (app.status === "errored") return { state: "error", label: "Crashed" };
-    if (app.status === "launching") return { state: "deploying", label: "Starting" };
-    if (app.status === "not-started") return { state: "stopped", label: "Not started" };
+    if (app.status === "launching")
+      return { state: "deploying", label: "Starting" };
+    if (app.status === "not-started")
+      return { state: "stopped", label: "Not started" };
     return { state: "stopped", label: "Stopped" };
   }
   if (!nginx) return { state: "idle", label: "No domain" };
@@ -171,7 +208,11 @@ function health(site, { stack, app, nginx, deploying }) {
 
 async function portFree(port) {
   const listening = await run("ss", ["-ltnH"], { timeout: 5000 });
-  if (listening.code === 0 && listening.stdout.split("\n").some((l) => new RegExp(`:${port}\\s`).test(l))) return false;
+  if (
+    listening.code === 0 &&
+    listening.stdout.split("\n").some((l) => new RegExp(`:${port}\\s`).test(l))
+  )
+    return false;
   return new Promise((resolve) => {
     const srv = createServer();
     srv.once("error", () => resolve(false));
@@ -180,7 +221,9 @@ async function portFree(port) {
 }
 
 function phpFpmVersions() {
-  return PhpManager.installedVersions().filter((v) => existsSync(`/etc/php/${v}/fpm`));
+  return PhpManager.installedVersions().filter((v) =>
+    existsSync(`/etc/php/${v}/fpm`),
+  );
 }
 
 /**
@@ -188,7 +231,9 @@ function phpFpmVersions() {
  */
 function pickPhpVersion(constraint) {
   const installed = phpFpmVersions();
-  const min = (String(constraint || "").match(/(\d+)\.(\d+)/) || []).slice(1).map(Number);
+  const min = (String(constraint || "").match(/(\d+)\.(\d+)/) || [])
+    .slice(1)
+    .map(Number);
   const ok = installed.filter((v) => {
     if (!min.length) return true;
     const [maj, minor] = v.split(".").map(Number);
@@ -198,12 +243,22 @@ function pickPhpVersion(constraint) {
 }
 
 function dnsName(name) {
-  return name.replace(/[^a-z0-9_]/gi, "_").replace(/_+/g, "_").replace(/^_|_$/g, "").toLowerCase().slice(0, 40) || "site";
+  return (
+    name
+      .replace(/[^a-z0-9_]/gi, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_|_$/g, "")
+      .toLowerCase()
+      .slice(0, 40) || "site"
+  );
 }
 
 async function databaseExists(name) {
   return MysqlManager.with(async (c) => {
-    const [rows] = await c.query("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?", [name]);
+    const [rows] = await c.query(
+      "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?",
+      [name],
+    );
     return rows.length > 0;
   });
 }
@@ -213,7 +268,11 @@ async function databaseExists(name) {
  * always (re)set: CREATE USER IF NOT EXISTS keeps the old one of a leftover user.
  */
 async function createDatabaseWithUser(db) {
-  await MysqlManager.createDatabase({ name: db.name, user: db.user, password: db.password });
+  await MysqlManager.createDatabase({
+    name: db.name,
+    user: db.user,
+    password: db.password,
+  });
   await MysqlManager.setPassword(db.user, "localhost", db.password);
 }
 
@@ -265,7 +324,9 @@ async function updateEnvFile(site, updates, { fromExample = false } = {}) {
 
 function defaultSslEmail() {
   const c = getConfig();
-  return c.ssl?.email || c.notifications?.email?.to || process.env.ADMIN_EMAIL || "";
+  return (
+    c.ssl?.email || c.notifications?.email?.to || process.env.ADMIN_EMAIL || ""
+  );
 }
 
 /**
@@ -280,22 +341,43 @@ export class SiteManager {
     try {
       nginxSites = NginxManager.listSites();
     } catch {}
-    const [pm2Installed, nginxBin] = await Promise.all([ProcessManager.installed(), which("nginx")]);
-    const pm2 = pm2Installed ? await ProcessManager.list().catch(() => new Map()) : new Map();
-    return { nginxSites, pm2, pm2Installed, nginxInstalled: !!nginxBin || existsSync(SITES_AVAILABLE) };
+    const [pm2Installed, nginxBin] = await Promise.all([
+      ProcessManager.installed(),
+      which("nginx"),
+    ]);
+    const pm2 = pm2Installed
+      ? await ProcessManager.list().catch(() => new Map())
+      : new Map();
+    return {
+      nginxSites,
+      pm2,
+      pm2Installed,
+      nginxInstalled: !!nginxBin || existsSync(SITES_AVAILABLE),
+    };
   }
 
   static async summary(site, ctx) {
     const stack = stackOf(site);
-    const own = ctx.nginxSites.filter((s) => s.projectId === site.id || (site.siteName && s.name === site.siteName));
+    const own = ctx.nginxSites.filter(
+      (s) =>
+        s.projectId === site.id || (site.siteName && s.name === site.siteName),
+    );
     const primary = own.find((s) => s.name === site.siteName) || own[0] || null;
-    const domains = [...new Set(own.flatMap((s) => s.serverNames))].filter((d) => d && d !== "_");
-    const daysLeft = primary?.sslExpires ? Math.floor((new Date(primary.sslExpires) - Date.now()) / 86400000) : null;
+    const domains = [...new Set(own.flatMap((s) => s.serverNames))].filter(
+      (d) => d && d !== "_",
+    );
+    const daysLeft = primary?.sslExpires
+      ? Math.floor((new Date(primary.sslExpires) - Date.now()) / 86400000)
+      : null;
     const app = stack.process
-      ? ctx.pm2.get(site.name) || { status: ctx.pm2Installed ? "not-started" : "pm2-missing" }
+      ? ctx.pm2.get(site.name) || {
+          status: ctx.pm2Installed ? "not-started" : "pm2-missing",
+        }
       : null;
     const deploying = DeployEngine.running(site.id);
-    const git = site.deployPath ? await DeployEngine.gitInfo(site.deployPath).catch(() => null) : null;
+    const git = site.deployPath
+      ? await DeployEngine.gitInfo(site.deployPath).catch(() => null)
+      : null;
     const nginx = primary
       ? {
           name: primary.name,
@@ -309,13 +391,26 @@ export class SiteManager {
     return {
       ...publicSite(site),
       stackLabel: stack.label,
-      features: { process: !!stack.process, php: !!stack.php, external: !!stack.external, web: stack.web, env: ENV_STACKS.has(site.type) },
+      features: {
+        process: !!stack.process,
+        php: !!stack.php,
+        external: !!stack.external,
+        web: stack.web,
+        env: ENV_STACKS.has(site.type),
+      },
       domains,
       primaryDomain: domains[0] || null,
-      url: domains[0] && !domains[0].startsWith("*") ? `${primary?.ssl ? "https" : "http"}://${domains[0]}` : null,
+      url:
+        domains[0] && !domains[0].startsWith("*")
+          ? `${primary?.ssl ? "https" : "http"}://${domains[0]}`
+          : null,
       nginx,
       nginxSites: own.map((s) => s.name),
-      ssl: { enabled: !!primary?.ssl, expires: primary?.sslExpires || null, daysLeft },
+      ssl: {
+        enabled: !!primary?.ssl,
+        expires: primary?.sslExpires || null,
+        daysLeft,
+      },
       app: app
         ? {
             status: app.status,
@@ -338,7 +433,9 @@ export class SiteManager {
 
   static async list() {
     const ctx = await SiteManager.context();
-    const sites = await Promise.all(allSites().map((s) => SiteManager.summary(s, ctx)));
+    const sites = await Promise.all(
+      allSites().map((s) => SiteManager.summary(s, ctx)),
+    );
     const linked = new Set(sites.flatMap((s) => s.nginxSites));
     const unlinked = ctx.nginxSites
       .filter((s) => !linked.has(s.name))
@@ -370,7 +467,9 @@ export class SiteManager {
     const summary = await SiteManager.summary(site, ctx);
     const [cron, composer, dbInfo] = await Promise.all([
       siteCronJobs(site),
-      stackOf(site).php ? ComposerManager.status().catch(() => ({ installed: false })) : null,
+      stackOf(site).php
+        ? ComposerManager.status().catch(() => ({ installed: false }))
+        : null,
       SiteManager.databaseInfo(site),
     ]);
     return {
@@ -378,10 +477,23 @@ export class SiteManager {
       deploy: { ...summary.deploy, webhookSecret: site.deploy.webhookSecret },
       history: DeployEngine.history(id).slice(0, 25),
       disk: site.deployPath ? diskUsage(site.deployPath) : null,
-      maxBodySize: summary.nginx ? NginxManager.maxBodySize(summary.nginx.name) : null,
-      env: site.deployPath ? { path: join(site.deployPath, ".env"), exists: existsSync(join(site.deployPath, ".env")) } : null,
+      maxBodySize: summary.nginx
+        ? NginxManager.maxBodySize(summary.nginx.name)
+        : null,
+      env: site.deployPath
+        ? {
+            path: join(site.deployPath, ".env"),
+            exists: existsSync(join(site.deployPath, ".env")),
+          }
+        : null,
       cron: {
-        backups: cron.backups.map((j) => ({ id: j.id, schedule: j.schedule, human: j.human, nextRun: j.nextRun, enabled: j.enabled })),
+        backups: cron.backups.map((j) => ({
+          id: j.id,
+          schedule: j.schedule,
+          human: j.human,
+          nextRun: j.nextRun,
+          enabled: j.enabled,
+        })),
         scheduler: cron.scheduler.length > 0,
       },
       phpVersions: phpFpmVersions(),
@@ -401,7 +513,11 @@ export class SiteManager {
   // ── Suggestions for the "New website" form ─────────────────
 
   static async suggestPort(start = 3000) {
-    const used = new Set(allSites().map((s) => s.port).filter(Boolean));
+    const used = new Set(
+      allSites()
+        .map((s) => s.port)
+        .filter(Boolean),
+    );
     for (let port = start; port < 65000; port++) {
       if (used.has(port)) continue;
       if (await portFree(port)) return port;
@@ -414,10 +530,16 @@ export class SiteManager {
    * these in automatically; every value can still be changed.
    */
   static async suggest({ name, domain, repo, type } = {}) {
-    const base = slugify(name || domain || (repo ? repo.split("/").pop() : "") || "my-site");
-    const taken = new Set([...allSites().map((s) => s.name), ...(existsSync(SITES_AVAILABLE) ? readdirSync(SITES_AVAILABLE) : [])]);
+    const base = slugify(
+      name || domain || (repo ? repo.split("/").pop() : "") || "my-site",
+    );
+    const taken = new Set([
+      ...allSites().map((s) => s.name),
+      ...(existsSync(SITES_AVAILABLE) ? readdirSync(SITES_AVAILABLE) : []),
+    ]);
     let suggested = base;
-    for (let i = 2; taken.has(suggested) && i < 100; i++) suggested = `${base}-${i}`;
+    for (let i = 2; taken.has(suggested) && i < 100; i++)
+      suggested = `${base}-${i}`;
     const stack = type && STACKS[type] ? STACKS[type] : null;
     const versions = phpFpmVersions();
     return {
@@ -439,7 +561,10 @@ export class SiteManager {
   static inspectRepository(url, branch) {
     return DeployEngine.inspectRepository(url, branch).then((info) => ({
       ...info,
-      phpVersion: info.stack && STACKS[info.stack]?.php ? pickPhpVersion(info.phpConstraint) : null,
+      phpVersion:
+        info.stack && STACKS[info.stack]?.php
+          ? pickPhpVersion(info.phpConstraint)
+          : null,
     }));
   }
 
@@ -454,19 +579,30 @@ export class SiteManager {
    * Validate the "New website" form and build the record plus a setup plan.
    */
   static async prepare(input) {
-    const source = ["git", "wordpress", "empty", "proxy"].includes(input.source) ? input.source : "git";
+    const source = ["git", "wordpress", "empty", "proxy"].includes(input.source)
+      ? input.source
+      : "git";
     let type = input.type;
     if (source === "wordpress") type = "wordpress";
     if (source === "proxy") type = "proxy";
-    if (source === "empty" && !["static", "php"].includes(type)) type = "static";
-    if (!STACKS[type]) throw httpError(400, "Choose what kind of website this is");
+    if (source === "empty" && !["static", "php"].includes(type))
+      type = "static";
+    if (!STACKS[type])
+      throw httpError(400, "Choose what kind of website this is");
     const stack = STACKS[type];
 
     let domains = [];
-    const rawDomains = Array.isArray(input.domains) ? input.domains : String(input.domains || "").split(/[\s,]+/);
+    const rawDomains = Array.isArray(input.domains)
+      ? input.domains
+      : String(input.domains || "").split(/[\s,]+/);
     if (rawDomains.filter(Boolean).length) {
       domains = normalizeDomains(rawDomains);
-      if (input.www && !domains[0].startsWith("www.") && !domains[0].startsWith("*.") && !domains.includes(`www.${domains[0]}`))
+      if (
+        input.www &&
+        !domains[0].startsWith("www.") &&
+        !domains[0].startsWith("*.") &&
+        !domains.includes(`www.${domains[0]}`)
+      )
         domains.splice(1, 0, `www.${domains[0]}`);
     }
     if (!domains.length && ["wordpress", "empty", "proxy"].includes(source))
@@ -479,22 +615,53 @@ export class SiteManager {
     } catch {}
     for (const d of domains) {
       const owner = nginxSites.find((s) => s.serverNames.includes(d));
-      if (owner) throw httpError(409, `${d} is already used by the nginx site "${owner.name}"`);
+      if (owner)
+        throw httpError(
+          409,
+          `${d} is already used by the nginx site "${owner.name}"`,
+        );
     }
 
-    const name = assertSiteName(input.name ? String(input.name).trim() : slugify(domains[0] || input.gitUrl || "site"));
+    const name = assertSiteName(
+      input.name
+        ? String(input.name).trim()
+        : slugify(domains[0] || input.gitUrl || "site"),
+    );
     const sites = allSites();
-    if (sites.some((s) => s.name === name)) throw httpError(409, `A website named "${name}" already exists`);
+    if (sites.some((s) => s.name === name))
+      throw httpError(409, `A website named "${name}" already exists`);
     if (domains.length && existsSync(NginxManager.sitePath(name)))
-      throw httpError(409, `An nginx site named "${name}" already exists — import it from the Websites page instead`);
+      throw httpError(
+        409,
+        `An nginx site named "${name}" already exists — import it from the Websites page instead`,
+      );
 
     let deployPath = null;
     if (type !== "proxy") {
-      deployPath = assertSitePath(input.deployPath ? String(input.deployPath).trim() : join(SITES_ROOT, name));
-      if (deployPath === SITES_ROOT) throw httpError(400, `Use a folder inside ${SITES_ROOT}, e.g. ${join(SITES_ROOT, name)}`);
-      if (sites.some((s) => s.deployPath === deployPath)) throw httpError(409, `${deployPath} already belongs to another website`);
-      if (existsSync(deployPath) && readdirSync(deployPath).length && !(source === "empty" && input.useExisting))
-        throw httpError(409, `${deployPath} already exists and is not empty — choose another folder`);
+      deployPath = assertSitePath(
+        input.deployPath
+          ? String(input.deployPath).trim()
+          : join(SITES_ROOT, name),
+      );
+      if (deployPath === SITES_ROOT)
+        throw httpError(
+          400,
+          `Use a folder inside ${SITES_ROOT}, e.g. ${join(SITES_ROOT, name)}`,
+        );
+      if (sites.some((s) => s.deployPath === deployPath))
+        throw httpError(
+          409,
+          `${deployPath} already belongs to another website`,
+        );
+      if (
+        existsSync(deployPath) &&
+        readdirSync(deployPath).length &&
+        !(source === "empty" && input.useExisting)
+      )
+        throw httpError(
+          409,
+          `${deployPath} already exists and is not empty — choose another folder`,
+        );
     }
 
     const site = {
@@ -511,7 +678,12 @@ export class SiteManager {
       proxyTarget: "",
       phpVersion: null,
       siteName: null,
-      deploy: { script: null, autoDeploy: false, webhookSecret: null, resetHard: false },
+      deploy: {
+        script: null,
+        autoDeploy: false,
+        webhookSecret: null,
+        resetHard: false,
+      },
       database: { type: "mysql", name: "", user: "", password: "" },
       backupDirs: deployPath ? [deployPath] : [],
       backupExcludes: DEFAULT_BACKUP_EXCLUDES,
@@ -522,39 +694,61 @@ export class SiteManager {
     if (source === "git") {
       site.gitUrl = assertGitUrl(input.gitUrl);
       site.branch = assertBranch(input.branch || "main");
-      if (input.deployScript !== undefined && input.deployScript !== null && String(input.deployScript).trim())
+      if (
+        input.deployScript !== undefined &&
+        input.deployScript !== null &&
+        String(input.deployScript).trim()
+      )
         site.deploy.script = String(input.deployScript).slice(0, 20000);
     } else {
       site.deploy.script = defaultDeployScript(type, null);
     }
 
     if (stack.process) {
-      site.port = input.port ? assertPort(input.port) : await SiteManager.suggestPort();
-      if (sites.some((s) => s.port === site.port)) throw httpError(409, `Port ${site.port} is used by another website`);
-      if (!(await portFree(site.port))) throw httpError(409, `Port ${site.port} is already in use on this server`);
+      site.port = input.port
+        ? assertPort(input.port)
+        : await SiteManager.suggestPort();
+      if (sites.some((s) => s.port === site.port))
+        throw httpError(409, `Port ${site.port} is used by another website`);
+      if (!(await portFree(site.port)))
+        throw httpError(
+          409,
+          `Port ${site.port} is already in use on this server`,
+        );
       const cmd = String(input.startCommand || "").trim();
-      if (/[\r\n]/.test(cmd) || cmd.length > 500) throw httpError(400, "The start command must be a single line");
+      if (/[\r\n]/.test(cmd) || cmd.length > 500)
+        throw httpError(400, "The start command must be a single line");
       site.startCommand = cmd; // empty → detected after cloning
     }
 
     if (stack.php) {
       const versions = phpFpmVersions();
-      if (!versions.length) throw httpError(409, "No PHP version is installed yet — install one on the PHP page first");
+      if (!versions.length)
+        throw httpError(
+          409,
+          "No PHP version is installed yet — install one on the PHP page first",
+        );
       site.phpVersion = input.phpVersion || pickPhpVersion(null);
-      if (!versions.includes(site.phpVersion)) throw httpError(400, `PHP ${site.phpVersion} (FPM) is not installed`);
+      if (!versions.includes(site.phpVersion))
+        throw httpError(400, `PHP ${site.phpVersion} (FPM) is not installed`);
     }
 
     if (type === "proxy") {
       let target = String(input.proxyTarget || "").trim();
       if (/^\d+$/.test(target)) target = `http://127.0.0.1:${target}`;
       if (!/^https?:\/\/[A-Za-z0-9.\-:[\]]+(\/[^\s;{}]*)?$/.test(target))
-        throw httpError(400, "Enter the app's port (8080) or URL (http://127.0.0.1:8080)");
+        throw httpError(
+          400,
+          "Enter the app's port (8080) or URL (http://127.0.0.1:8080)",
+        );
       site.proxyTarget = target;
     }
 
     if (["static", "react", "php"].includes(type)) {
       site.webRoot =
-        input.webRoot !== undefined && input.webRoot !== null && input.webRoot !== "auto"
+        input.webRoot !== undefined &&
+        input.webRoot !== null &&
+        input.webRoot !== "auto"
           ? assertWebRoot(input.webRoot)
           : source === "empty"
             ? "public_html"
@@ -568,7 +762,10 @@ export class SiteManager {
     const wantsDb = type === "wordpress" || !!input.database?.create;
     if (wantsDb) {
       if (!MysqlManager.getCreds())
-        throw httpError(409, "Connect the database server first (Databases page) — or untick “Create a database”");
+        throw httpError(
+          409,
+          "Connect the database server first (Databases page) — or untick “Create a database”",
+        );
       const names = await uniqueDbNames(name);
       db = {
         name: input.database?.name ? String(input.database.name) : names.name,
@@ -577,7 +774,8 @@ export class SiteManager {
       };
       assertDbName(db.name);
       assertUser(db.user);
-      if (await databaseExists(db.name)) throw httpError(409, `Database ${db.name} already exists`);
+      if (await databaseExists(db.name))
+        throw httpError(409, `Database ${db.name} already exists`);
       site.database = { type: "mysql", ...db };
     }
 
@@ -585,22 +783,35 @@ export class SiteManager {
     if (type === "wordpress") {
       const wp = input.wordpress || {};
       const email = String(wp.adminEmail || defaultSslEmail() || "").trim();
-      if (!/^[^\s@'"]+@[^\s@'"]+\.[^\s@'"]+$/.test(email)) throw httpError(400, "Enter the WordPress admin email");
+      if (!/^[^\s@'"]+@[^\s@'"]+\.[^\s@'"]+$/.test(email))
+        throw httpError(400, "Enter the WordPress admin email");
       const user = String(wp.adminUser || "admin").trim();
-      if (!/^[A-Za-z0-9._@-]{3,60}$/.test(user)) throw httpError(400, "The admin username may use letters, numbers, . _ @ - (3–60)");
+      if (!/^[A-Za-z0-9._@-]{3,60}$/.test(user))
+        throw httpError(
+          400,
+          "The admin username may use letters, numbers, . _ @ - (3–60)",
+        );
       const password = String(wp.adminPassword || "") || randomPassword(20);
-      if (password.length < 8) throw httpError(400, "The admin password must be at least 8 characters");
+      if (password.length < 8)
+        throw httpError(
+          400,
+          "The admin password must be at least 8 characters",
+        );
       wordpress = {
         title: String(wp.title || domains[0]).slice(0, 120),
         adminUser: user,
         adminPassword: password,
         adminEmail: email,
-        locale: /^[a-z]{2,3}(_[A-Z]{2})?$/.test(wp.locale || "") ? wp.locale : "en_US",
+        locale: /^[a-z]{2,3}(_[A-Z]{2})?$/.test(wp.locale || "")
+          ? wp.locale
+          : "en_US",
       };
     }
 
     const extraEnv = String(input.env || "");
-    for (const { key } of parseEnv(extraEnv)) if (!isValidEnvKey(key)) throw httpError(400, `Invalid environment variable name ${key}`);
+    for (const { key } of parseEnv(extraEnv))
+      if (!isValidEnvKey(key))
+        throw httpError(400, `Invalid environment variable name ${key}`);
 
     const plan = {
       source,
@@ -616,7 +827,9 @@ export class SiteManager {
         start: stack.process && !site.startCommand,
         webRoot: site.webRoot === null,
       },
-      url: domains[0] ? `${input.ssl ? "https" : "http"}://${domains[0]}` : null,
+      url: domains[0]
+        ? `${input.ssl ? "https" : "http"}://${domains[0]}`
+        : null,
     };
     if (site.webRoot === null) site.webRoot = "";
     return { site, plan };
@@ -624,12 +837,25 @@ export class SiteManager {
 
   static async create(input) {
     const { site, plan } = await SiteManager.prepare(input);
-    site.provision = { status: "running", startedAt: new Date().toISOString(), plan };
+    site.provision = {
+      status: "running",
+      startedAt: new Date().toISOString(),
+      plan,
+    };
     updateConfig((c) => {
       (c.projects || (c.projects = [])).push(site);
     });
     const job = SiteManager.provision(site.id);
-    return { site: publicSite(getSite(site.id)), jobId: job.id, wordpress: plan.wordpress ? { adminUser: plan.wordpress.adminUser, adminPassword: plan.wordpress.adminPassword } : null };
+    return {
+      site: publicSite(getSite(site.id)),
+      jobId: job.id,
+      wordpress: plan.wordpress
+        ? {
+            adminUser: plan.wordpress.adminUser,
+            adminPassword: plan.wordpress.adminPassword,
+          }
+        : null,
+    };
   }
 
   /**
@@ -637,9 +863,18 @@ export class SiteManager {
    */
   static retry(id) {
     const site = getSite(id);
-    if (site.provision?.status !== "failed" || !site.provision.plan) throw httpError(409, "Only a failed setup can be retried");
+    if (site.provision?.status !== "failed" || !site.provision.plan)
+      throw httpError(409, "Only a failed setup can be retried");
     if (DeployEngine.running(id)) throw httpError(409, "This website is busy");
-    saveSite(id, (p) => ({ ...p, provision: { ...p.provision, status: "running", error: null, startedAt: new Date().toISOString() } }));
+    saveSite(id, (p) => ({
+      ...p,
+      provision: {
+        ...p.provision,
+        status: "running",
+        error: null,
+        startedAt: new Date().toISOString(),
+      },
+    }));
     return SiteManager.provision(id);
   }
 
@@ -678,7 +913,10 @@ export class SiteManager {
                 WP_LOCALE: wp.locale,
               },
             });
-            if (code !== 0) throw new Error("WordPress installation failed — see the output above");
+            if (code !== 0)
+              throw new Error(
+                "WordPress installation failed — see the output above",
+              );
           },
         },
       ],
@@ -701,7 +939,10 @@ export class SiteManager {
       {
         id: "nginx-install",
         title: "Install nginx",
-        when: async () => plan.domains.length > 0 && !(await which("nginx")) && !existsSync(SITES_AVAILABLE),
+        when: async () =>
+          plan.domains.length > 0 &&
+          !(await which("nginx")) &&
+          !existsSync(SITES_AVAILABLE),
         script: NGINX_INSTALL_SCRIPT,
       },
       {
@@ -709,9 +950,14 @@ export class SiteManager {
         title: plan.db ? `Create database ${plan.db.name}` : "Create database",
         when: () => !!plan.db,
         run: async (ctx) => {
-          if (await databaseExists(plan.db.name)) return ctx.log(`Database ${plan.db.name} already exists — keeping it.`);
+          if (await databaseExists(plan.db.name))
+            return ctx.log(
+              `Database ${plan.db.name} already exists — keeping it.`,
+            );
           await createDatabaseWithUser(plan.db);
-          ctx.log(`Created database ${plan.db.name} and user ${plan.db.user}@localhost (all privileges on it).`);
+          ctx.log(
+            `Created database ${plan.db.name} and user ${plan.db.user}@localhost (all privileges on it).`,
+          );
         },
       },
       ...sourceSteps,
@@ -723,30 +969,59 @@ export class SiteManager {
           const site = current();
           const detected = detectStack(site.deployPath);
           if (detected && detected !== site.type)
-            ctx.log(`⚠ The code looks like a ${STACKS[detected].label} project, but this website was set up as ${STACKS[site.type].label}. Change it in Settings if that's wrong.`);
+            ctx.log(
+              `⚠ The code looks like a ${STACKS[detected].label} project, but this website was set up as ${STACKS[site.type].label}. Change it in Settings if that's wrong.`,
+            );
           const saved = saveSite(id, (p) => {
-            if (plan.detect.script) p.deploy = { ...(p.deploy || {}), script: defaultDeployScript(p.type, p.deployPath, { database: !!plan.db }) };
-            if (plan.detect.start) p.startCommand = defaultStartCommand(p.type, p.deployPath);
-            if (plan.detect.webRoot) p.webRoot = suggestWebRoot(p.type, p.deployPath);
+            if (plan.detect.script)
+              p.deploy = {
+                ...(p.deploy || {}),
+                script: defaultDeployScript(p.type, p.deployPath, {
+                  database: !!plan.db,
+                }),
+              };
+            if (plan.detect.start)
+              p.startCommand = defaultStartCommand(p.type, p.deployPath);
+            if (plan.detect.webRoot)
+              p.webRoot = suggestWebRoot(p.type, p.deployPath);
             return p;
           });
-          ctx.log(`Deploy script:\n${saved.deploy.script.replace(/^/gm, "  ")}`);
-          if (stack.process) ctx.log(`Start command: ${saved.startCommand}   (PORT=${saved.port})`);
+          ctx.log(
+            `Deploy script:\n${saved.deploy.script.replace(/^/gm, "  ")}`,
+          );
+          if (stack.process)
+            ctx.log(
+              `Start command: ${saved.startCommand}   (PORT=${saved.port})`,
+            );
           if (saved.webRoot) ctx.log(`Web root: ${saved.webRoot}/`);
         },
       },
       {
         id: "env",
         title: "Write .env",
-        when: () => ENV_STACKS.has(initial.type) && (initial.type === "laravel" || (plan.db && plan.writeEnv) || !!plan.env.trim()),
+        when: () =>
+          ENV_STACKS.has(initial.type) &&
+          (initial.type === "laravel" ||
+            (plan.db && plan.writeEnv) ||
+            !!plan.env.trim()),
         run: async (ctx) => {
           const site = current();
           const updates = {};
-          if (site.type === "laravel") Object.assign(updates, { APP_ENV: "production", APP_DEBUG: "false", ...(plan.url ? { APP_URL: plan.url } : {}) });
-          if (plan.db && plan.writeEnv) Object.assign(updates, envUpdatesForDatabase(site.type, plan.db));
+          if (site.type === "laravel")
+            Object.assign(updates, {
+              APP_ENV: "production",
+              APP_DEBUG: "false",
+              ...(plan.url ? { APP_URL: plan.url } : {}),
+            });
+          if (plan.db && plan.writeEnv)
+            Object.assign(updates, envUpdatesForDatabase(site.type, plan.db));
           for (const { key, value } of parseEnv(plan.env)) updates[key] = value;
-          const file = await updateEnvFile(site, updates, { fromExample: true });
-          ctx.log(`Wrote ${Object.keys(updates).length} value(s) to ${file}${plan.db && plan.writeEnv ? " (including the database credentials)" : ""}.`);
+          const file = await updateEnvFile(site, updates, {
+            fromExample: true,
+          });
+          ctx.log(
+            `Wrote ${Object.keys(updates).length} value(s) to ${file}${plan.db && plan.writeEnv ? " (including the database credentials)" : ""}.`,
+          );
         },
       },
       ...DeployEngine.buildSteps(current),
@@ -756,20 +1031,27 @@ export class SiteManager {
         when: () => {
           if (initial.type !== "laravel") return false;
           const env = join(current().deployPath, ".env");
-          return existsSync(env) && /^APP_KEY=\s*$/m.test(readFileSync(env, "utf-8"));
+          return (
+            existsSync(env) && /^APP_KEY=\s*$/m.test(readFileSync(env, "utf-8"))
+          );
         },
         run: async (ctx) => {
           const site = current();
-          const code = await ctx.sh("php artisan key:generate --force\nphp artisan config:cache", {
-            cwd: site.deployPath,
-            env: DeployEngine.scriptEnv(site),
-          });
+          const code = await ctx.sh(
+            "php artisan key:generate --force\nphp artisan config:cache",
+            {
+              cwd: site.deployPath,
+              env: DeployEngine.scriptEnv(site),
+            },
+          );
           if (code !== 0) throw new Error("php artisan key:generate failed");
         },
       },
       {
         id: "web",
-        title: plan.domains.length ? `Configure nginx for ${plan.domains[0]}` : "Configure nginx",
+        title: plan.domains.length
+          ? `Configure nginx for ${plan.domains[0]}`
+          : "Configure nginx",
         when: () => plan.domains.length > 0,
         run: async (ctx) => {
           await SiteManager.configureWebServer(current(), plan.domains);
@@ -783,7 +1065,11 @@ export class SiteManager {
         run: async (ctx) => {
           const site = current();
           const code = await ctx.sh(
-            NginxManager.sslScript({ name: site.siteName, domains: plan.domains, email: plan.sslEmail || defaultSslEmail() }),
+            NginxManager.sslScript({
+              name: site.siteName,
+              domains: plan.domains,
+              email: plan.sslEmail || defaultSslEmail(),
+            }),
           );
           if (code === 0) return;
           if (site.type === "wordpress") {
@@ -809,19 +1095,35 @@ export class SiteManager {
         try {
           site = saveSite(id, (p) => {
             p.provision = ok
-              ? { status: "completed", jobId: job.id, finishedAt: job.finishedAt }
-              : { ...p.provision, status: "failed", jobId: job.id, error: failed ? `${failed.title}: ${failed.error}` : "Cancelled" };
+              ? {
+                  status: "completed",
+                  jobId: job.id,
+                  finishedAt: job.finishedAt,
+                }
+              : {
+                  ...p.provision,
+                  status: "failed",
+                  jobId: job.id,
+                  error: failed
+                    ? `${failed.title}: ${failed.error}`
+                    : "Cancelled",
+                };
             return p;
           });
         } catch {
           return; // deleted while setting up
         }
         DeployEngine.recordSetup(site, job, ctx);
-        BackupEngine.log(`[Websites] Setup of ${site.name}: ${ok ? "completed" : "FAILED"}`);
+        BackupEngine.log(
+          `[Websites] Setup of ${site.name}: ${ok ? "completed" : "FAILED"}`,
+        );
       },
     });
     // The dashboard follows the live log through this id
-    saveSite(id, (p) => ({ ...p, provision: { ...p.provision, jobId: job.id } }));
+    saveSite(id, (p) => ({
+      ...p,
+      provision: { ...p.provision, jobId: job.id },
+    }));
     return job;
   }
 
@@ -865,7 +1167,11 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
       await NginxManager.linkProject(name, site.id);
     } else {
       let root;
-      if (stack.web !== "proxy") root = site.type === "laravel" ? site.deployPath : join(site.deployPath, site.webRoot || "");
+      if (stack.web !== "proxy")
+        root =
+          site.type === "laravel"
+            ? site.deployPath
+            : join(site.deployPath, site.webRoot || "");
       await NginxManager.createSite({
         name,
         domains,
@@ -878,7 +1184,8 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
         maxBodySize: "64M",
       });
     }
-    if (site.siteName !== name) saveSite(site.id, (p) => ({ ...p, siteName: name }));
+    if (site.siteName !== name)
+      saveSite(site.id, (p) => ({ ...p, siteName: name }));
   }
 
   // ── Import an existing nginx site ──────────────────────────
@@ -887,14 +1194,17 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
     const info = NginxManager.siteInfo(name);
     if (!info) throw httpError(404, `nginx site "${name}" not found`);
     const sites = allSites();
-    if (info.projectId && sites.some((s) => s.id === info.projectId)) throw httpError(409, "This site already belongs to a website");
-    if (sites.some((s) => s.name === name)) throw httpError(409, `A website named "${name}" already exists`);
+    if (info.projectId && sites.some((s) => s.id === info.projectId))
+      throw httpError(409, "This site already belongs to a website");
+    if (sites.some((s) => s.name === name))
+      throw httpError(409, `A website named "${name}" already exists`);
 
     const type = info.type === "proxy" ? "proxy" : normalizeStack(info.type);
     let deployPath = null;
     let webRoot = "";
     if (info.root) {
-      if (type === "laravel") deployPath = info.root.replace(/\/public\/?$/, "");
+      if (type === "laravel")
+        deployPath = info.root.replace(/\/public\/?$/, "");
       else if (/\/(public_html|public|dist|build|html)\/?$/.test(info.root)) {
         deployPath = dirname(info.root);
         webRoot = info.root.slice(deployPath.length + 1).replace(/\/$/, "");
@@ -908,7 +1218,15 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
     let branch = null;
     if (deployPath && existsSync(join(deployPath, ".git"))) {
       const git = await DeployEngine.gitInfo(deployPath);
-      const remote = await run("git", ["-c", "safe.directory=*", "-C", deployPath, "remote", "get-url", "origin"]);
+      const remote = await run("git", [
+        "-c",
+        "safe.directory=*",
+        "-C",
+        deployPath,
+        "remote",
+        "get-url",
+        "origin",
+      ]);
       gitUrl = remote.code === 0 ? remote.stdout.trim() : "";
       branch = git?.branch && git.branch !== "HEAD" ? git.branch : "main";
     }
@@ -926,7 +1244,12 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
       proxyTarget: type === "proxy" ? info.proxyPass || "" : "",
       phpVersion: info.phpVersion,
       siteName: name,
-      deploy: { script: deployPath ? defaultDeployScript(type, deployPath) : "", autoDeploy: false, webhookSecret: null, resetHard: false },
+      deploy: {
+        script: deployPath ? defaultDeployScript(type, deployPath) : "",
+        autoDeploy: false,
+        webhookSecret: null,
+        resetHard: false,
+      },
       database: { type: "mysql", name: "", user: "", password: "" },
       backupDirs: deployPath ? [deployPath] : [],
       backupExcludes: DEFAULT_BACKUP_EXCLUDES,
@@ -947,9 +1270,13 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
     const stack = stackOf(site);
     const patch = {};
     let restartNeeded = false;
-    const nginxName = site.siteName && NginxManager.siteInfo(site.siteName) ? site.siteName : null;
+    const nginxName =
+      site.siteName && NginxManager.siteInfo(site.siteName)
+        ? site.siteName
+        : null;
 
-    if ("description" in body) patch.description = String(body.description || "").slice(0, 300);
+    if ("description" in body)
+      patch.description = String(body.description || "").slice(0, 300);
     if ("gitUrl" in body) {
       const url = String(body.gitUrl || "").trim();
       if (url && url !== maskGitUrl(site.gitUrl)) {
@@ -957,25 +1284,39 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
         if (!site.branch) patch.branch = "main";
       }
     }
-    if ("branch" in body && (site.gitUrl || patch.gitUrl)) patch.branch = assertBranch(body.branch);
+    if ("branch" in body && (site.gitUrl || patch.gitUrl))
+      patch.branch = assertBranch(body.branch);
     if (body.deploy && typeof body.deploy === "object") {
       patch.deploy = { ...site.deploy };
-      if ("script" in body.deploy) patch.deploy.script = String(body.deploy.script ?? "").slice(0, 20000);
-      if ("resetHard" in body.deploy) patch.deploy.resetHard = !!body.deploy.resetHard;
+      if ("script" in body.deploy)
+        patch.deploy.script = String(body.deploy.script ?? "").slice(0, 20000);
+      if ("resetHard" in body.deploy)
+        patch.deploy.resetHard = !!body.deploy.resetHard;
     }
     if ("startCommand" in body && stack.process) {
       const cmd = String(body.startCommand || "").trim();
-      if (!cmd || /[\r\n]/.test(cmd) || cmd.length > 500) throw httpError(400, "Enter a single-line start command, e.g. npm start");
+      if (!cmd || /[\r\n]/.test(cmd) || cmd.length > 500)
+        throw httpError(
+          400,
+          "Enter a single-line start command, e.g. npm start",
+        );
       if (cmd !== site.startCommand) {
         patch.startCommand = cmd;
         restartNeeded = true;
       }
     }
-    if ("port" in body && stack.process && body.port !== null && body.port !== "") {
+    if (
+      "port" in body &&
+      stack.process &&
+      body.port !== null &&
+      body.port !== ""
+    ) {
       const port = assertPort(body.port);
       if (port !== site.port) {
-        if (allSites().some((s) => s.id !== id && s.port === port)) throw httpError(409, `Port ${port} is used by another website`);
-        if (!(await portFree(port))) throw httpError(409, `Port ${port} is already in use on this server`);
+        if (allSites().some((s) => s.id !== id && s.port === port))
+          throw httpError(409, `Port ${port} is used by another website`);
+        if (!(await portFree(port)))
+          throw httpError(409, `Port ${port} is already in use on this server`);
         if (nginxName) await NginxManager.setProxyPass(nginxName, String(port));
         patch.port = port;
         restartNeeded = true;
@@ -985,39 +1326,69 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
       const target = String(body.proxyTarget || "").trim();
       if (target && target !== site.proxyTarget) {
         if (nginxName) await NginxManager.setProxyPass(nginxName, target);
-        patch.proxyTarget = /^\d+$/.test(target) ? `http://127.0.0.1:${target}` : target;
+        patch.proxyTarget = /^\d+$/.test(target)
+          ? `http://127.0.0.1:${target}`
+          : target;
       }
     }
-    if ("webRoot" in body && ["static", "react", "php", "wordpress"].includes(site.type)) {
+    if (
+      "webRoot" in body &&
+      ["static", "react", "php", "wordpress"].includes(site.type)
+    ) {
       const webRoot = assertWebRoot(body.webRoot);
       if (webRoot !== site.webRoot) {
-        if (nginxName) await NginxManager.setRoot(nginxName, join(site.deployPath, webRoot));
+        if (nginxName)
+          await NginxManager.setRoot(nginxName, join(site.deployPath, webRoot));
         patch.webRoot = webRoot;
       }
     }
-    if ("phpVersion" in body && stack.php && body.phpVersion && body.phpVersion !== site.phpVersion) {
-      if (!phpFpmVersions().includes(body.phpVersion)) throw httpError(400, `PHP ${body.phpVersion} (FPM) is not installed`);
-      if (nginxName) await NginxManager.setPhpVersion(nginxName, body.phpVersion);
+    if (
+      "phpVersion" in body &&
+      stack.php &&
+      body.phpVersion &&
+      body.phpVersion !== site.phpVersion
+    ) {
+      if (!phpFpmVersions().includes(body.phpVersion))
+        throw httpError(400, `PHP ${body.phpVersion} (FPM) is not installed`);
+      if (nginxName)
+        await NginxManager.setPhpVersion(nginxName, body.phpVersion);
       patch.phpVersion = body.phpVersion;
     }
-    if ("maxBodySize" in body && nginxName) await NginxManager.setMaxBodySize(nginxName, String(body.maxBodySize).trim());
+    if ("maxBodySize" in body && nginxName)
+      await NginxManager.setMaxBodySize(
+        nginxName,
+        String(body.maxBodySize).trim(),
+      );
     if ("backupDirs" in body) {
-      const dirs = (Array.isArray(body.backupDirs) ? body.backupDirs : String(body.backupDirs || "").split("\n"))
+      const dirs = (
+        Array.isArray(body.backupDirs)
+          ? body.backupDirs
+          : String(body.backupDirs || "").split("\n")
+      )
         .map((d) => String(d).trim())
         .filter(Boolean);
-      for (const d of dirs) if (!d.startsWith("/") || d.includes("..") || /[\0\r\n]/.test(d)) throw httpError(400, `Invalid folder ${d}`);
+      for (const d of dirs)
+        if (!d.startsWith("/") || d.includes("..") || /[\0\r\n]/.test(d))
+          throw httpError(400, `Invalid folder ${d}`);
       patch.backupDirs = [...new Set(dirs)];
     }
     if ("backupExcludes" in body) {
-      const list = (Array.isArray(body.backupExcludes) ? body.backupExcludes : String(body.backupExcludes || "").split(/[\n,]/))
+      const list = (
+        Array.isArray(body.backupExcludes)
+          ? body.backupExcludes
+          : String(body.backupExcludes || "").split(/[\n,]/)
+      )
         .map((d) => String(d).trim())
         .filter(Boolean);
-      for (const e of list) if (!/^[A-Za-z0-9._*/-]{1,100}$/.test(e)) throw httpError(400, `Invalid exclude pattern ${e}`);
+      for (const e of list)
+        if (!/^[A-Za-z0-9._*/-]{1,100}$/.test(e))
+          throw httpError(400, `Invalid exclude pattern ${e}`);
       patch.backupExcludes = [...new Set(list)];
     }
 
     const saved = saveSite(id, (p) => ({ ...p, ...patch }));
-    if (stack.process && restartNeeded && saved.startCommand) ProcessManager.writeEcosystem(saved);
+    if (stack.process && restartNeeded && saved.startCommand)
+      ProcessManager.writeEcosystem(saved);
     return { site: await SiteManager.detail(id), restartNeeded };
   }
 
@@ -1030,7 +1401,8 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
     saveSite(id, (p) => {
       const deploy = { ...normalizeSite(p).deploy };
       deploy.autoDeploy = !!enabled;
-      if (enabled && (!deploy.webhookSecret || rotate)) deploy.webhookSecret = DeployEngine.newWebhookSecret();
+      if (enabled && (!deploy.webhookSecret || rotate))
+        deploy.webhookSecret = DeployEngine.newWebhookSecret();
       return { ...p, deploy };
     });
     return { autoDeploy: !!enabled, secret: getSite(id).deploy.webhookSecret };
@@ -1038,9 +1410,16 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
 
   // ── Delete ─────────────────────────────────────────────────
 
-  static remove(id, { deleteFiles = false, dropDatabase = false, removeNginx = true } = {}) {
+  static remove(
+    id,
+    { deleteFiles = false, dropDatabase = false, removeNginx = true } = {},
+  ) {
     const site = getSite(id);
-    if (DeployEngine.running(id)) throw httpError(409, "Wait for the running deployment or setup to finish");
+    if (DeployEngine.running(id))
+      throw httpError(
+        409,
+        "Wait for the running deployment or setup to finish",
+      );
     const stack = stackOf(site);
     let nginxNames = [];
     try {
@@ -1078,15 +1457,19 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
         title: "Detach nginx site",
         when: () => !removeNginx && nginxNames.length > 0,
         run: async (ctx) => {
-          for (const name of nginxNames) await NginxManager.linkProject(name, null);
-          ctx.log("nginx keeps serving the site; it is listed under “Other nginx sites”.");
+          for (const name of nginxNames)
+            await NginxManager.linkProject(name, null);
+          ctx.log(
+            "nginx keeps serving the site; it is listed under “Other nginx sites”.",
+          );
         },
       },
       {
         title: "Remove scheduled jobs",
         run: async (ctx) => {
           const { backups, scheduler } = await siteCronJobs(site);
-          for (const job of [...backups, ...scheduler]) await CronManager.remove(job.id).catch(() => {});
+          for (const job of [...backups, ...scheduler])
+            await CronManager.remove(job.id).catch(() => {});
           ctx.log(`${backups.length + scheduler.length} cron job(s) removed.`);
         },
       },
@@ -1098,8 +1481,14 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
             await MysqlManager.dropDatabase(site.database.name);
             ctx.log(`Dropped database ${site.database.name}.`);
           }
-          if (site.database.user && site.database.user !== PANEL_USER && site.database.user !== "root") {
-            await MysqlManager.dropUser(site.database.user, "localhost").catch(() => {});
+          if (
+            site.database.user &&
+            site.database.user !== PANEL_USER &&
+            site.database.user !== "root"
+          ) {
+            await MysqlManager.dropUser(site.database.user, "localhost").catch(
+              () => {},
+            );
             ctx.log(`Removed user ${site.database.user}@localhost.`);
           }
         },
@@ -1109,7 +1498,8 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
         when: () => deleteFiles && !!site.deployPath,
         run: async (ctx) => {
           const path = assertSitePath(site.deployPath);
-          if (path === SITES_ROOT) throw new Error(`Refusing to delete ${SITES_ROOT}`);
+          if (path === SITES_ROOT)
+            throw new Error(`Refusing to delete ${SITES_ROOT}`);
           rmSync(path, { recursive: true, force: true });
           ctx.log(`Deleted ${path}.`);
         },
@@ -1124,7 +1514,9 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
         },
       },
     ];
-    return JobRunner.pipeline(`Delete ${site.name}`, steps, { meta: { kind: "delete", siteId: id } });
+    return JobRunner.pipeline(`Delete ${site.name}`, steps, {
+      meta: { kind: "delete", siteId: id },
+    });
   }
 
   // ── Domains & HTTPS ────────────────────────────────────────
@@ -1137,16 +1529,28 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
       if (s.projectId === id) own.add(s.name);
       if (own.has(s.name)) continue;
       const clash = list.find((d) => s.serverNames.includes(d));
-      if (clash) throw httpError(409, `${clash} is already used by the nginx site "${s.name}"`);
+      if (clash)
+        throw httpError(
+          409,
+          `${clash} is already used by the nginx site "${s.name}"`,
+        );
     }
     const before = site.siteName ? NginxManager.siteInfo(site.siteName) : null;
     await SiteManager.configureWebServer(site, list);
     const fresh = getSite(id);
     // A certificate must cover every domain: expand it when domains change
     if (before?.ssl) {
-      const job = JobRunner.start(`HTTPS for ${list[0]}`, NginxManager.sslScript({ name: fresh.siteName, domains: list, email: defaultSslEmail() }), {
-        meta: { kind: "ssl", siteId: id },
-      });
+      const job = JobRunner.start(
+        `HTTPS for ${list[0]}`,
+        NginxManager.sslScript({
+          name: fresh.siteName,
+          domains: list,
+          email: defaultSslEmail(),
+        }),
+        {
+          meta: { kind: "ssl", siteId: id },
+        },
+      );
       return { success: true, jobId: job.id };
     }
     return { success: true, created: !before };
@@ -1156,12 +1560,24 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
     const site = getSite(id);
     const info = site.siteName ? NginxManager.siteInfo(site.siteName) : null;
     if (!info) throw httpError(400, "Add a domain to this website first");
-    const domains = info.serverNames.filter((d) => d !== "_" && !d.startsWith("*."));
+    const domains = info.serverNames.filter(
+      (d) => d !== "_" && !d.startsWith("*."),
+    );
     const address = String(email || defaultSslEmail() || "").trim();
-    if (email) updateConfig((c) => (c.ssl = { ...(c.ssl || {}), email: address }));
-    const job = JobRunner.start(`HTTPS for ${domains[0]}`, NginxManager.sslScript({ name: site.siteName, domains, email: address, redirect }), {
-      meta: { kind: "ssl", siteId: id },
-    });
+    if (email)
+      updateConfig((c) => (c.ssl = { ...(c.ssl || {}), email: address }));
+    const job = JobRunner.start(
+      `HTTPS for ${domains[0]}`,
+      NginxManager.sslScript({
+        name: site.siteName,
+        domains,
+        email: address,
+        redirect,
+      }),
+      {
+        meta: { kind: "ssl", siteId: id },
+      },
+    );
     return { jobId: job.id };
   }
 
@@ -1176,7 +1592,8 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
 
   static async control(id, action) {
     const site = getSite(id);
-    if (!stackOf(site).process) throw httpError(400, "This website does not run an app process");
+    if (!stackOf(site).process)
+      throw httpError(400, "This website does not run an app process");
     return ProcessManager.control(site, action);
   }
 
@@ -1193,7 +1610,15 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
     const exists = existsSync(file);
     const content = exists ? readFileSync(file, "utf-8") : "";
     const example = join(site.deployPath, ".env.example");
-    return { path: file, exists, content, vars: parseEnv(content), example: existsSync(example) ? parseEnv(readFileSync(example, "utf-8")) : [] };
+    return {
+      path: file,
+      exists,
+      content,
+      vars: parseEnv(content),
+      example: existsSync(example)
+        ? parseEnv(readFileSync(example, "utf-8"))
+        : [],
+    };
   }
 
   /**
@@ -1201,21 +1626,30 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
    */
   static async writeEnv(id, { content, vars }) {
     const site = getSite(id);
-    if (!site.deployPath || !existsSync(site.deployPath)) throw httpError(400, "The website folder does not exist");
+    if (!site.deployPath || !existsSync(site.deployPath))
+      throw httpError(400, "The website folder does not exist");
     const file = join(site.deployPath, ".env");
     if (typeof content === "string") {
-      if (content.length > 512 * 1024) throw httpError(413, ".env is too large");
-      writeFileSync(file, content.endsWith("\n") || !content ? content : `${content}\n`, { mode: 0o640 });
+      if (content.length > 512 * 1024)
+        throw httpError(413, ".env is too large");
+      writeFileSync(
+        file,
+        content.endsWith("\n") || !content ? content : `${content}\n`,
+        { mode: 0o640 },
+      );
       await run("chown", ["--reference", site.deployPath, file]);
     } else if (Array.isArray(vars)) {
       const updates = {};
       const wanted = new Set();
       for (const { key, value } of vars) {
-        if (!isValidEnvKey(key)) throw httpError(400, `Invalid variable name "${key}"`);
+        if (!isValidEnvKey(key))
+          throw httpError(400, `Invalid variable name "${key}"`);
         updates[key] = String(value ?? "");
         wanted.add(key);
       }
-      const existing = existsSync(file) ? parseEnv(readFileSync(file, "utf-8")) : [];
+      const existing = existsSync(file)
+        ? parseEnv(readFileSync(file, "utf-8"))
+        : [];
       for (const { key } of existing) if (!wanted.has(key)) updates[key] = null;
       await updateEnvFile(site, updates);
     } else throw httpError(400, "Send content or vars");
@@ -1230,18 +1664,31 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
     const stack = stackOf(site);
     if (stack.process) {
       await ProcessManager.control(site, "restart");
-      return { success: true, message: "App restarted with the new environment" };
+      return {
+        success: true,
+        message: "App restarted with the new environment",
+      };
     }
     if (site.type === "laravel") {
       const php = phpBinary(site.phpVersion) || "php";
-      const r = await run("bash", ["-c", `${shq(php)} artisan config:clear && ${shq(php)} artisan config:cache`], {
-        cwd: site.deployPath,
-        timeout: 120000,
-      });
+      const r = await run(
+        "bash",
+        [
+          "-c",
+          `${shq(php)} artisan config:clear && ${shq(php)} artisan config:cache`,
+        ],
+        {
+          cwd: site.deployPath,
+          timeout: 120000,
+        },
+      );
       if (r.code !== 0) throw httpError(500, (r.stderr || r.stdout).trim());
       return { success: true, message: "Laravel config cache rebuilt" };
     }
-    return { success: true, message: "Saved — the new values are used on the next request or build" };
+    return {
+      success: true,
+      message: "Saved — the new values are used on the next request or build",
+    };
   }
 
   // ── Database ───────────────────────────────────────────────
@@ -1256,7 +1703,11 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
            FROM information_schema.TABLES t WHERE t.TABLE_SCHEMA = ?`,
           [site.database.name, site.database.name],
         );
-        return { exists: Number(row.present) > 0, tables: Number(row.tables) || 0, size: Number(row.size) || 0 };
+        return {
+          exists: Number(row.present) > 0,
+          tables: Number(row.tables) || 0,
+          size: Number(row.size) || 0,
+        };
       });
     } catch (err) {
       return { error: err.message };
@@ -1265,15 +1716,27 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
 
   static async createDatabaseFor(id, { writeEnv = true } = {}) {
     const site = getSite(id);
-    if (site.database?.name) throw httpError(409, "This website already has a database");
-    if (!MysqlManager.getCreds()) throw httpError(409, "Connect the database server first (Databases page)");
+    if (site.database?.name)
+      throw httpError(409, "This website already has a database");
+    if (!MysqlManager.getCreds())
+      throw httpError(
+        409,
+        "Connect the database server first (Databases page)",
+      );
     const names = await uniqueDbNames(site.name);
     const db = { ...names, password: randomPassword() };
     await createDatabaseWithUser(db);
     saveSite(id, (p) => ({ ...p, database: { type: "mysql", ...db } }));
     let envUpdated = false;
-    if (writeEnv && ENV_STACKS.has(site.type) && site.deployPath && existsSync(site.deployPath)) {
-      await updateEnvFile(site, envUpdatesForDatabase(site.type, db), { fromExample: site.type === "laravel" });
+    if (
+      writeEnv &&
+      ENV_STACKS.has(site.type) &&
+      site.deployPath &&
+      existsSync(site.deployPath)
+    ) {
+      await updateEnvFile(site, envUpdatesForDatabase(site.type, db), {
+        fromExample: site.type === "laravel",
+      });
       envUpdated = true;
     }
     return { database: db, envUpdated };
@@ -1285,8 +1748,17 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
   static async linkDatabase(id, { name, user, password }) {
     assertDbName(name);
     if (user) assertUser(user);
-    if (MysqlManager.getCreds() && !(await databaseExists(name))) throw httpError(404, `Database ${name} does not exist`);
-    saveSite(id, (p) => ({ ...p, database: { type: "mysql", name, user: user || "", password: password || p.database?.password || "" } }));
+    if (MysqlManager.getCreds() && !(await databaseExists(name)))
+      throw httpError(404, `Database ${name} does not exist`);
+    saveSite(id, (p) => ({
+      ...p,
+      database: {
+        type: "mysql",
+        name,
+        user: user || "",
+        password: password || p.database?.password || "",
+      },
+    }));
     return { success: true };
   }
 
@@ -1294,18 +1766,34 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
     const site = getSite(id);
     if (!site.database?.name) return { success: true };
     if (drop) {
-      if (await databaseExists(site.database.name)) await MysqlManager.dropDatabase(site.database.name);
-      if (site.database.user && site.database.user !== PANEL_USER && site.database.user !== "root")
-        await MysqlManager.dropUser(site.database.user, "localhost").catch(() => {});
+      if (await databaseExists(site.database.name))
+        await MysqlManager.dropDatabase(site.database.name);
+      if (
+        site.database.user &&
+        site.database.user !== PANEL_USER &&
+        site.database.user !== "root"
+      )
+        await MysqlManager.dropUser(site.database.user, "localhost").catch(
+          () => {},
+        );
     }
-    saveSite(id, (p) => ({ ...p, database: { type: "mysql", name: "", user: "", password: "" } }));
+    saveSite(id, (p) => ({
+      ...p,
+      database: { type: "mysql", name: "", user: "", password: "" },
+    }));
     return { success: true };
   }
 
   static databaseCredentials(id) {
     const site = getSite(id);
     if (!site.database?.name) throw httpError(404, "No database linked");
-    return { host: "127.0.0.1", port: 3306, name: site.database.name, user: site.database.user, password: site.database.password || "" };
+    return {
+      host: "127.0.0.1",
+      port: 3306,
+      name: site.database.name,
+      user: site.database.user,
+      password: site.database.password || "",
+    };
   }
 
   // ── Backups & scheduled jobs ───────────────────────────────
@@ -1313,13 +1801,23 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
   static async backups(id) {
     const site = getSite(id);
     const config = getConfig();
-    const [list, cron] = await Promise.all([BackupEngine.listBackups(site.name).catch(() => []), siteCronJobs(site)]);
+    const [list, cron] = await Promise.all([
+      BackupEngine.listBackups(site.name).catch(() => []),
+      siteCronJobs(site),
+    ]);
     return {
       backups: list,
       target: config.backup?.defaultTarget || "gdrive",
-      targetEnabled: !!config.backup?.targets?.[config.backup?.defaultTarget]?.enabled,
+      targetEnabled:
+        !!config.backup?.targets?.[config.backup?.defaultTarget]?.enabled,
       running: BackupEngine.getStatus()[id] || null,
-      schedule: cron.backups.map((j) => ({ id: j.id, schedule: j.schedule, human: j.human, nextRun: j.nextRun, enabled: j.enabled })),
+      schedule: cron.backups.map((j) => ({
+        id: j.id,
+        schedule: j.schedule,
+        human: j.human,
+        nextRun: j.nextRun,
+        enabled: j.enabled,
+      })),
       includes: {
         database: site.database?.name || null,
         dirs: site.backupDirs,
@@ -1353,7 +1851,11 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
     if (!schedule) return { success: true, schedule: null };
     const task = panelTasks().find((t) => t.id === `backup:${id}`);
     const label = `Backup ${site.name}`;
-    await CronManager.add({ schedule: String(schedule).trim(), command: wrapCronCommand(task.command, label), label });
+    await CronManager.add({
+      schedule: String(schedule).trim(),
+      command: wrapCronCommand(task.command, label),
+      label,
+    });
     return { success: true, schedule };
   }
 
@@ -1362,7 +1864,8 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
    */
   static async setScheduler(id, enabled) {
     const site = getSite(id);
-    if (site.type !== "laravel") throw httpError(400, "The scheduler is for Laravel websites");
+    if (site.type !== "laravel")
+      throw httpError(400, "The scheduler is for Laravel websites");
     const { scheduler } = await siteCronJobs(site);
     for (const job of scheduler) await CronManager.remove(job.id);
     if (enabled) {
@@ -1380,19 +1883,30 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
 
   static async logs(id, type = "error", lines = 200) {
     const site = getSite(id);
-    if (type === "out" || type === "err") return ProcessManager.logs(site, type, lines);
+    if (type === "out" || type === "err")
+      return ProcessManager.logs(site, type, lines);
     if (!site.siteName) return { path: null, lines: [] };
-    const file = NginxManager.logPath(site.siteName, type === "access" ? "access" : "error");
+    const file = NginxManager.logPath(
+      site.siteName,
+      type === "access" ? "access" : "error",
+    );
     if (!existsSync(file)) return { path: file, lines: [] };
-    const r = await run("tail", ["-n", String(Math.min(Math.max(parseInt(lines) || 200, 10), 2000)), file]);
+    const r = await run("tail", [
+      "-n",
+      String(Math.min(Math.max(parseInt(lines) || 200, 10), 2000)),
+      file,
+    ]);
     return { path: file, lines: r.stdout.split("\n").filter(Boolean) };
   }
 
   static stats(id, days = 7) {
     const site = getSite(id);
-    if (!site.siteName) return { available: false, reason: "This website has no domain yet" };
+    if (!site.siteName)
+      return { available: false, reason: "This website has no domain yet" };
     const d = Math.min(Math.max(parseInt(days) || 7, 1), 30);
-    return trafficStats(NginxManager.logPath(site.siteName, "access"), { days: d });
+    return trafficStats(NginxManager.logPath(site.siteName, "access"), {
+      days: d,
+    });
   }
 
   static disk(id) {
@@ -1407,8 +1921,18 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
     const sites = allSites();
     DeployEngine.recoverInterrupted(sites.map((s) => s.id));
     for (const s of sites) {
-      if (s.provision?.status === "running" && !JobRunner.jobs.has(s.provision.jobId)) {
-        saveSite(s.id, (p) => ({ ...p, provision: { ...p.provision, status: "failed", error: "Interrupted (the panel restarted) — retry the setup" } }));
+      if (
+        s.provision?.status === "running" &&
+        !JobRunner.jobs.has(s.provision.jobId)
+      ) {
+        saveSite(s.id, (p) => ({
+          ...p,
+          provision: {
+            ...p.provision,
+            status: "failed",
+            error: "Interrupted (the panel restarted) — retry the setup",
+          },
+        }));
       }
     }
   }

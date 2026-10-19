@@ -28,7 +28,14 @@ const PROJECT_HEADER = /^# VPS Panel Project: [A-Za-z0-9-]+\n/m;
 const SITE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,200}$/;
 const DOMAIN = /^(\*\.)?([A-Za-z0-9-_]{1,63}\.)*[A-Za-z0-9-]{1,63}$/;
 
-export const SITE_TYPES = ["static", "spa", "php", "laravel", "wordpress", "proxy"];
+export const SITE_TYPES = [
+  "static",
+  "spa",
+  "php",
+  "laravel",
+  "wordpress",
+  "proxy",
+];
 
 export function assertSiteName(name) {
   if (!SITE_NAME.test(name || "") || name.includes(".."))
@@ -828,10 +835,17 @@ echo "HTTPS is active. Certificates renew automatically (certbot timer)."
    */
   static async setRoot(name, root) {
     if (!root.startsWith("/") || root.includes("..") || /[;{}\s'"]/.test(root))
-      throw httpError(400, "Document root must be an absolute path without spaces or quotes");
+      throw httpError(
+        400,
+        "Document root must be an absolute path without spaces or quotes",
+      );
     const text = NginxManager.readSite(name);
     const re = /^(\s*)root\s+[^;]+;/gm;
-    if (!re.test(text)) throw httpError(400, "This site has no root directive (is it a reverse proxy?)");
+    if (!re.test(text))
+      throw httpError(
+        400,
+        "This site has no root directive (is it a reverse proxy?)",
+      );
     if (!existsSync(root)) mkdirSync(root, { recursive: true });
     return NginxManager.writeSite(name, text.replace(re, `$1root ${root};`));
   }
@@ -843,10 +857,17 @@ echo "HTTPS is active. Certificates renew automatically (certbot timer)."
     let upstream = String(target || "").trim();
     if (/^\d+$/.test(upstream)) upstream = `http://127.0.0.1:${upstream}`;
     if (!/^https?:\/\/[A-Za-z0-9.\-:[\]]+(\/[^\s;{}]*)?$/.test(upstream))
-      throw httpError(400, "Proxy target must be a port (3000) or URL (http://127.0.0.1:3000)");
+      throw httpError(
+        400,
+        "Proxy target must be a port (3000) or URL (http://127.0.0.1:3000)",
+      );
     const text = NginxManager.readSite(name);
     const re = /^(\s*)proxy_pass\s+[^;]+;/gm;
-    if (!re.test(text)) throw httpError(400, "This site does not proxy to an app");
-    return NginxManager.writeSite(name, text.replace(re, `$1proxy_pass ${upstream};`));
+    if (!re.test(text))
+      throw httpError(400, "This site does not proxy to an app");
+    return NginxManager.writeSite(
+      name,
+      text.replace(re, `$1proxy_pass ${upstream};`),
+    );
   }
 }
