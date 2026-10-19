@@ -149,6 +149,7 @@ export class NginxManager {
     let type = "static";
     if (proxy) type = "proxy";
     else if (php) type = "php";
+    else if (/try_files[^;]*\s\/index\.html;/.test(text)) type = "spa";
     // Sites created by the panel record their template in the header comment
     const managed = (raw.match(/^# Managed by VPS Panel — (\w+) site/m) ||
       [])[1];
