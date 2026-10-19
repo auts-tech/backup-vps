@@ -762,13 +762,17 @@ export class DeployEngine {
       const bb = Buffer.from(String(b || ""));
       return ba.length === bb.length && timingSafeEqual(ba, bb);
     };
-    const signature = headers["x-hub-signature-256"];
+    const digest = createHmac("sha256", secret).update(body).digest("hex");
+    // GitHub/Gitea: X-Hub-Signature-256 · Bitbucket: X-Hub-Signature (sha256=…) · older Gitea: X-Gitea-Signature (bare hex)
+    const prefixed =
+      headers["x-hub-signature-256"] ||
+      (/^sha256=/.test(headers["x-hub-signature"] || "")
+        ? headers["x-hub-signature"]
+        : null);
+    const bare = headers["x-gitea-signature"];
     let valid = false;
-    if (signature)
-      valid = equal(
-        signature,
-        `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`,
-      );
+    if (prefixed) valid = equal(prefixed, `sha256=${digest}`);
+    else if (bare) valid = equal(bare, digest);
     else if (headers["x-gitlab-token"])
       valid = equal(headers["x-gitlab-token"], secret);
     else if (query.token) valid = equal(query.token, secret);

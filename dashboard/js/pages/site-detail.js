@@ -504,6 +504,8 @@ async function sdDeployments(el) {
                 <div class="form-hint" style="font-size:12px;line-height:1.5;">
                   <strong>GitHub:</strong> repo → Settings → Webhooks → Add webhook · content type <code>application/json</code> · paste the secret · “Just the push event”.<br>
                   <strong>GitLab:</strong> Settings → Webhooks · paste the secret as <em>Secret token</em> · Push events.<br>
+                  <strong>Gitea / Forgejo:</strong> Settings → Webhooks → Add webhook → Gitea · paste the secret · Push events.<br>
+                  <strong>Bitbucket:</strong> Repository settings → Webhooks → Add webhook · paste the secret · trigger “Repository push”.<br>
                   Only pushes to <code>${escapeHtml(s.branch || "")}</code> deploy. ${location.protocol === "http:" ? "<br><span style='color:#92400e;'>The panel is on plain HTTP — Git hosts must reach this URL from the internet.</span>" : ""}
                 </div>
                 <button class="btn btn-sm btn-secondary" style="align-self:flex-start;" onclick="sdRotateSecret()">${I.get("refresh", { size: 12 })}<span>New secret</span></button>
@@ -1237,7 +1239,9 @@ async function sdLoadDbTables(name) {
           <table class="table"><thead><tr><th>Table</th><th>Rows</th><th>Size</th><th></th></tr></thead><tbody>
           ${tables
             .map(
-              (t) => `<tr><td class="mono-sm" style="color:var(--text-primary);">${escapeHtml(t.name)}</td><td>${Number(t.rows).toLocaleString()}</td><td>${formatBytes(t.size)}</td>
+              (
+                t,
+              ) => `<tr><td class="mono-sm" style="color:var(--text-primary);">${escapeHtml(t.name)}</td><td>${Number(t.rows).toLocaleString()}</td><td>${formatBytes(t.size)}</td>
               <td style="text-align:right;"><button class="btn btn-sm btn-ghost" onclick="sdOpenDbPage('browse', ${jsArg(name)}, ${jsArg(t.name)})">Browse</button></td></tr>`,
             )
             .join("")}
@@ -1257,8 +1261,11 @@ async function sdDatabaseChoose(el) {
   const sug = s.databaseSuggestion;
   let overview = { databases: [], users: [] };
   if (s.tools.mysql) overview = await api.getDatabases().catch(() => overview);
-  const sites = sitesState.sites?.length ? sitesState.sites : (await api.getSites().catch(() => ({ sites: [] }))).sites;
-  const owner = (db) => sites.find((x) => x.database?.name === db && x.id !== s.id);
+  const sites = sitesState.sites?.length
+    ? sitesState.sites
+    : (await api.getSites().catch(() => ({ sites: [] }))).sites;
+  const owner = (db) =>
+    sites.find((x) => x.database?.name === db && x.id !== s.id);
   const dbs = overview.databases.filter((d) => !d.system);
   sd.dbUsers = overview.users.filter((u) => !u.system);
   el.innerHTML = `
@@ -1314,8 +1321,12 @@ function sdLinkUsers() {
   const others = users.filter((u) => !u.databases.includes(db));
   sel.innerHTML =
     `<option value="">(none)</option>` +
-    (withAccess.length ? `<optgroup label="Has access to ${escapeHtml(db || "")}">${withAccess.map((u) => `<option value="${escapeHtml(u.user)}">${escapeHtml(u.user)}@${escapeHtml(u.host)}</option>`).join("")}</optgroup>` : "") +
-    (others.length ? `<optgroup label="Other users">${others.map((u) => `<option value="${escapeHtml(u.user)}">${escapeHtml(u.user)}@${escapeHtml(u.host)}</option>`).join("")}</optgroup>` : "");
+    (withAccess.length
+      ? `<optgroup label="Has access to ${escapeHtml(db || "")}">${withAccess.map((u) => `<option value="${escapeHtml(u.user)}">${escapeHtml(u.user)}@${escapeHtml(u.host)}</option>`).join("")}</optgroup>`
+      : "") +
+    (others.length
+      ? `<optgroup label="Other users">${others.map((u) => `<option value="${escapeHtml(u.user)}">${escapeHtml(u.user)}@${escapeHtml(u.host)}</option>`).join("")}</optgroup>`
+      : "");
   if (withAccess.length) sel.value = withAccess[0].user;
 }
 
@@ -1347,7 +1358,10 @@ async function sdCreateDb() {
   try {
     const writeEnv = document.getElementById("sd-db-env")?.checked ?? false;
     const r = await api.createSiteDatabase(sd.id, writeEnv);
-    toast.success("Database created", `${r.database.name}${r.envUpdated ? " · .env updated" : ""}`);
+    toast.success(
+      "Database created",
+      `${r.database.name}${r.envUpdated ? " · .env updated" : ""}`,
+    );
     await sdLoad({ rerenderTab: true });
   } catch (err) {
     toast.error("Could not create the database", err.message);
@@ -1361,7 +1375,10 @@ async function sdLinkDb() {
       user: document.getElementById("sd-link-user").value,
       password: document.getElementById("sd-link-pass").value,
     });
-    toast.success("Database linked", "Included in this website's backups from now on");
+    toast.success(
+      "Database linked",
+      "Included in this website's backups from now on",
+    );
     sdLoad({ rerenderTab: true });
   } catch (err) {
     toast.error("Could not link", err.message);
@@ -1387,7 +1404,9 @@ async function sdImportDbFile(file) {
           if (fill) fill.style.width = `${Math.round(p * 100)}%`;
         });
         box.innerHTML = "";
-        JobConsole.open(res.jobId, `Import into ${name}`, { onDone: () => sdLoad({ rerenderTab: true }) });
+        JobConsole.open(res.jobId, `Import into ${name}`, {
+          onDone: () => sdLoad({ rerenderTab: true }),
+        });
       } catch (err) {
         box.innerHTML = "";
         toast.error("Import failed", err.message);
@@ -1663,8 +1682,15 @@ async function sdTraffic(days) {
             ? UI.bars(
                 t.hourly.map((h) => h.requests),
                 {
-                  labels: t.hourly.map((_, i) => `${String(new Date(Date.now() - (23 - i) * 3600000).getHours()).padStart(2, "0")}:00`),
-                  ticks: t.hourly.map((_, i) => (i % 3 === 2 ? `${String(new Date(Date.now() - (23 - i) * 3600000).getHours()).padStart(2, "0")}h` : "")),
+                  labels: t.hourly.map(
+                    (_, i) =>
+                      `${String(new Date(Date.now() - (23 - i) * 3600000).getHours()).padStart(2, "0")}:00`,
+                  ),
+                  ticks: t.hourly.map((_, i) =>
+                    i % 3 === 2
+                      ? `${String(new Date(Date.now() - (23 - i) * 3600000).getHours()).padStart(2, "0")}h`
+                      : "",
+                  ),
                 },
               )
             : UI.bars(
@@ -1673,8 +1699,16 @@ async function sdTraffic(days) {
                   labels: t.daily.map((d) => d.date),
                   ticks: t.daily.map((d) =>
                     days > 7
-                      ? new Date(`${d.date}T12:00:00`).getDate() % 5 === 0 ? new Date(`${d.date}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : ""
-                      : new Date(`${d.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short" }),
+                      ? new Date(`${d.date}T12:00:00`).getDate() % 5 === 0
+                        ? new Date(`${d.date}T12:00:00`).toLocaleDateString(
+                            undefined,
+                            { month: "short", day: "numeric" },
+                          )
+                        : ""
+                      : new Date(`${d.date}T12:00:00`).toLocaleDateString(
+                          undefined,
+                          { weekday: "short" },
+                        ),
                   ),
                 },
               )

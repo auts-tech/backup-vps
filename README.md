@@ -1,6 +1,8 @@
-# 🛡️ VPS Hosting Panel — Deploy, Backup & Hosting Manager
+# AutsPanel — free, open-source hosting control panel
 
 A self-hosted, cPanel-style control panel for a single Ubuntu/Debian VPS: websites, SSL, PHP, databases, email, files, terminal, cron, Git deploys and cloud backups — all from one web dashboard.
+
+**Website & documentation:** https://auts-tech.github.io/autspanel/ · Free and open source under the [MIT License](LICENSE) · Developed by [Aashish Timalsina](https://github.com/aashishtimalsina) at [auts-tech](https://github.com/auts-tech)
 
 ### Websites — one place per site or app
 - **New Website wizard** — Deploy from Git (Node.js, Next.js, React/Vite SPA, Laravel, PHP, static, Python), one-click **WordPress**, an empty site for uploads, or a reverse proxy. The repository is inspected to pick the framework, build/start commands, web root and PHP version; the folder, a free port and the newest PHP are suggested automatically (all editable). One live job clones, writes `.env`, builds, starts the app, configures nginx and issues HTTPS.
@@ -107,3 +109,9 @@ backup-scripts/
 ├── start.sh                   # Local development start
 └── backup.sh                  # Manual backup (wraps server/cli.js)
 ```
+
+---
+
+## 📄 License
+
+[MIT](LICENSE) © 2026 auts-tech and Aashish Timalsina. Questions: tm.aashish1@gmail.com
