@@ -271,7 +271,7 @@ function stopPortProcess(pid, name, port, unit) {
   Modal.show(
     `Stop ${escapeHtml(name)} (pid ${pid})?`,
     `
-    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">This frees port <strong>${port}</strong>. ${unit ? `It is managed by <code>${escapeHtml(unit)}</code>, which may start it again automatically — use restart instead if you just want to reload it.` : "Projects managed by PM2 are restarted automatically by PM2 — stop them from the website's App tab instead."}</p>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">This frees port <strong>${port}</strong>. ${unit ? `It is managed by <code>${escapeHtml(unit)}</code>, which may start it again automatically — use restart instead if you just want to reload it.` : "Website apps managed by PM2 are restarted automatically by PM2 — stop them from the website's App tab instead."}</p>
     <label class="form-check"><input type="checkbox" id="kill-force"><span style="font-size:13px;">Force kill (SIGKILL) — only if it ignores a normal stop</span></label>
   `,
     {
