@@ -9,8 +9,8 @@ function renderPhp(container) {
     <div>
       <div class="page-header">
         <div class="page-header-title">
-          <h2>PHP Versions</h2>
-          <p>Run several PHP versions side by side. Each website picks its own version on the Websites page.</p>
+          <h2>PHP &amp; Composer</h2>
+          <p>Run several PHP versions side by side — each website picks its own on its PHP tab — plus Composer for PHP dependencies.</p>
         </div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-secondary" onclick="loadPhp()">${I.get("refresh", { size: 13 })}<span>Refresh</span></button>
@@ -19,9 +19,10 @@ function renderPhp(container) {
       </div>
       <div id="php-repo-area"></div>
       <div id="php-versions"><div class="spinner"></div></div>
+      <div id="php-composer" style="margin-top:24px;"></div>
     </div>
   `;
-  loadPhp();
+  loadPhp().then(loadComposer);
 }
 
 async function loadPhp() {
@@ -293,6 +294,108 @@ function phpUninstall(version, siteCount) {
         onDone: loadPhp,
       });
     },
+  );
+}
+
+// ── Composer ────────────────────────────────────────────────
+
+const COMPOSER_LABELS = {
+  install: "Install dependencies from composer.lock",
+  update: "Update dependencies to the newest allowed versions",
+  require: "Add a package",
+  remove: "Remove a package",
+  "dump-autoload": "Regenerate the autoloader",
+  validate: "Check composer.json",
+  diagnose: "Diagnose Composer setup",
+};
+
+async function loadComposer() {
+  const el = document.getElementById("php-composer");
+  if (!el) return;
+  const I = window.Icons;
+  const [status, sites] = await Promise.all([
+    api.getComposer().catch((err) => ({ error: err.message })),
+    api.getSites().catch(() => ({ sites: [] })),
+  ]);
+  if (status.error) {
+    el.innerHTML = `<div class="alert alert-danger">${escapeHtml(status.error)}</div>`;
+    return;
+  }
+  const phpSites = (sites.sites || []).filter((s) => s.features?.php && s.deployPath);
+  const versions = (phpState.data?.versions || []).filter((v) => v.cliInstalled).map((v) => v.version);
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">${I.get("package", { size: 16 })}<span>Composer</span>
+          ${status.installed ? `<span class="badge badge-success">${escapeHtml(status.version || "installed")}</span>${status.phpVersion ? `<span class="badge badge-neutral">runs on PHP ${escapeHtml(status.phpVersion)}</span>` : ""}` : '<span class="badge badge-warning">not installed</span>'}
+        </h3>
+        <div style="display:flex;gap:6px;">
+          ${
+            status.installed
+              ? `<button class="btn btn-sm btn-secondary" onclick="JobConsole.run(api.updateComposer(), 'Update Composer', { onDone: loadComposer })">${I.get("refresh", { size: 12 })}<span>Update Composer</span></button>`
+              : `<button class="btn btn-sm btn-primary" onclick="JobConsole.run(api.installComposer(), 'Install Composer', { onDone: loadComposer })">${I.get("download", { size: 12, color: "#fff" })}<span>Install Composer</span></button>`
+          }
+        </div>
+      </div>
+      <div class="card-body">
+        ${
+          status.installed
+            ? `<div class="field-row">
+            <div class="form-group"><label class="form-label">Project</label>
+              <select class="form-select" id="cmp-site" onchange="composerPickSite()">
+                ${phpSites.map((s) => `<option value="${escapeHtml(s.deployPath)}" data-php="${escapeHtml(s.phpVersion || "")}">${escapeHtml(s.name)} — ${escapeHtml(s.deployPath)}</option>`).join("")}
+                <option value="">Other folder…</option>
+              </select></div>
+            <div class="form-group" id="cmp-dir-group" style="${phpSites.length ? "display:none;" : ""}"><label class="form-label">Folder</label><input class="form-input mono-input" id="cmp-dir" placeholder="/var/www/my-app"></div>
+            <div class="form-group"><label class="form-label">PHP version</label>
+              <select class="form-select" id="cmp-php"><option value="default">Default CLI${phpState.data?.defaultCli ? ` (${escapeHtml(phpState.data.defaultCli)})` : ""}</option>${versions.map((v) => `<option value="${v}">PHP ${v}</option>`).join("")}</select></div>
+          </div>
+          <div class="field-row">
+            <div class="form-group"><label class="form-label">Command</label>
+              <select class="form-select" id="cmp-cmd" onchange="composerRenderFlags()">${Object.keys(status.commands).map((c) => `<option value="${c}">composer ${c} — ${escapeHtml(COMPOSER_LABELS[c] || "")}</option>`).join("")}</select></div>
+            <div class="form-group" id="cmp-pkg-group" style="display:none;"><label class="form-label">Package(s)</label><input class="form-input mono-input" id="cmp-pkg" placeholder="laravel/sanctum  or  guzzlehttp/guzzle:^7.9"></div>
+          </div>
+          <div id="cmp-flags" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;"></div>
+          <button class="btn btn-primary" onclick="composerRun()">${I.get("play", { size: 13, color: "#fff" })}<span>Run</span></button>
+          <span class="form-hint" style="margin-left:8px;">Output appears live; new files get the folder's owner.</span>`
+            : `<p style="font-size:13px;color:var(--text-secondary);">Composer installs PHP packages (Laravel needs it). It is downloaded from getcomposer.org with its checksum verified, and also installed automatically by the first deploy that uses it.</p>`
+        }
+      </div>
+    </div>`;
+  window.composerCommands = status.commands;
+  if (status.installed) {
+    composerPickSite();
+    composerRenderFlags();
+  }
+}
+
+function composerPickSite() {
+  const sel = document.getElementById("cmp-site");
+  if (!sel) return;
+  document.getElementById("cmp-dir-group").style.display = sel.value ? "none" : "";
+  const php = sel.selectedOptions[0]?.dataset.php;
+  const phpSel = document.getElementById("cmp-php");
+  if (php && [...phpSel.options].some((o) => o.value === php)) phpSel.value = php;
+}
+
+function composerRenderFlags() {
+  const cmd = document.getElementById("cmp-cmd").value;
+  const defaults = { install: ["--no-dev", "--optimize-autoloader"], "dump-autoload": ["--optimize"] };
+  document.getElementById("cmp-pkg-group").style.display = ["require", "remove"].includes(cmd) ? "" : "none";
+  document.getElementById("cmp-flags").innerHTML = (window.composerCommands[cmd] || [])
+    .map((f) => `<label class="form-check"><input type="checkbox" class="cmp-flag" value="${f}" ${(defaults[cmd] || []).includes(f) ? "checked" : ""}><code>${f}</code></label>`)
+    .join("");
+}
+
+function composerRun() {
+  const site = document.getElementById("cmp-site")?.value;
+  const dir = site || document.getElementById("cmp-dir").value.trim();
+  if (!dir) return toast.error("Folder missing", "Choose a project or enter a folder");
+  const command = document.getElementById("cmp-cmd").value;
+  const flags = [...document.querySelectorAll(".cmp-flag:checked")].map((c) => c.value);
+  JobConsole.run(
+    api.runComposer({ dir, command, flags, version: document.getElementById("cmp-php").value, packageName: document.getElementById("cmp-pkg")?.value.trim() }),
+    `composer ${command}`,
   );
 }
 
