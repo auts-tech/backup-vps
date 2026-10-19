@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { PortScanner } from "../services/port-scanner.js";
 import { Updater } from "../services/updater.js";
+import { ServiceManager } from "../services/service-manager.js";
 import { httpError } from "../lib/config.js";
 import { serviceCtl, hasSystemd } from "../lib/shell.js";
 
@@ -25,7 +26,17 @@ router.post("/processes/:pid/kill", async (req, res) => {
   res.json(await PortScanner.kill(req.params.pid, req.body.signal || "TERM"));
 });
 
-// POST /api/v1/system/services/:unit/restart — Restart a systemd service
+// GET /api/v1/system/services — systemd services (hosting services first)
+router.get("/services", async (req, res) => {
+  res.json(await ServiceManager.list());
+});
+
+// GET /api/v1/system/services/:unit/logs?lines=200 — journalctl output
+router.get("/services/:unit/logs", async (req, res) => {
+  res.json(await ServiceManager.logs(req.params.unit, req.query.lines));
+});
+
+// POST /api/v1/system/services/:unit/restart — Restart from the Ports page (never SSH or the panel)
 router.post("/services/:unit/restart", async (req, res) => {
   const unit = req.params.unit;
   if (!UNIT.test(unit)) throw httpError(400, "Invalid service name");
@@ -40,6 +51,11 @@ router.post("/services/:unit/restart", async (req, res) => {
       (r.stderr || r.stdout).trim() || `Could not restart ${unit}`,
     );
   res.json({ success: true });
+});
+
+// POST /api/v1/system/services/:unit/:action — start | stop | reload | enable | disable (Services page)
+router.post("/services/:unit/:action", async (req, res) => {
+  res.json(await ServiceManager.action(req.params.unit, req.params.action));
 });
 
 // GET /api/v1/system/version — Running version and commit

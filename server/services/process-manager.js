@@ -49,8 +49,15 @@ export class ProcessManager {
     return !!(await which("pm2"));
   }
 
+  /**
+   * PM2 hands the caller's environment to the apps it (re)starts, so call it
+   * with nothing but what it needs — each app's env comes from its ecosystem file.
+   */
   static async pm2(args, timeout = 60000) {
-    return run("pm2", args, { timeout, env: toolEnv() });
+    const { PATH, HOME } = toolEnv();
+    const env = { PATH, HOME, LANG: process.env.LANG || "C.UTF-8" };
+    if (process.env.PM2_HOME) env.PM2_HOME = process.env.PM2_HOME;
+    return run("pm2", args, { timeout, env, inheritEnv: false });
   }
 
   /**
@@ -152,18 +159,9 @@ export class ProcessManager {
         409,
         "PM2 is not installed — install it from the App tab first",
       );
-    if (action === "start" || action === "restart" || action === "reload") {
-      const current = await ProcessManager.status(site.name);
-      if (current.status === "not-started" || action !== "restart")
-        return ProcessManager.startOrReload(site);
-      const r = await ProcessManager.pm2([
-        "restart",
-        site.name,
-        "--update-env",
-      ]);
-      if (r.code !== 0) throw httpError(500, (r.stderr || r.stdout).trim());
-      return { success: true };
-    }
+    // Always through the ecosystem file, so the website's port and command are applied
+    if (action === "start" || action === "restart" || action === "reload")
+      return ProcessManager.startOrReload(site);
     if (action === "stop") {
       const r = await ProcessManager.pm2(["stop", site.name]);
       if (r.code !== 0) throw httpError(500, (r.stderr || r.stdout).trim());

@@ -24,7 +24,12 @@ import databasesRouter from "./routes/databases.js";
 import phpRouter from "./routes/php.js";
 import mailRouter from "./routes/mail.js";
 import systemRouter from "./routes/system.js";
+import sitesRouter from "./routes/sites.js";
+import hooksRouter from "./routes/hooks.js";
+import firewallRouter from "./routes/firewall.js";
+import sshRouter from "./routes/ssh.js";
 import { BOOT_ID } from "./services/updater.js";
+import { SiteManager } from "./services/site-manager.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -81,6 +86,9 @@ app.use(
   }),
 );
 app.use(cors());
+// Push-to-deploy webhooks: called by GitHub/GitLab (not the dashboard), verified by
+// each website's own secret, and they need the raw body — so before the JSON parser
+app.use("/api/v1/hooks", hooksRouter);
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true }));
 // Express 5 leaves req.body undefined when a request has no body (e.g. `curl -X POST`)
@@ -200,6 +208,9 @@ const protect = (req, res, next) => {
   req.activeSessions = activeSessions;
   authMiddleware(req, res, next);
 };
+app.use("/api/v1/sites", protect, sitesRouter);
+app.use("/api/v1/firewall", protect, firewallRouter);
+app.use("/api/v1/ssh", protect, sshRouter);
 app.use("/api/v1/projects", protect, projectsRouter);
 app.use("/api/v1/backups", protect, backupsRouter);
 app.use("/api/v1/deploy", protect, deployRouter);
@@ -253,6 +264,13 @@ const server = app.listen(PORT, HOST, () => {
 
 // Web terminal over WebSocket (authenticated with the session token)
 attachTerminal(server, isValidSession);
+
+// Deployments/setups that were running when the panel stopped can never finish
+try {
+  SiteManager.recover();
+} catch (err) {
+  console.error("[Websites] Recovery skipped:", err.message);
+}
 
 // Fix backup cron jobs created by older versions (they called the API without a key)
 migrateLegacyCronJobs()

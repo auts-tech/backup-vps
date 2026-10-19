@@ -3,12 +3,17 @@ import { existsSync } from "fs";
 
 // Secrets from .env that must never leak into shells, jobs, or cron commands
 const PRIVATE_ENV_KEYS = ["ADMIN_EMAIL", "ADMIN_PASSWORD", "SESSION_SECRET"];
+// The panel's own listen address: an app that inherited PORT would try to bind the panel's port
+const PANEL_ENV_KEYS = ["PORT", "HOST"];
 
 /**
- * Copy of process.env without the panel's own secrets.
+ * Copy of process.env without the panel's own secrets and listen settings
+ * (values passed in `extra` are kept, e.g. a website's PORT).
  */
 export function cleanEnv(extra = {}) {
-  const env = { ...process.env, ...extra };
+  const env = { ...process.env };
+  for (const key of [...PRIVATE_ENV_KEYS, ...PANEL_ENV_KEYS]) delete env[key];
+  Object.assign(env, extra);
   for (const key of PRIVATE_ENV_KEYS) delete env[key];
   return env;
 }
@@ -52,8 +57,13 @@ export function shq(value) {
 /**
  * Run a binary with an argument array (no shell interpolation).
  * Always resolves with { code, stdout, stderr } — never rejects on non-zero exit.
+ * inheritEnv: false starts the command with only `env` (no panel environment).
  */
-export function run(cmd, args = [], { input, timeout = 60000, env, cwd } = {}) {
+export function run(
+  cmd,
+  args = [],
+  { input, timeout = 60000, env, cwd, inheritEnv = true } = {},
+) {
   return new Promise((resolve) => {
     let stdout = "";
     let stderr = "";
@@ -67,7 +77,10 @@ export function run(cmd, args = [], { input, timeout = 60000, env, cwd } = {}) {
 
     let child;
     try {
-      child = spawn(cmd, args, { cwd, env: cleanEnv(env) });
+      child = spawn(cmd, args, {
+        cwd,
+        env: inheritEnv ? cleanEnv(env) : { ...env },
+      });
     } catch (err) {
       resolve({ code: -1, stdout: "", stderr: err.message });
       return;

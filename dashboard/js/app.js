@@ -58,23 +58,38 @@ class App {
 
     this.leaveHandlers = [];
 
+    // nav: which sidebar entry is highlighted for pages without their own entry
     this.routes = {
       dashboard: { title: "Dashboard", render: renderDashboard },
-      websites: { title: "Websites & Domains", render: renderWebsites },
+      sites: { title: "Websites", render: renderSites },
+      "new-site": { title: "New website", render: renderSiteNew, nav: "sites" },
+      site: { title: "Website", render: renderSiteDetail, nav: "sites" },
+      ssl: { title: "SSL / TLS", render: renderSsl },
       files: { title: "File Manager", render: renderFiles },
       databases: { title: "Databases", render: renderDatabases },
-      php: { title: "PHP Versions", render: renderPhp },
+      php: { title: "PHP & Composer", render: renderPhp },
       mail: { title: "Email Hosting", render: renderMail },
-      projects: { title: "Projects", render: renderProjects },
       backups: { title: "Backups", render: renderBackups },
-      deploy: { title: "Deploy & Git", render: renderDeploy },
       cron: { title: "Cron Jobs", render: renderCron },
+      firewall: { title: "Firewall", render: renderFirewall },
+      "ssh-keys": { title: "SSH Keys", render: renderSshKeys },
       terminal: { title: "Terminal", render: renderTerminal },
+      services: { title: "Services", render: renderServices },
       ports: { title: "Ports & Processes", render: renderPorts },
       monitor: { title: "Resource Monitor", render: renderMonitor },
       logs: { title: "System Logs", render: renderLogs },
       settings: { title: "Settings", render: renderSettings },
     };
+    // Old pages that are now part of Websites
+    this.aliases = { projects: "sites", deploy: "sites", websites: "sites" };
+  }
+
+  /**
+   * Set the top bar title (pages with a dynamic name, e.g. a website).
+   */
+  setTitle(text) {
+    if (this.pageTitleEl) this.pageTitleEl.textContent = text;
+    document.title = `${text} · VPS Manager`;
   }
 
   /**
@@ -259,24 +274,30 @@ class App {
 
             <div class="sidebar-section">
               <div class="sidebar-section-title">Hosting</div>
-              ${this.navLink("websites", "globe", "Websites & SSL")}
-              ${this.navLink("files", "folder", "File Manager")}
+              ${this.navLink("sites", "globe", "Websites")}
+              ${this.navLink("ssl", "shieldCheck", "SSL / TLS")}
               ${this.navLink("databases", "database", "Databases")}
-              ${this.navLink("php", "code", "PHP Versions")}
+              ${this.navLink("files", "folder", "File Manager")}
+              ${this.navLink("php", "code", "PHP & Composer")}
               ${this.navLink("mail", "mail", "Email")}
             </div>
 
             <div class="sidebar-section">
-              <div class="sidebar-section-title">Operations</div>
-              ${this.navLink("projects", "package", "Projects")}
+              <div class="sidebar-section-title">Automation</div>
               ${this.navLink("backups", "archive", "Backups")}
-              ${this.navLink("deploy", "rocket", "Deploy & Git")}
               ${this.navLink("cron", "clock", "Cron Jobs")}
+            </div>
+
+            <div class="sidebar-section">
+              <div class="sidebar-section-title">Security</div>
+              ${this.navLink("firewall", "flame", "Firewall")}
+              ${this.navLink("ssh-keys", "key", "SSH Keys")}
             </div>
 
             <div class="sidebar-section">
               <div class="sidebar-section-title">System</div>
               ${this.navLink("terminal", "terminal", "Terminal")}
+              ${this.navLink("services", "layers", "Services")}
               ${this.navLink("ports", "server", "Ports & Processes")}
               ${this.navLink("monitor", "activity", "Resource Monitor")}
               ${this.navLink("logs", "fileText", "Logs")}
@@ -316,9 +337,13 @@ class App {
                 <span class="update-pill-dot"></span>
                 <span>Update VPS Manager</span>
               </button>
-              <button class="btn btn-primary btn-sm" id="topbar-instant-backup-btn" onclick="window.app.handleInstantBackup()" title="Trigger immediate backup for all registered projects">
-                ${I.get("database", { size: 13, color: "#ffffff" })}
+              <button class="btn btn-secondary btn-sm" id="topbar-instant-backup-btn" onclick="window.app.handleInstantBackup()" title="Back up every website now">
+                ${I.get("archive", { size: 13 })}
                 <span>Instant Backup</span>
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="window.app.navigate('new-site')" title="Create a website or deploy an app">
+                ${I.get("plus", { size: 13, color: "#ffffff" })}
+                <span>New Website</span>
               </button>
               <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--border-primary);border-radius:var(--radius-sm);background:#fafafa;font-size:12px;">
                 <span class="badge-dot" id="server-status-dot" style="background:var(--color-green);"></span>
@@ -375,26 +400,35 @@ class App {
     this.navigate(hash, false);
   }
 
-  navigate(page, updateHash = true) {
+  /**
+   * path: "page" or "page/param/param", e.g. "site/<id>/deployments"
+   */
+  navigate(path, updateHash = true) {
     if (!this.isAuthenticated) return this.showLogin();
-    if (!this.routes[page]) page = "dashboard";
+    let [page, ...params] = String(path || "dashboard").split("/");
+    page = this.aliases[page] || page;
+    if (!this.routes[page]) {
+      page = "dashboard";
+      params = [];
+    }
+    const full = [page, ...params.map(decodeURIComponent)].map(encodeURIComponent).join("/");
 
-    this.currentPage = page;
-
-    if (updateHash && window.location.hash !== `#${page}`) {
-      window.location.hash = `#${page}`;
+    if (updateHash && window.location.hash !== `#${full}`) {
+      window.location.hash = `#${full}`;
       return;
     }
+    this.currentPage = page;
+    this.params = params.map(decodeURIComponent);
 
     // Update active state in sidebar
+    const route = this.routes[page];
     document.querySelectorAll(".sidebar-link").forEach((link) => {
       const linkPage = link.getAttribute("data-page");
-      link.classList.toggle("active", linkPage === page);
+      link.classList.toggle("active", linkPage === (route.nav || page));
     });
 
     // Update Header
-    const route = this.routes[page];
-    if (this.pageTitleEl) this.pageTitleEl.textContent = route.title;
+    this.setTitle(route.title);
 
     // Leave the previous page cleanly
     this.runLeaveHandlers();
@@ -402,7 +436,7 @@ class App {
 
     // Render Page
     if (this.contentEl && typeof route.render === "function") {
-      route.render(this.contentEl);
+      route.render(this.contentEl, this.params);
     }
 
     // Close mobile sidebar if open
@@ -439,13 +473,13 @@ class App {
       btn.innerHTML =
         '<span class="spinner spinner-sm" style="margin-right:6px;"></span> <span>Running...</span>';
     }
-    toast.info("Instant Backup", "Snapshot queued for all projects...");
+    toast.info("Instant Backup", "Backing up every website...");
 
     try {
       const res = await api.triggerBackupAll();
       toast.success(
         "Backup Started",
-        res.message || "All project backups are in progress",
+        res.message || "All website backups are running",
       );
 
       // If already on backups page, reload view to see running task
@@ -460,7 +494,7 @@ class App {
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = `${window.Icons.get("database", { size: 13, color: "#ffffff" })} <span>Instant Backup</span>`;
+        btn.innerHTML = `${window.Icons.get("archive", { size: 13 })} <span>Instant Backup</span>`;
       }
     }
   }

@@ -61,9 +61,13 @@ class API {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
+        const err = new Error(
           data.error || data.message || `HTTP ${response.status}`,
         );
+        // e.g. { jobId } of the deployment that is already running
+        err.status = response.status;
+        err.data = data;
+        throw err;
       }
 
       return data;
@@ -251,37 +255,30 @@ class API {
   nginxTest() {
     return this.post("/nginx/test", {});
   }
-  getSites() {
+  // Raw nginx sites (websites use the /sites API above)
+  getNginxSites() {
     return this.get("/nginx/sites");
   }
-  createSite(data) {
-    return this.post("/nginx/sites", data);
-  }
-  getSite(name) {
+  getNginxSite(name) {
     return this.get(`/nginx/sites/${encodeURIComponent(name)}`);
   }
-  saveSite(name, content) {
+  saveNginxSite(name, content) {
     return this.put(`/nginx/sites/${encodeURIComponent(name)}`, { content });
   }
-  enableSite(name, enabled) {
+  enableNginxSite(name, enabled) {
     return this.post(`/nginx/sites/${encodeURIComponent(name)}/enable`, {
       enabled,
     });
   }
-  setSitePhp(name, version) {
-    return this.post(`/nginx/sites/${encodeURIComponent(name)}/php`, {
-      version,
-    });
-  }
-  deleteSite(name) {
+  deleteNginxSite(name) {
     return this.delete(`/nginx/sites/${encodeURIComponent(name)}`);
   }
-  getSiteLogs(name, type) {
+  getNginxSiteLogs(name, type) {
     return this.get(
       `/nginx/sites/${encodeURIComponent(name)}/logs?type=${type}&lines=300`,
     );
   }
-  issueSsl(name, data) {
+  issueNginxSsl(name, data) {
     return this.post(`/nginx/sites/${encodeURIComponent(name)}/ssl`, data);
   }
   getCertificates() {
@@ -635,6 +632,184 @@ class API {
   }
   setupInitial(data) {
     return this.post("/settings/setup", data);
+  }
+
+  // ── Websites ────────────────────────────────────────────
+  getSites() {
+    return this.get("/sites");
+  }
+  getSite(id) {
+    return this.get(`/sites/${id}`);
+  }
+  suggestSite(params = {}) {
+    return this.get(`/sites/suggest?${new URLSearchParams(params)}`);
+  }
+  inspectRepo(gitUrl, branch) {
+    return this.post("/sites/inspect", { gitUrl, branch });
+  }
+  checkDns(domain) {
+    return this.get(`/sites/dns?domain=${encodeURIComponent(domain)}`);
+  }
+  createSite(data) {
+    return this.post("/sites", data);
+  }
+  importSite(name) {
+    return this.post("/sites/import", { name });
+  }
+  updateSite(id, data) {
+    return this.put(`/sites/${id}`, data);
+  }
+  deleteSite(id, options) {
+    return this.post(`/sites/${id}/delete`, options);
+  }
+  retrySiteSetup(id) {
+    return this.post(`/sites/${id}/retry`, {});
+  }
+  deploySite(id) {
+    return this.post(`/sites/${id}/deploy`, {});
+  }
+  rollbackSite(id, commit) {
+    return this.post(`/sites/${id}/rollback`, { commit });
+  }
+  getDeployments(id) {
+    return this.get(`/sites/${id}/deployments`);
+  }
+  getDeploymentLog(id, deployId) {
+    return this.get(`/sites/${id}/deployments/${deployId}/log`);
+  }
+  getPendingCommits(id) {
+    return this.get(`/sites/${id}/git/pending`);
+  }
+  setAutoDeploy(id, enabled, rotate) {
+    return this.post(`/sites/${id}/webhook`, { enabled, rotate });
+  }
+  siteApp(id, action) {
+    return this.post(`/sites/${id}/app/${action}`, {});
+  }
+  installPm2() {
+    return this.post("/sites/pm2/install", {});
+  }
+  getSiteLogs(id, type, lines = 300) {
+    return this.get(`/sites/${id}/logs?type=${type}&lines=${lines}`);
+  }
+  setSiteDomains(id, domains) {
+    return this.put(`/sites/${id}/domains`, { domains });
+  }
+  issueSiteSsl(id, data = {}) {
+    return this.post(`/sites/${id}/ssl`, data);
+  }
+  setSiteEnabled(id, enabled) {
+    return this.post(`/sites/${id}/enabled`, { enabled });
+  }
+  getSiteEnv(id) {
+    return this.get(`/sites/${id}/env`);
+  }
+  saveSiteEnv(id, data) {
+    return this.put(`/sites/${id}/env`, data);
+  }
+  applySiteEnv(id) {
+    return this.post(`/sites/${id}/env/apply`, {});
+  }
+  createSiteDatabase(id, writeEnv) {
+    return this.post(`/sites/${id}/database`, { writeEnv });
+  }
+  linkSiteDatabase(id, data) {
+    return this.put(`/sites/${id}/database`, data);
+  }
+  unlinkSiteDatabase(id, drop) {
+    return this.post(`/sites/${id}/database/unlink`, { drop });
+  }
+  getSiteDbCredentials(id) {
+    return this.get(`/sites/${id}/database/credentials`);
+  }
+  getSiteBackups(id) {
+    return this.get(`/sites/${id}/backups`);
+  }
+  backupSite(id) {
+    return this.post(`/sites/${id}/backups`, {});
+  }
+  restoreSite(id, data) {
+    return this.post(`/sites/${id}/backups/restore`, data);
+  }
+  setSiteBackupSchedule(id, schedule) {
+    return this.put(`/sites/${id}/backups/schedule`, { schedule });
+  }
+  setLaravelScheduler(id, enabled) {
+    return this.put(`/sites/${id}/scheduler`, { enabled });
+  }
+  getSiteStats(id, days = 7) {
+    return this.get(`/sites/${id}/stats?days=${days}`);
+  }
+  getSiteDisk(id) {
+    return this.get(`/sites/${id}/disk`);
+  }
+
+  // ── Composer ────────────────────────────────────────────
+  getComposer() {
+    return this.get("/php/composer");
+  }
+  installComposer() {
+    return this.post("/php/composer/install", {});
+  }
+  updateComposer() {
+    return this.post("/php/composer/self-update", {});
+  }
+  runComposer(data) {
+    return this.post("/php/composer/run", data);
+  }
+
+  // ── Security: firewall & SSH keys ───────────────────────
+  getFirewall() {
+    return this.get("/firewall");
+  }
+  installFirewall() {
+    return this.post("/firewall/install", {});
+  }
+  enableFirewall() {
+    return this.post("/firewall/enable", {});
+  }
+  disableFirewall() {
+    return this.post("/firewall/disable", {});
+  }
+  addFirewallRule(rule) {
+    return this.post("/firewall/rules", rule);
+  }
+  deleteFirewallRule(data) {
+    return this.post("/firewall/rules/delete", data);
+  }
+  getSshKeys() {
+    return this.get("/ssh/keys");
+  }
+  addSshKey(publicKey, comment) {
+    return this.post("/ssh/keys", { publicKey, comment });
+  }
+  deleteSshKey(fingerprint) {
+    return this.post("/ssh/keys/delete", { fingerprint });
+  }
+  getDeployKey() {
+    return this.get("/ssh/deploy-key");
+  }
+  generateDeployKey() {
+    return this.post("/ssh/deploy-key", {});
+  }
+  testGitHost(host) {
+    return this.post("/ssh/test", { host });
+  }
+
+  // ── Services (systemd) ──────────────────────────────────
+  getServices() {
+    return this.get("/system/services");
+  }
+  serviceAction(unit, action) {
+    return this.post(
+      `/system/services/${encodeURIComponent(unit)}/${action}`,
+      {},
+    );
+  }
+  getServiceLogs(unit, lines = 200) {
+    return this.get(
+      `/system/services/${encodeURIComponent(unit)}/logs?lines=${lines}`,
+    );
   }
 
   // ── Health ──────────────────────────────────────────────

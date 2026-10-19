@@ -27,3 +27,9 @@ msmtprc
 server/data/mysql.json
 server/data/.panel-my.cnf
 server/data/mail.json
+
+# Website runtime state (deployment history/logs, PM2 ecosystem files, PHP shims)
+server/data/deploys/
+server/data/pm2/
+server/data/bin/
+server/data/config.json.tmp-*

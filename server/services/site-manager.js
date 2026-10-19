@@ -800,7 +800,7 @@ export class SiteManager {
       },
     ];
 
-    return JobRunner.pipeline(`Set up ${initial.name}`, steps, {
+    const job = JobRunner.pipeline(`Set up ${initial.name}`, steps, {
       meta: { kind: "provision", siteId: id },
       onExit: (job, ctx) => {
         const ok = job.status === "completed";
@@ -820,6 +820,9 @@ export class SiteManager {
         BackupEngine.log(`[Websites] Setup of ${site.name}: ${ok ? "completed" : "FAILED"}`);
       },
     });
+    // The dashboard follows the live log through this id
+    saveSite(id, (p) => ({ ...p, provision: { ...p.provision, jobId: job.id } }));
+    return job;
   }
 
   /**
