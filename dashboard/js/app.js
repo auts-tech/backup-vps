@@ -5,7 +5,7 @@
  */
 
 // Product links (login screen, help)
-const DOCS_URL = "https://auts-tech.github.io/autspanel/docs/";
+const DOCS_URL = "https://panel.auts.com.np/docs/";
 const REPO_URL = "https://github.com/auts-tech/backup-vps";
 
 // Global Utility Functions

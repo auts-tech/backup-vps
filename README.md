@@ -2,7 +2,7 @@
 
 A self-hosted, cPanel-style control panel for a single Ubuntu/Debian VPS: websites, SSL, PHP, databases, email, files, terminal, cron, Git deploys and cloud backups — all from one web dashboard.
 
-**Website & documentation:** https://auts-tech.github.io/autspanel/ · Free and open source under the [MIT License](LICENSE) · Developed by [Aashish Timalsina](https://github.com/aashishtimalsina) at [auts-tech](https://github.com/auts-tech)
+**Website & documentation:** https://panel.auts.com.np/ · Free and open source under the [MIT License](LICENSE) · Developed by [Aashish Timalsina](https://github.com/aashishtimalsina) at [auts-tech](https://github.com/auts-tech)
 
 ### Websites — one place per site or app
 - **New Website wizard** — Deploy from Git (Node.js, Next.js, React/Vite SPA, Laravel, PHP, static, Python), one-click **WordPress**, an empty site for uploads, or a reverse proxy. The repository is inspected to pick the framework, build/start commands, web root and PHP version; the folder, a free port and the newest PHP are suggested automatically (all editable). One live job clones, writes `.env`, builds, starts the app, configures nginx and issues HTTPS.
