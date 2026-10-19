@@ -4,6 +4,7 @@
 const STACKS = {
   node: { label: "Node.js", short: "JS", cls: "stack-node" },
   next: { label: "Next.js", short: "N", cls: "stack-next" },
+  react: { label: "React / SPA", short: "⚛", cls: "stack-react" },
   laravel: { label: "Laravel", short: "L", cls: "stack-laravel" },
   php: { label: "PHP", short: "php", cls: "stack-php" },
   wordpress: { label: "WordPress", short: "W", cls: "stack-wordpress" },

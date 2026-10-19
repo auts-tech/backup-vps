@@ -47,7 +47,7 @@ import { trafficStats, checkDns, diskUsage } from "./site-insights.js";
 export const SITES_ROOT = process.env.PANEL_SITES_ROOT || "/var/www";
 
 // Stacks whose code reads a .env file
-const ENV_STACKS = new Set(["node", "next", "laravel", "php", "static", "python"]);
+const ENV_STACKS = new Set(["node", "next", "react", "laravel", "php", "static", "python"]);
 
 const NGINX_INSTALL_SCRIPT = `
 apt_get update
@@ -552,7 +552,7 @@ export class SiteManager {
       site.proxyTarget = target;
     }
 
-    if (["static", "php"].includes(type)) {
+    if (["static", "react", "php"].includes(type)) {
       site.webRoot =
         input.webRoot !== undefined && input.webRoot !== null && input.webRoot !== "auto"
           ? assertWebRoot(input.webRoot)
@@ -988,7 +988,7 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
         patch.proxyTarget = /^\d+$/.test(target) ? `http://127.0.0.1:${target}` : target;
       }
     }
-    if ("webRoot" in body && ["static", "php", "wordpress"].includes(site.type)) {
+    if ("webRoot" in body && ["static", "react", "php", "wordpress"].includes(site.type)) {
       const webRoot = assertWebRoot(body.webRoot);
       if (webRoot !== site.webRoot) {
         if (nginxName) await NginxManager.setRoot(nginxName, join(site.deployPath, webRoot));
