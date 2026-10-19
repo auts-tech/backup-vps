@@ -195,6 +195,11 @@ router.get("/:id/database/credentials", (req, res) => {
   res.json(SiteManager.databaseCredentials(req.params.id));
 });
 
+// GET /api/v1/sites/:id/database/detect — Database the site's .env / wp-config.php uses
+router.get("/:id/database/detect", async (req, res) => {
+  res.json(await SiteManager.detectDatabase(req.params.id));
+});
+
 // ── Backups & scheduled jobs ───────────────────────────────
 
 router.get("/:id/backups", async (req, res) => {

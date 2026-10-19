@@ -167,20 +167,20 @@ const UI = {
   /**
    * Tiny bar chart (inline SVG). values: numbers; labels: optional tooltips.
    */
-  bars(
-    values,
-    { height = 56, labels = [], color = "var(--accent-black)" } = {},
-  ) {
+  /**
+   * Small bar chart. labels: tooltip per bar; ticks: short label under each bar ("" to skip).
+   */
+  bars(values, { labels = [], ticks = [], height = 120 } = {}) {
     const max = Math.max(1, ...values);
-    const w = 100 / Math.max(values.length, 1);
-    return `<svg class="mini-bars" viewBox="0 0 100 ${height}" preserveAspectRatio="none" style="height:${height}px;">
-      ${values
-        .map((v, i) => {
-          const h = Math.max(v ? 2 : 0, (v / max) * (height - 2));
-          return `<rect x="${i * w + w * 0.15}" y="${height - h}" width="${w * 0.7}" height="${h}" rx="0.8" fill="${color}"><title>${escapeHtml(labels[i] || "")}${labels[i] ? ": " : ""}${v}</title></rect>`;
-        })
-        .join("")}
-    </svg>`;
+    return `<div class="bar-chart" style="height:${height}px;">${values
+      .map(
+        (v, i) => `
+      <div class="bar-col" title="${escapeHtml(`${labels[i] || ""}${labels[i] ? ": " : ""}${Number(v).toLocaleString()}`)}">
+        <div class="bar-area"><div class="bar ${v ? "" : "bar-empty"}" style="height:${Math.max(v ? 3 : 1, Math.round((v / max) * 100))}%"></div></div>
+        <span class="bar-tick">${escapeHtml(ticks[i] ?? "")}</span>
+      </div>`,
+      )
+      .join("")}</div>`;
   },
 
   /**

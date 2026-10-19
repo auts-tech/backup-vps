@@ -132,9 +132,48 @@ async function dbSaveCredentials() {
 }
 
 async function dbLoadOverview() {
-  const res = await api.getDatabases();
+  const [res, sites] = await Promise.all([
+    api.getDatabases(),
+    api.getSites().catch(() => ({ sites: [] })),
+  ]);
   dbState.databases = res.databases;
   dbState.users = res.users;
+  dbState.sites = sites.sites || [];
+}
+
+// The website a database belongs to (linked on the website's Database tab)
+function dbSiteFor(name) {
+  return (dbState.sites || []).find((s) => s.database?.name === name);
+}
+
+function dbLinkToSite(name) {
+  const free = (dbState.sites || []).filter((s) => !s.database && !s.features?.external);
+  if (!free.length) return toast.info("No website without a database", "Create a website first");
+  const users = dbState.users.filter((u) => !u.system && u.databases.includes(name));
+  Modal.show(
+    `Link ${escapeHtml(name)} to a website`,
+    `<div class="form-group"><label class="form-label">Website</label>
+       <select class="form-select" id="db-link-site">${free.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("")}</select></div>
+     <div class="field-row">
+       <div class="form-group"><label class="form-label">User</label><select class="form-select" id="db-link-user"><option value="">(none)</option>${users.map((u) => `<option value="${escapeHtml(u.user)}">${escapeHtml(u.user)}@${escapeHtml(u.host)}</option>`).join("")}</select></div>
+       <div class="form-group"><label class="form-label">Password <span class="muted" style="font-weight:400;">(optional)</span></label><input class="form-input" type="password" id="db-link-pass" autocomplete="new-password"></div>
+     </div>
+     <div class="form-hint">The website's backups then include this database, and it shows on the website's Database tab.</div>`,
+    {
+      submitText: "Link",
+      onSubmit: async (o) => {
+        const siteId = o.querySelector("#db-link-site").value;
+        await api.linkSiteDatabase(siteId, {
+          name,
+          user: o.querySelector("#db-link-user").value,
+          password: o.querySelector("#db-link-pass").value,
+        });
+        toast.success("Linked", name);
+        await dbLoadOverview();
+        dbSwitchTab("databases");
+      },
+    },
+  );
 }
 
 function dbSwitchTab(tab) {
@@ -156,17 +195,23 @@ function dbRenderDatabases(el) {
   el.innerHTML = `
     <div class="card"><div class="table-container" style="border:none;border-radius:0;">
       <table class="table">
-        <thead><tr><th>Database</th><th>Size</th><th>Tables</th><th>Users</th><th>Collation</th><th style="text-align:right;">Actions</th></tr></thead>
+        <thead><tr><th>Database</th><th>Website</th><th>Size</th><th>Tables</th><th>Users</th><th style="text-align:right;">Actions</th></tr></thead>
         <tbody>
           ${rows
             .map(
               (d, i) => `
             <tr>
-              <td><strong>${escapeHtml(d.name)}</strong> ${d.system ? '<span class="badge badge-neutral">system</span>' : ""}</td>
+              <td><strong>${escapeHtml(d.name)}</strong> ${d.system ? '<span class="badge badge-neutral">system</span>' : ""}<div class="muted" style="font-size:11px;">${escapeHtml(d.collation)}</div></td>
+              <td>${
+                d.system
+                  ? '<span class="muted">—</span>'
+                  : dbSiteFor(d.name)
+                    ? `<a href="#site/${dbSiteFor(d.name).id}/database" style="font-weight:600;">${escapeHtml(dbSiteFor(d.name).name)}</a>`
+                    : `<button class="btn btn-sm btn-ghost" onclick="dbLinkToSite(${jsArg(d.name)})">${I.get("link", { size: 12 })}<span>Link to website</span></button>`
+              }</td>
               <td>${formatBytes(d.size)}</td>
               <td>${d.tables}</td>
               <td class="mono-sm">${d.users.length ? escapeHtml(d.users.join(", ")) : '<span class="muted">—</span>'}</td>
-              <td class="mono-sm">${escapeHtml(d.collation)}</td>
               <td style="text-align:right;white-space:nowrap;">
                 <button class="btn btn-sm btn-secondary" onclick="dbBrowse(${jsArg(d.name)})">${I.get("table", { size: 12 })}<span>Browse</span></button>
                 ${

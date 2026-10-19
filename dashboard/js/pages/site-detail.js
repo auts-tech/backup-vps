@@ -483,8 +483,8 @@ async function sdDeployments(el) {
           <div class="card-header"><h3 class="card-title">${I.get("clock", { size: 16 })}<span>History</span></h3><span class="badge badge-neutral">${s.history.length}</span></div>
           <div class="table-container" style="border:none;border-radius:0;">
             <table class="table">
-              <thead><tr><th>Status</th><th>Commit</th><th>When</th><th>Took</th><th style="text-align:right;"></th></tr></thead>
-              <tbody>${s.history.length ? s.history.map((h, i) => sdHistoryRow(h, i)).join("") : `<tr><td colspan="5" class="muted" style="padding:24px;text-align:center;">No deployments yet — click Deploy now.</td></tr>`}</tbody>
+              <thead><tr><th>Status</th><th>Commit</th><th>When</th><th style="text-align:right;"></th></tr></thead>
+              <tbody>${s.history.length ? s.history.map((h, i) => sdHistoryRow(h, i)).join("") : `<tr><td colspan="4" class="muted" style="padding:24px;text-align:center;">No deployments yet — click Deploy now.</td></tr>`}</tbody>
             </table>
           </div>
         </div>
@@ -552,9 +552,8 @@ function sdHistoryRow(h, index) {
   return `
     <tr>
       <td><span class="deploy-row-status">${sdStatusIcon(h.status)}${escapeHtml(sdStatusText(h.status))}</span>${h.error ? `<div class="muted truncate" style="font-size:11px;max-width:220px;" title="${escapeHtml(h.error)}">${escapeHtml(h.error)}</div>` : ""}</td>
-      <td style="max-width:280px;">${h.commit ? UI.commit(h.commit) : '<span class="muted">—</span>'}<div style="margin-top:3px;"><span class="trigger-chip">${escapeHtml(sdTriggerText(h))}</span>${current ? ' <span class="badge badge-success">live</span>' : ""}</div></td>
-      <td style="white-space:nowrap;font-size:12px;">${escapeHtml(UI.dateTime(h.startedAt))}<div class="muted" style="font-size:11px;">${UI.timeAgo(h.startedAt)}</div></td>
-      <td class="mono-sm">${h.status === "running" ? '<span class="spinner spinner-sm"></span>' : UI.duration(h.duration)}</td>
+      <td style="max-width:240px;">${h.commit ? UI.commit(h.commit) : '<span class="muted">—</span>'}<div style="margin-top:3px;"><span class="trigger-chip">${escapeHtml(sdTriggerText(h))}</span>${current ? ' <span class="badge badge-success">live</span>' : ""}</div></td>
+      <td style="white-space:nowrap;font-size:12px;" title="${escapeHtml(UI.dateTime(h.startedAt))}">${UI.timeAgo(h.startedAt)}<div class="muted mono-sm" style="font-size:11px;">${h.status === "running" ? '<span class="spinner spinner-sm"></span>' : `took ${UI.duration(h.duration)}`}</div></td>
       <td style="text-align:right;white-space:nowrap;">
         <button class="btn btn-sm btn-secondary btn-icon-only" onclick="sdShowLog(${jsArg(h.id)})" title="View log">${I.get("fileText", { size: 13 })}</button>
         ${canRollback ? `<button class="btn btn-sm btn-secondary btn-icon-only" onclick="sdRollback(${jsArg(h.commit.hash)}, ${jsArg(h.commit.short)})" title="Roll back to this commit">${I.get("rotateCcw", { size: 13 })}</button>` : ""}
@@ -1167,74 +1166,177 @@ async function sdToggleScheduler(enabled) {
 
 // ── Database ────────────────────────────────────────────────
 
-function sdDatabase(el) {
+/**
+ * Open the Databases page on a database (browse a table or the SQL console).
+ */
+function sdOpenDbPage(tab, db, table = null) {
+  dbState.tab = tab;
+  if (tab === "browse") dbState.browse = { db, table, page: 1, view: "data" };
+  if (tab === "console") dbState.consoleDb = db;
+  window.app.navigate("databases");
+}
+
+async function sdDatabase(el) {
   const s = sd.site;
   const I = window.Icons;
-  if (!s.tools.mysql && !s.database) {
-    el.innerHTML = `<div class="card">${UI.emptyState("database", "Database server not connected", "Install and connect MySQL/MariaDB on the Databases page, then come back to create a database for this website.", `<a class="btn btn-primary" href="#databases">Open Databases</a>`)}</div>`;
+  if (!s.tools.mysql && !s.database && !s.databaseSuggestion?.found) {
+    el.innerHTML = `<div class="card">${UI.emptyState("database", "Database server not connected", "Install and connect MySQL/MariaDB on the Databases page, then come back to create or link a database for this website.", `<a class="btn btn-primary" href="#databases">Open Databases</a>`)}</div>`;
     return;
   }
-  if (!s.database) {
-    el.innerHTML = `
-      <div class="two-col">
-        <div class="card">
-          <div class="card-header"><h3 class="card-title">${I.get("plus", { size: 16 })}<span>Create a database</span></h3></div>
-          <div class="card-body">
-            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">A MySQL database and a user with full access to it — names and a strong password are generated.</p>
-            ${s.features.env ? `<label class="form-check" style="margin-bottom:14px;"><input type="checkbox" id="sd-db-env" checked><span style="font-size:13px;">Write the credentials to <code>.env</code></span></label>` : ""}
-            <button class="btn btn-primary" onclick="sdCreateDb()">${I.get("database", { size: 13, color: "#fff" })}<span>Create database</span></button>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-header"><h3 class="card-title">${I.get("link", { size: 16 })}<span>Link an existing database</span></h3></div>
-          <div class="card-body">
-            <div class="form-group"><label class="form-label">Database name</label><input class="form-input mono-input" id="sd-link-name"></div>
-            <div class="field-row"><div class="form-group"><label class="form-label">User</label><input class="form-input mono-input" id="sd-link-user"></div>
-            <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" id="sd-link-pass"></div></div>
-            <button class="btn btn-secondary" onclick="sdLinkDb()">Link database</button>
-            <div class="form-hint">Linked databases are included in this website's backups.</div>
-          </div>
-        </div>
-      </div>`;
-    return;
-  }
+  if (!s.database) return sdDatabaseChoose(el);
+
   const info = s.databaseInfo;
+  const name = s.database.name;
   el.innerHTML = `
     <div class="two-col">
-      <div class="card">
-        <div class="card-header"><h3 class="card-title">${I.get("database", { size: 16 })}<span>${escapeHtml(s.database.name)}</span></h3>${info?.exists === false ? '<span class="badge badge-danger">missing</span>' : '<span class="badge badge-success">MySQL</span>'}</div>
-        <div class="card-body">
-          <dl class="kv" style="margin-bottom:16px;">
-            <dt>Database</dt><dd class="mono-sm">${escapeHtml(s.database.name)}</dd>
-            <dt>User</dt><dd class="mono-sm">${escapeHtml(s.database.user || "—")}</dd>
-            <dt>Host</dt><dd class="mono-sm">127.0.0.1:3306</dd>
-            ${info && !info.error ? `<dt>Size</dt><dd>${formatBytes(info.size)} · ${info.tables} tables</dd>` : ""}
-          </dl>
-          <div id="sd-db-creds"></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-secondary" onclick="sdShowDbCreds()">${I.get("key", { size: 13 })}<span>Show credentials</span></button>
-            <a class="btn btn-secondary" href="#databases">${I.get("table", { size: 13 })}<span>Browse tables</span></a>
-            <a class="btn btn-secondary" href="${escapeHtml(api.exportDbUrl(s.database.name))}">${I.get("download", { size: 13 })}<span>Export .sql.gz</span></a>
+      <div class="stack-gap">
+        <div class="card">
+          <div class="card-header"><h3 class="card-title">${I.get("database", { size: 16 })}<span>${escapeHtml(name)}</span></h3>${info?.exists === false ? '<span class="badge badge-danger">missing on the server</span>' : '<span class="badge badge-success">MySQL / MariaDB</span>'}</div>
+          <div class="card-body">
+            <dl class="kv" style="margin-bottom:16px;">
+              <dt>Database</dt><dd class="mono-sm">${escapeHtml(name)}</dd>
+              <dt>User</dt><dd class="mono-sm">${escapeHtml(s.database.user || "—")}</dd>
+              <dt>Host</dt><dd class="mono-sm">127.0.0.1:3306</dd>
+              ${info && !info.error ? `<dt>Size</dt><dd>${formatBytes(info.size)} · ${info.tables} tables</dd>` : ""}
+            </dl>
+            <div id="sd-db-creds"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-secondary" onclick="sdShowDbCreds()">${I.get("key", { size: 13 })}<span>Credentials</span></button>
+              <button class="btn btn-secondary" onclick="sdOpenDbPage('console', ${jsArg(name)})">${I.get("terminal", { size: 13 })}<span>SQL console</span></button>
+              <a class="btn btn-secondary" href="${escapeHtml(api.exportDbUrl(name))}">${I.get("download", { size: 13 })}<span>Export .sql.gz</span></a>
+              <button class="btn btn-secondary" onclick="sdImportDb()">${I.get("upload", { size: 13 })}<span>Import</span></button>
+            </div>
+            <input type="file" id="sd-db-file" accept=".sql,.gz,.zip" style="display:none;" onchange="sdImportDbFile(this.files[0])">
+            <div id="sd-db-upload" style="margin-top:10px;"></div>
           </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3 class="card-title">${I.get("table", { size: 16 })}<span>Tables</span></h3><button class="btn btn-sm btn-secondary" onclick="sdOpenDbPage('browse', ${jsArg(name)})">Open browser</button></div>
+          <div id="sd-db-tables"><div class="card-body"><div class="spinner"></div></div></div>
         </div>
       </div>
       <div class="card">
         <div class="card-header"><h3 class="card-title">${I.get("alertTriangle", { size: 16 })}<span>Remove</span></h3></div>
         <div class="card-body" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start;">
+          <p class="muted" style="font-size:13px;">Unlinking keeps the database — it is just no longer backed up with this website.</p>
           <button class="btn btn-secondary" onclick="sdUnlinkDb(false)">Unlink (keep the database)</button>
           <button class="btn btn-danger" onclick="sdUnlinkDb(true)">${I.get("trash", { size: 13 })}<span>Delete database and user</span></button>
         </div>
       </div>
     </div>`;
+  sdLoadDbTables(name);
+}
+
+async function sdLoadDbTables(name) {
+  const el = document.getElementById("sd-db-tables");
+  if (!el) return;
+  try {
+    const { tables } = await api.getTables(name);
+    el.innerHTML = tables.length
+      ? `<div class="table-container" style="border:none;border-radius:0;max-height:420px;overflow:auto;">
+          <table class="table"><thead><tr><th>Table</th><th>Rows</th><th>Size</th><th></th></tr></thead><tbody>
+          ${tables
+            .map(
+              (t) => `<tr><td class="mono-sm" style="color:var(--text-primary);">${escapeHtml(t.name)}</td><td>${Number(t.rows).toLocaleString()}</td><td>${formatBytes(t.size)}</td>
+              <td style="text-align:right;"><button class="btn btn-sm btn-ghost" onclick="sdOpenDbPage('browse', ${jsArg(name)}, ${jsArg(t.name)})">Browse</button></td></tr>`,
+            )
+            .join("")}
+          </tbody></table></div>`
+      : `<div class="card-body muted" style="font-size:13px;">No tables yet — run your migrations (deploy) or import a dump.</div>`;
+  } catch (err) {
+    el.innerHTML = `<div class="card-body muted" style="font-size:13px;">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+/**
+ * No database linked yet: use the one the code is configured for, link an existing one, or create one.
+ */
+async function sdDatabaseChoose(el) {
+  const s = sd.site;
+  const I = window.Icons;
+  const sug = s.databaseSuggestion;
+  let overview = { databases: [], users: [] };
+  if (s.tools.mysql) overview = await api.getDatabases().catch(() => overview);
+  const sites = sitesState.sites?.length ? sitesState.sites : (await api.getSites().catch(() => ({ sites: [] }))).sites;
+  const owner = (db) => sites.find((x) => x.database?.name === db && x.id !== s.id);
+  const dbs = overview.databases.filter((d) => !d.system);
+  sd.dbUsers = overview.users.filter((u) => !u.system);
+  el.innerHTML = `
+    ${
+      sug?.found
+        ? `<div class="detect-box" style="margin-bottom:18px;align-items:center;">${I.get("search", { size: 16, color: "var(--color-green)" })}
+        <div style="flex:1;">
+          <strong>This website's ${escapeHtml(sug.source)} uses the database <code>${escapeHtml(sug.name)}</code></strong>${sug.user ? ` with user <code>${escapeHtml(sug.user)}</code>` : ""}.
+          <div style="font-size:12px;margin-top:2px;">${!sug.local ? `It points to ${escapeHtml(sug.host)} (another server) — backups only cover databases on this server.` : sug.exists === false ? "That database does not exist on this server yet — create it on the Databases page or with the button below." : "Link it to manage it here and include it in this website's backups."}</div>
+        </div>
+        ${sug.local && sug.exists !== false ? `<button class="btn btn-primary" onclick="sdLinkDetected()">${I.get("link", { size: 13, color: "#fff" })}<span>Link ${escapeHtml(sug.name)}</span></button>` : ""}
+      </div>`
+        : ""
+    }
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">${I.get("link", { size: 16 })}<span>Use an existing database</span></h3><span class="badge badge-neutral">${dbs.length}</span></div>
+        <div class="card-body">
+          ${
+            dbs.length
+              ? `<div class="form-group"><label class="form-label">Database</label>
+                <select class="form-select" id="sd-link-name" onchange="sdLinkUsers()">
+                  ${dbs.map((d) => `<option value="${escapeHtml(d.name)}" ${owner(d.name) ? "disabled" : ""}>${escapeHtml(d.name)} · ${formatBytes(d.size)} · ${d.tables} tables${owner(d.name) ? ` — used by ${escapeHtml(owner(d.name).name)}` : ""}</option>`).join("")}
+                </select></div>
+              <div class="field-row">
+                <div class="form-group"><label class="form-label">User</label><select class="form-select" id="sd-link-user"></select></div>
+                <div class="form-group"><label class="form-label">Password <span class="muted" style="font-weight:400;">(optional)</span></label><input class="form-input" type="password" id="sd-link-pass" autocomplete="new-password"></div>
+              </div>
+              <button class="btn btn-primary" onclick="sdLinkDb()">${I.get("link", { size: 13, color: "#fff" })}<span>Link database</span></button>
+              <div class="form-hint">The password is only shown back to you under Credentials. Backups use the panel's own database account.</div>`
+              : `<p class="muted" style="font-size:13px;">${s.tools.mysql ? "There are no databases on this server yet." : "Connect the database server on the Databases page to pick from its databases."}</p>`
+          }
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">${I.get("plus", { size: 16 })}<span>Create a new database</span></h3></div>
+        <div class="card-body">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">A MySQL database and a user with full access to it — names and a strong password are generated.</p>
+          ${s.features.env ? `<label class="form-check" style="margin-bottom:14px;"><input type="checkbox" id="sd-db-env" checked><span style="font-size:13px;">Write the credentials to <code>.env</code></span></label>` : ""}
+          <button class="btn btn-primary" onclick="sdCreateDb()" ${s.tools.mysql ? "" : "disabled"}>${I.get("database", { size: 13, color: "#fff" })}<span>Create database</span></button>
+        </div>
+      </div>
+    </div>`;
+  sdLinkUsers();
+}
+
+function sdLinkUsers() {
+  const sel = document.getElementById("sd-link-user");
+  const db = document.getElementById("sd-link-name")?.value;
+  if (!sel) return;
+  const users = sd.dbUsers || [];
+  const withAccess = users.filter((u) => u.databases.includes(db));
+  const others = users.filter((u) => !u.databases.includes(db));
+  sel.innerHTML =
+    `<option value="">(none)</option>` +
+    (withAccess.length ? `<optgroup label="Has access to ${escapeHtml(db || "")}">${withAccess.map((u) => `<option value="${escapeHtml(u.user)}">${escapeHtml(u.user)}@${escapeHtml(u.host)}</option>`).join("")}</optgroup>` : "") +
+    (others.length ? `<optgroup label="Other users">${others.map((u) => `<option value="${escapeHtml(u.user)}">${escapeHtml(u.user)}@${escapeHtml(u.host)}</option>`).join("")}</optgroup>` : "");
+  if (withAccess.length) sel.value = withAccess[0].user;
+}
+
+async function sdLinkDetected() {
+  try {
+    await api.linkSiteDatabase(sd.id, { fromConfig: true });
+    toast.success("Database linked", sd.site.databaseSuggestion?.name || "");
+    sdLoad({ rerenderTab: true });
+  } catch (err) {
+    toast.error("Could not link", err.message);
+  }
 }
 
 async function sdShowDbCreds() {
   try {
     const c = await api.getSiteDbCredentials(sd.id);
+    const url = `mysql://${encodeURIComponent(c.user)}:${encodeURIComponent(c.password)}@${c.host}:${c.port}/${c.name}`;
     document.getElementById("sd-db-creds").innerHTML = `
       <div class="webhook-box" style="margin-bottom:12px;">
-        <div class="copy-field"><input class="form-input" readonly value="${escapeHtml(c.password)}">${UI.copyButton(c.password, "Copy password")}</div>
-        <div class="copy-field"><input class="form-input" readonly value="${escapeHtml(`mysql://${c.user}:${encodeURIComponent(c.password)}@${c.host}:${c.port}/${c.name}`)}">${UI.copyButton(`mysql://${c.user}:${encodeURIComponent(c.password)}@${c.host}:${c.port}/${c.name}`, "Copy URL")}</div>
+        <div><label class="form-label">Password</label><div class="copy-field"><input class="form-input" readonly value="${escapeHtml(c.password || "(not stored)")}">${c.password ? UI.copyButton(c.password, "Copy") : ""}</div></div>
+        <div><label class="form-label">Connection URL</label><div class="copy-field"><input class="form-input" readonly value="${escapeHtml(url)}">${UI.copyButton(url, "Copy")}</div></div>
       </div>`;
   } catch (err) {
     toast.error("Failed", err.message);
@@ -1245,10 +1347,7 @@ async function sdCreateDb() {
   try {
     const writeEnv = document.getElementById("sd-db-env")?.checked ?? false;
     const r = await api.createSiteDatabase(sd.id, writeEnv);
-    toast.success(
-      "Database created",
-      `${r.database.name}${r.envUpdated ? " · .env updated" : ""}`,
-    );
+    toast.success("Database created", `${r.database.name}${r.envUpdated ? " · .env updated" : ""}`);
     await sdLoad({ rerenderTab: true });
   } catch (err) {
     toast.error("Could not create the database", err.message);
@@ -1258,15 +1357,44 @@ async function sdCreateDb() {
 async function sdLinkDb() {
   try {
     await api.linkSiteDatabase(sd.id, {
-      name: document.getElementById("sd-link-name").value.trim(),
-      user: document.getElementById("sd-link-user").value.trim(),
+      name: document.getElementById("sd-link-name").value,
+      user: document.getElementById("sd-link-user").value,
       password: document.getElementById("sd-link-pass").value,
     });
-    toast.success("Database linked", "");
+    toast.success("Database linked", "Included in this website's backups from now on");
     sdLoad({ rerenderTab: true });
   } catch (err) {
     toast.error("Could not link", err.message);
   }
+}
+
+function sdImportDb() {
+  document.getElementById("sd-db-file")?.click();
+}
+
+async function sdImportDbFile(file) {
+  if (!file) return;
+  const name = sd.site.database.name;
+  Modal.confirm(
+    `Import into ${escapeHtml(name)}`,
+    `Run <strong>${escapeHtml(file.name)}</strong> (${formatBytes(file.size)}) against <code>${escapeHtml(name)}</code>? Tables in the dump replace existing ones with the same name.`,
+    async () => {
+      const box = document.getElementById("sd-db-upload");
+      box.innerHTML = `<div class="progress-bar"><div class="progress-bar-fill" style="width:0%"></div></div><div class="form-hint">Uploading…</div>`;
+      try {
+        const res = await api.importDb(name, file, (p) => {
+          const fill = box.querySelector(".progress-bar-fill");
+          if (fill) fill.style.width = `${Math.round(p * 100)}%`;
+        });
+        box.innerHTML = "";
+        JobConsole.open(res.jobId, `Import into ${name}`, { onDone: () => sdLoad({ rerenderTab: true }) });
+      } catch (err) {
+        box.innerHTML = "";
+        toast.error("Import failed", err.message);
+      }
+    },
+  );
+  document.getElementById("sd-db-file").value = "";
 }
 
 function sdUnlinkDb(drop) {
@@ -1534,11 +1662,21 @@ async function sdTraffic(days) {
           days === 1
             ? UI.bars(
                 t.hourly.map((h) => h.requests),
-                { labels: t.hourly.map((_, i) => `${23 - i}h ago`) },
+                {
+                  labels: t.hourly.map((_, i) => `${String(new Date(Date.now() - (23 - i) * 3600000).getHours()).padStart(2, "0")}:00`),
+                  ticks: t.hourly.map((_, i) => (i % 3 === 2 ? `${String(new Date(Date.now() - (23 - i) * 3600000).getHours()).padStart(2, "0")}h` : "")),
+                },
               )
             : UI.bars(
                 t.daily.map((d) => d.requests),
-                { labels: t.daily.map((d) => d.date) },
+                {
+                  labels: t.daily.map((d) => d.date),
+                  ticks: t.daily.map((d) =>
+                    days > 7
+                      ? new Date(`${d.date}T12:00:00`).getDate() % 5 === 0 ? new Date(`${d.date}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : ""
+                      : new Date(`${d.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short" }),
+                  ),
+                },
               )
         }
         <div class="field-row" style="margin-top:18px;align-items:start;">

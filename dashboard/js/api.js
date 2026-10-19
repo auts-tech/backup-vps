@@ -722,6 +722,9 @@ class API {
   getSiteDbCredentials(id) {
     return this.get(`/sites/${id}/database/credentials`);
   }
+  detectSiteDatabase(id) {
+    return this.get(`/sites/${id}/database/detect`);
+  }
   getSiteBackups(id) {
     return this.get(`/sites/${id}/backups`);
   }

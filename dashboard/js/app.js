@@ -4,6 +4,10 @@
  * Clean light theme with vector icons
  */
 
+// Product links (login screen, help)
+const DOCS_URL = "https://auts-tech.github.io/autspanel/docs/";
+const REPO_URL = "https://github.com/auts-tech/backup-vps";
+
 // Global Utility Functions
 function escapeHtml(text) {
   if (text === null || text === undefined) return "";
@@ -89,7 +93,7 @@ class App {
    */
   setTitle(text) {
     if (this.pageTitleEl) this.pageTitleEl.textContent = text;
-    document.title = `${text} · VPS Manager`;
+    document.title = `${text} · AutsPanel`;
   }
 
   /**
@@ -146,8 +150,8 @@ class App {
             <div style="width:52px;height:52px;margin:0 auto 16px;background:#f4f4f5;border:1px solid #e4e4e7;border-radius:10px;display:flex;align-items:center;justify-content:center;">
               ${shieldIcon}
             </div>
-            <h1 style="font-size:20px;font-weight:700;color:var(--text-primary);margin:0;letter-spacing:-0.02em;">VPS Manager</h1>
-            <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Hosting Control Panel</p>
+            <h1 style="font-size:20px;font-weight:700;color:var(--text-primary);margin:0;letter-spacing:-0.02em;">AutsPanel</h1>
+            <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Open-source hosting control panel</p>
           </div>
 
           ${this.updatedBanner()}
@@ -184,8 +188,10 @@ class App {
             </button>
           </form>
 
-          <div style="text-align:center;margin-top:20px;font-size:12px;color:var(--text-tertiary);">
-            Configured in the server's <code>.env</code> file
+          <div class="login-links">
+            <a href="${DOCS_URL}" target="_blank" rel="noopener">${Icons.get("fileText", { size: 12 })}Documentation</a>
+            <span>·</span>
+            <a href="${REPO_URL}" target="_blank" rel="noopener">${Icons.get("code", { size: 12 })}GitHub</a>
           </div>
         </div>
       </div>
@@ -261,7 +267,7 @@ class App {
               ${I.get("shield", { size: 16, color: "#ffffff" })}
             </div>
             <div class="sidebar-logo-text">
-              <h1>VPS Manager</h1>
+              <h1>AutsPanel</h1>
               <span>Hosting Control Panel</span>
             </div>
           </div>
@@ -335,7 +341,7 @@ class App {
             <div class="topbar-actions">
               <button class="btn btn-sm update-pill" id="topbar-update-btn" onclick="PanelUpdater.handleClick()" title="Check for panel updates">
                 <span class="update-pill-dot"></span>
-                <span>Update VPS Manager</span>
+                <span>Update AutsPanel</span>
               </button>
               <button class="btn btn-secondary btn-sm" id="topbar-instant-backup-btn" onclick="window.app.handleInstantBackup()" title="Back up every website now">
                 ${I.get("archive", { size: 13 })}

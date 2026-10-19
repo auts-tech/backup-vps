@@ -2792,3 +2792,32 @@ details.advanced[open] summary {
 .card-title .mono-sm {
   word-break: break-all;
 }
+
+.login-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.login-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+}
+.login-links a:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+/* Bar charts (traffic) */
+.bar-chart { display: flex; align-items: stretch; gap: 6px; padding-top: 4px; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.bar-area { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1px solid var(--border-primary); }
+.bar { width: 100%; max-width: 56px; background: var(--accent-black); border-radius: 4px 4px 0 0; transition: opacity var(--transition-fast); opacity: 0.85; }
+.bar-col:hover .bar { opacity: 1; }
+.bar-empty { background: var(--border-primary); }
+.bar-tick { font-size: 10px; color: var(--text-tertiary); height: 16px; line-height: 16px; white-space: nowrap; }

@@ -322,6 +322,71 @@ async function updateEnvFile(site, updates, { fromExample = false } = {}) {
   return file;
 }
 
+const LOCAL_DB_HOSTS = new Set(["localhost", "127.0.0.1", "::1", ""]);
+
+/**
+ * The database a website's code already uses, from its .env (Laravel, Node,
+ * DATABASE_URL) or WordPress wp-config.php. null when nothing is configured.
+ */
+export function detectDatabaseConfig(site) {
+  if (!site.deployPath) return null;
+  const read = (f) => {
+    try {
+      return readFileSync(f, "utf-8");
+    } catch {
+      return null;
+    }
+  };
+  const env = read(join(site.deployPath, ".env"));
+  if (env) {
+    const vars = Object.fromEntries(parseEnv(env).map((v) => [v.key, v.value]));
+    if (/^mysql2?:\/\//.test(vars.DATABASE_URL || "")) {
+      try {
+        const u = new URL(vars.DATABASE_URL);
+        const name = decodeURIComponent(u.pathname.replace(/^\//, ""));
+        if (name)
+          return {
+            name,
+            user: decodeURIComponent(u.username),
+            password: decodeURIComponent(u.password),
+            host: u.hostname,
+            source: ".env (DATABASE_URL)",
+          };
+      } catch {}
+    }
+    const name = vars.DB_DATABASE || vars.DB_NAME || vars.MYSQL_DATABASE;
+    if (name && /mysql|mariadb/i.test(vars.DB_CONNECTION || "mysql"))
+      return {
+        name,
+        user: vars.DB_USERNAME || vars.DB_USER || vars.MYSQL_USER || "",
+        password: vars.DB_PASSWORD || vars.MYSQL_PASSWORD || "",
+        host: vars.DB_HOST || "localhost",
+        source: ".env",
+      };
+  }
+  const candidates = [
+    join(site.deployPath, site.webRoot || "", "wp-config.php"),
+    join(site.deployPath, "wp-config.php"),
+    join(site.deployPath, "public_html", "wp-config.php"),
+  ];
+  for (const file of candidates) {
+    const wp = read(file);
+    if (!wp) continue;
+    const def = (k) =>
+      (wp.match(new RegExp(`define\\(\\s*['"]${k}['"]\\s*,\\s*['"]([^'"]*)['"]`)) || [])[1];
+    const name = def("DB_NAME");
+    if (name)
+      return {
+        name,
+        user: def("DB_USER") || "",
+        password: def("DB_PASSWORD") || "",
+        host: def("DB_HOST") || "localhost",
+        source: "wp-config.php",
+      };
+  }
+  return null;
+}
+
 function defaultSslEmail() {
   const c = getConfig();
   return (
@@ -498,6 +563,7 @@ export class SiteManager {
       },
       phpVersions: phpFpmVersions(),
       databaseInfo: dbInfo,
+      databaseSuggestion: site.database?.name ? null : await SiteManager.detectDatabase(id).catch(() => null),
       backupDirs: site.backupDirs,
       backupExcludes: site.backupExcludes,
       tools: {
@@ -1256,6 +1322,13 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    // Keep managing the database the site already uses (backups include it)
+    const detected = detectDatabaseConfig(site);
+    if (detected && LOCAL_DB_HOSTS.has(detected.host.split(":")[0])) {
+      const exists = MysqlManager.getCreds() ? await databaseExists(detected.name).catch(() => false) : true;
+      if (exists)
+        site.database = { type: "mysql", name: detected.name, user: detected.user, password: detected.password };
+    }
     await NginxManager.linkProject(name, site.id);
     updateConfig((c) => {
       (c.projects || (c.projects = [])).push(site);
@@ -1743,9 +1816,36 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
   }
 
   /**
-   * Remember an existing database (used for backups and shown on the website page).
+   * The database found in the website's .env / wp-config.php (password left out).
    */
-  static async linkDatabase(id, { name, user, password }) {
+  static async detectDatabase(id) {
+    const site = getSite(id);
+    const found = detectDatabaseConfig(site);
+    if (!found) return { found: false };
+    const local = LOCAL_DB_HOSTS.has(found.host.split(":")[0]);
+    const exists = local && MysqlManager.getCreds() ? await databaseExists(found.name).catch(() => null) : null;
+    return {
+      found: true,
+      name: found.name,
+      user: found.user,
+      hasPassword: !!found.password,
+      host: found.host,
+      source: found.source,
+      local,
+      exists,
+    };
+  }
+
+  /**
+   * Remember an existing database (used for backups and shown on the website page).
+   * fromConfig: take the name/user/password the website's .env or wp-config.php uses.
+   */
+  static async linkDatabase(id, { name, user, password, fromConfig = false }) {
+    if (fromConfig) {
+      const found = detectDatabaseConfig(getSite(id));
+      if (!found) throw httpError(404, "No database settings found in .env or wp-config.php");
+      ({ name, user, password } = found);
+    }
     assertDbName(name);
     if (user) assertUser(user);
     if (MysqlManager.getCreds() && !(await databaseExists(name)))
