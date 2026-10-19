@@ -169,9 +169,9 @@ function portOwnerChips(port) {
           : `${s.prefix}: ${o.name}`;
       const click =
         o.type === "project"
-          ? ` onclick="window.app.navigate('projects')" style="cursor:pointer;"`
+          ? ` onclick="window.app.navigate('sites')" style="cursor:pointer;"`
           : o.type === "sites" || o.type === "proxied"
-            ? ` onclick="window.app.navigate('websites')" style="cursor:pointer;"`
+            ? ` onclick="window.app.navigate('sites')" style="cursor:pointer;"`
             : "";
       return `<span class="owner-chip ${s.cls}" title="${escapeHtml(o.detail ? `${title} — ${o.detail}` : title)}"${click}>${I.get(s.icon, { size: 11 })}<span>${escapeHtml(o.type === "panel" ? "VPS Panel" : o.type === "sites" ? `nginx: ${o.detail}` : o.type === "proxied" ? `${o.name} (via nginx)` : `${s.prefix ? s.prefix + ": " : ""}${o.name}`)}</span></span>`;
     })
@@ -271,7 +271,7 @@ function stopPortProcess(pid, name, port, unit) {
   Modal.show(
     `Stop ${escapeHtml(name)} (pid ${pid})?`,
     `
-    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">This frees port <strong>${port}</strong>. ${unit ? `It is managed by <code>${escapeHtml(unit)}</code>, which may start it again automatically — use restart instead if you just want to reload it.` : "Projects managed by PM2 are restarted automatically by PM2 — stop them from the Deploy page instead."}</p>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">This frees port <strong>${port}</strong>. ${unit ? `It is managed by <code>${escapeHtml(unit)}</code>, which may start it again automatically — use restart instead if you just want to reload it.` : "Projects managed by PM2 are restarted automatically by PM2 — stop them from the website's App tab instead."}</p>
     <label class="form-check"><input type="checkbox" id="kill-force"><span style="font-size:13px;">Force kill (SIGKILL) — only if it ignores a normal stop</span></label>
   `,
     {

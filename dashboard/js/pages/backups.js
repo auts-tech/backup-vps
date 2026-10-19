@@ -10,12 +10,12 @@ function renderBackups(container) {
       <div class="page-header">
         <div class="page-header-title">
           <h2>Backups</h2>
-          <p>Create database dumps, file snapshots, and whole-server backups</p>
+          <p>Each website's database, files and .env — plus whole-server snapshots. Schedule and restore per website on its Backups tab.</p>
         </div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-secondary" onclick="triggerBackupAll()" id="backup-all-btn">
             ${I.get("database", { size: 14 })}
-            <span>Backup All Projects</span>
+            <span>Backup All Websites</span>
           </button>
           <button class="btn btn-primary" onclick="triggerVPSSnapshot()">
             ${I.get("server", { size: 14, color: "#ffffff" })}
@@ -45,8 +45,8 @@ function renderBackups(container) {
       <div class="card" style="margin-bottom:24px;">
         <div class="card-header">
           <h3 class="card-title">
-            ${I.get("package", { size: 16 })}
-            <span>Project Backup Targets</span>
+            ${I.get("globe", { size: 16 })}
+            <span>Websites</span>
           </h3>
         </div>
         <div id="backup-projects-list">
@@ -88,63 +88,34 @@ async function loadBackupProjects() {
   const I = window.Icons;
 
   try {
-    const { projects } = await api.getProjects();
-    if (projects.length === 0) {
-      el.innerHTML = `
-        <div class="empty-state" style="padding:32px 20px;">
-          <div class="empty-state-icon">${I.get("package", { size: 20 })}</div>
-          <div class="empty-state-title">No Projects Configured</div>
-          <div class="empty-state-desc">Add a project first to configure backups.</div>
-        </div>
-      `;
+    const { sites } = await api.getSites();
+    const withFiles = sites.filter((s) => s.deployPath);
+    if (!withFiles.length) {
+      el.innerHTML = UI.emptyState("globe", "No websites yet", "Create a website first — its database, files and .env are backed up together.", `<a class="btn btn-primary" href="#new-site">New website</a>`);
       return;
     }
-
     el.innerHTML = `
       <div class="table-container" style="border:none;border-radius:0;">
         <table class="table">
-          <thead>
-            <tr>
-              <th>Project Name</th>
-              <th>Stack</th>
-              <th>Database</th>
-              <th>Directories</th>
-              <th style="text-align:right">Actions</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Website</th><th>Database</th><th>Folder</th><th style="text-align:right">Actions</th></tr></thead>
           <tbody>
-            ${projects
+            ${withFiles
               .map(
-                (p) => `
+                (s) => `
               <tr>
-                <td>
-                  <strong style="color:var(--text-primary);font-size:13px;">${escapeHtml(p.name)}</strong>
+                <td><div style="display:flex;align-items:center;gap:10px;">${UI.stackAvatar(s.type, "sm")}<a href="#site/${s.id}/backups" style="font-weight:600;">${escapeHtml(s.name)}</a></div></td>
+                <td>${s.database?.name ? `<span class="mono-sm">${escapeHtml(s.database.name)}</span>` : '<span class="muted" style="font-size:12px;">None</span>'}</td>
+                <td class="mono-sm truncate" style="max-width:280px;">${escapeHtml(s.deployPath)}</td>
+                <td style="text-align:right;white-space:nowrap;">
+                  <button class="btn btn-sm btn-primary" onclick="triggerProjectBackup('${s.id}', ${jsArg(s.name)})">${I.get("archive", { size: 12, color: "#ffffff" })}<span>Back up</span></button>
+                  <a class="btn btn-sm btn-secondary" href="#site/${s.id}/backups">${I.get("rotateCcw", { size: 12 })}<span>Restore & schedule</span></a>
                 </td>
-                <td><span class="badge badge-neutral" style="text-transform:uppercase;font-size:10px;">${escapeHtml(p.type || "node")}</span></td>
-                <td>
-                  ${p.database?.name ? `<span style="font-family:var(--font-mono);font-size:12px;">${escapeHtml(p.database.name)}</span>` : '<span style="color:var(--text-tertiary);font-size:12px;">None</span>'}
-                </td>
-                <td style="font-size:12px;color:var(--text-secondary);">${p.backupDirs?.length || 0} paths</td>
-                <td style="text-align:right">
-                  <div style="display:inline-flex;gap:6px;">
-                    <button class="btn btn-sm btn-primary" onclick="triggerProjectBackup('${p.id}', '${escapeHtml(p.name)}')">
-                      ${I.get("database", { size: 12, color: "#ffffff" })}
-                      <span>Backup</span>
-                    </button>
-                    <button class="btn btn-sm btn-secondary" onclick="showRestoreModal('${p.id}', '${escapeHtml(p.name)}')">
-                      ${I.get("download", { size: 12 })}
-                      <span>Restore</span>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            `,
+              </tr>`,
               )
               .join("")}
           </tbody>
         </table>
-      </div>
-    `;
+      </div>`;
   } catch (err) {
     el.innerHTML = `<div style="padding:20px;color:var(--color-red);font-size:13px;">${escapeHtml(err.message)}</div>`;
   }
@@ -247,9 +218,9 @@ async function triggerProjectBackup(id, name) {
 
 async function triggerBackupAll() {
   try {
-    toast.info("Backup All", "Starting backups for all projects...");
+    toast.info("Backup All", "Starting backups for every website...");
     await api.triggerBackupAll();
-    toast.success("Backups Started", "All project backups are in progress");
+    toast.success("Backups Started", "All website backups are running");
     setTimeout(refreshBackupStatus, 1000);
   } catch (err) {
     toast.error("Backup Failed", err.message);
@@ -276,49 +247,9 @@ async function triggerVPSSnapshot() {
   );
 }
 
-function showRestoreModal(projectId, projectName) {
-  Modal.show(
-    "Restore Backup",
-    `
-    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">
-      Restore a point-in-time snapshot for <strong>${escapeHtml(projectName)}</strong>.
-    </p>
-    <div class="form-group">
-      <label class="form-label">Snapshot Folder Date</label>
-      <input class="form-input" id="restore-date" placeholder="e.g. 2026-09-17" required>
-      <div class="form-hint">Enter the date folder name as listed in your backup storage</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;padding:12px;background:#f8fafc;border-radius:var(--radius-sm);border:1px solid var(--border-primary);">
-      <label class="form-check">
-        <input type="checkbox" id="restore-db-check" checked>
-        <span style="font-size:13px;font-weight:500;">Restore Database Dumps</span>
-      </label>
-      <label class="form-check">
-        <input type="checkbox" id="restore-files-check" checked>
-        <span style="font-size:13px;font-weight:500;">Restore File Directories</span>
-      </label>
-      <label class="form-check">
-        <input type="checkbox" id="restore-env-check" checked>
-        <span style="font-size:13px;font-weight:500;">Restore .env Configurations</span>
-      </label>
-    </div>
-  `,
-    {
-      submitText: "Start Restore",
-      submitClass: "btn-danger-solid",
-      onSubmit: async (overlay) => {
-        const date = overlay.querySelector("#restore-date").value.trim();
-        if (!date) throw new Error("Backup date is required");
-        const result = await api.restoreBackup(projectId, date, {
-          restoreDb: overlay.querySelector("#restore-db-check").checked,
-          restoreFiles: overlay.querySelector("#restore-files-check").checked,
-          restoreEnv: overlay.querySelector("#restore-env-check").checked,
-        });
-        if (result.success) toast.success("Restore Complete", result.message);
-        else throw new Error(result.error);
-      },
-    },
-  );
+// Restores pick a backup from the list on the website's Backups tab
+function showRestoreModal(projectId) {
+  window.app.navigate(`site/${projectId}/backups`);
 }
 
 async function cleanupAllBackups() {
