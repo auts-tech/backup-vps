@@ -135,20 +135,13 @@ class App {
   showLogin() {
     this.isAuthenticated = false;
     const appEl = document.getElementById("app-root");
-    const shieldIcon = window.Icons
-      ? window.Icons.get("shield", {
-          size: 28,
-          color: "#09090b",
-          strokeWidth: 2,
-        })
-      : "";
 
     appEl.innerHTML = `
       <div class="login-screen">
         <div class="login-card">
           <div class="login-logo">
-            <div style="width:52px;height:52px;margin:0 auto 16px;background:#f4f4f5;border:1px solid #e4e4e7;border-radius:10px;display:flex;align-items:center;justify-content:center;">
-              ${shieldIcon}
+            <div class="login-logo-image">
+              <img src="/assets/applyunii-logo.png" alt="AutsPanel logo" />
             </div>
             <h1 style="font-size:20px;font-weight:700;color:var(--text-primary);margin:0;letter-spacing:-0.02em;">AutsPanel</h1>
             <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Open-source hosting control panel</p>
@@ -264,7 +257,7 @@ class App {
         <aside class="sidebar" id="sidebar">
           <div class="sidebar-logo">
             <div class="sidebar-logo-icon">
-              ${I.get("shield", { size: 16, color: "#ffffff" })}
+              <img src="/assets/applyunii-logo.png" alt="AutsPanel logo" />
             </div>
             <div class="sidebar-logo-text">
               <h1>AutsPanel</h1>
