@@ -25,10 +25,28 @@ function jsArg(value) {
 }
 
 // Random password without look-alike characters (for DB users, mailboxes)
+// Upper, lower, digit and symbol (- _ .) so database password policies accept it
 function generatePassword(length = 20) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(length));
-  return [...bytes].map((b) => chars[b % chars.length]).join("");
+  const sets = [
+    "ABCDEFGHJKLMNPQRSTUVWXYZ",
+    "abcdefghijkmnopqrstuvwxyz",
+    "23456789",
+    "-_.",
+  ];
+  const all = sets.join("");
+  const rand = (n) => crypto.getRandomValues(new Uint32Array(1))[0] % n;
+  const chars = sets.flatMap((set) => [
+    set[rand(set.length)],
+    set[rand(set.length)],
+  ]);
+  while (chars.length < Math.max(length, 12)) chars.push(all[rand(all.length)]);
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = rand(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  const first = chars.findIndex((c) => /[A-Za-z0-9]/.test(c));
+  [chars[0], chars[first]] = [chars[first], chars[0]];
+  return chars.join("");
 }
 
 function formatBytes(bytes) {

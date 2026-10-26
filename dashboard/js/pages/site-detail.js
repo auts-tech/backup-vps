@@ -21,7 +21,7 @@ const SD_TABS = [
     id: "database",
     label: "Database",
     icon: "database",
-    when: (s) => !s.features.external,
+    when: (s) => !s.features.external || !!s.deployPath,
   },
   {
     id: "backups",
@@ -476,7 +476,7 @@ async function sdDeployments(el) {
                   <div class="muted" style="font-size:12px;margin-top:2px;">${s.gitUrl ? "Pulls the branch, runs the deploy script, then restarts the app." : "This website isn't connected to Git: the deploy script runs on the files in the folder."}</div>
                 </div>
                 ${s.gitUrl ? `<button class="btn btn-secondary" onclick="sdCheckPending()">${I.get("search", { size: 13 })}<span>Check for new commits</span></button>` : ""}
-                <button class="btn btn-primary" onclick="sdDeploy()" ${s.features.external ? "disabled" : ""}>${I.get("rocket", { size: 13, color: "#fff" })}<span>Deploy now</span></button>
+                <button class="btn btn-primary" onclick="sdDeploy()" ${s.features.external && !s.deployPath ? 'disabled title="Add the app folder in Settings first"' : ""}>${I.get("rocket", { size: 13, color: "#fff" })}<span>Deploy now</span></button>
               </div><div id="sd-pending"></div></div>`
         }
         <div class="card">
@@ -1742,7 +1742,13 @@ function sdSettings(el) {
             </div><div class="form-hint" style="margin-top:-8px;margin-bottom:12px;">A new branch is checked out on the next deploy.</div>`
                 : ""
             }
-            ${s.features.external ? `<div class="form-group"><label class="form-label">Proxy target</label><input class="form-input mono-input" id="st-proxy" value="${escapeHtml(s.proxyTarget || "")}" placeholder="http://127.0.0.1:8080"></div>` : ""}
+            ${
+              s.features.external
+                ? `<div class="form-group"><label class="form-label">Proxy target</label><input class="form-input mono-input" id="st-proxy" value="${escapeHtml(s.proxyTarget || "")}" placeholder="http://127.0.0.1:8080"></div>
+            <div class="form-group"><label class="form-label">App folder</label><input class="form-input mono-input" id="st-path" value="${escapeHtml(s.deployPath || "")}" placeholder="/opt/my-app">
+              <div class="form-hint">Where the app's code or <code>docker-compose.yml</code> lives. Adds Environment, Database, Backups and deploys for this website; a Git checkout keeps its repository. Leave empty for a plain proxy.</div></div>`
+                : ""
+            }
           </div>
         </div>
         <div class="card">
@@ -1778,6 +1784,8 @@ async function sdSaveSettings() {
   }
   const proxy = document.getElementById("st-proxy");
   if (proxy) body.proxyTarget = proxy.value.trim();
+  const path = document.getElementById("st-path");
+  if (path) body.deployPath = path.value.trim();
   try {
     await api.updateSite(sd.id, body);
     toast.success("Settings saved", "");

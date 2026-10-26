@@ -483,6 +483,27 @@ export class DeployEngine {
           );
         },
       },
+      {
+        id: "proxy-health",
+        title: "Check the app answers",
+        when: () =>
+          !!stack.external &&
+          hasCommands(script()) &&
+          /^https?:\/\/(127\.0\.0\.1|localhost):\d+/.test(
+            current().proxyTarget || "",
+          ),
+        run: async (ctx) => {
+          const port = parseInt(current().proxyTarget.split(":").pop());
+          if (!(await ProcessManager.waitForPort(port, 60000))) {
+            const err = new Error(
+              `Nothing answers on port ${port} yet — check the app's logs (e.g. docker compose logs).`,
+            );
+            err.warning = true;
+            throw err;
+          }
+          ctx.log(`The app answers on 127.0.0.1:${port}.`);
+        },
+      },
     ];
   }
 
@@ -505,6 +526,11 @@ export class DeployEngine {
       err.jobId = running.id;
       throw err;
     }
+    if (!site.deployPath)
+      throw httpError(
+        409,
+        "This website has no folder — add the app's folder in Settings to deploy it",
+      );
     if (!existsSync(site.deployPath))
       throw httpError(409, `${site.deployPath} does not exist`);
     if (commit && !/^[0-9a-f]{7,40}$/.test(commit))

@@ -73,6 +73,10 @@ function newSiteDefaults() {
     startTouched: false,
     env: "",
     proxyTarget: "",
+    proxyPath: "",
+    proxyGit: "",
+    proxyBranch: "main",
+    proxyScript: "",
     emptyType: "static",
     dbCreate: false,
     dbTouched: false,
@@ -279,7 +283,25 @@ function nsRenderSourceSection() {
         <label class="form-label">App port or URL</label>
         <input class="form-input mono-input" placeholder="8080  or  http://127.0.0.1:8080" value="${escapeHtml(ns.proxyTarget)}" oninput="ns.proxyTarget=this.value.trim();nsRenderSummary()">
         <div class="form-hint">For apps the panel doesn't run itself, e.g. a Docker container. WebSockets and streaming work.</div>
-      </div>`;
+      </div>
+      <div class="form-group" style="max-width:560px;margin:16px 0 0;">
+        <label class="form-label">App folder <span class="muted" style="font-weight:400;">(optional)</span></label>
+        <input class="form-input mono-input" placeholder="/opt/my-app" value="${escapeHtml(ns.proxyPath)}" oninput="ns.proxyPath=this.value.trim();nsRenderDbSection();nsRenderSummary()">
+        <div class="form-hint">Where the app's code or <code>docker-compose.yml</code> lives. With a folder you can edit its <code>.env</code>, back it up, link a database, open it in Files and Terminal, and deploy. An existing folder is used as it is — if it's a Git checkout, deployments pull its branch.</div>
+      </div>
+      <details class="advanced" ${ns.proxyGit || ns.proxyScript ? "open" : ""} style="max-width:640px;">
+        <summary>${Icons.get("rocket", { size: 14 })}Deploy settings <span class="muted" style="font-weight:400;">— optional</span></summary>
+        <div class="field-row" style="grid-template-columns:minmax(0,3fr) minmax(0,1fr);">
+          <div class="form-group"><label class="form-label">Clone from Git</label>
+            <input class="form-input mono-input" placeholder="https://github.com/you/app.git" value="${escapeHtml(ns.proxyGit)}" oninput="ns.proxyGit=this.value.trim();nsRenderDbSection();nsRenderSummary()"></div>
+          <div class="form-group"><label class="form-label">Branch</label>
+            <input class="form-input mono-input" value="${escapeHtml(ns.proxyBranch)}" oninput="ns.proxyBranch=this.value.trim()"></div>
+        </div>
+        <div class="form-hint" style="margin:-6px 0 12px;">Cloned into the app folder (default <code>${escapeHtml((ns.suggest?.sitesRoot || "/var/www") + "/" + (ns.name || "name"))}</code>). Leave empty to use an existing folder.</div>
+        <div class="form-group"><label class="form-label">Deploy script <span class="muted" style="font-weight:400;">(runs in the app folder on every deploy)</span></label>
+          <textarea class="form-textarea textarea-code" rows="3" placeholder="docker compose up -d --build" oninput="ns.proxyScript=this.value">${escapeHtml(ns.proxyScript)}</textarea>
+          <div class="form-hint">Leave empty to use <code>docker compose up -d --build</code> when the folder has a compose file.</div></div>
+      </details>`;
   }
   el.innerHTML = `<div class="wizard-step-title"><span class="wizard-step-num">2</span>${ns.source === "git" ? "Repository" : ns.source === "wordpress" ? "WordPress" : ns.source === "empty" ? "Website files" : "Target app"}</div>${body}`;
 
@@ -514,7 +536,12 @@ function nsRenderDbSection() {
   const el = document.getElementById("ns-db-section");
   if (!el) return;
   const type = nsType();
-  if (type === "proxy" || type === "static" || type === "react") {
+  const proxyFolder = type === "proxy" && !!(ns.proxyPath || ns.proxyGit);
+  if (
+    (type === "proxy" && !proxyFolder) ||
+    type === "static" ||
+    type === "react"
+  ) {
     el.innerHTML = "";
     return;
   }
@@ -547,6 +574,8 @@ function nsRenderSummary() {
   const chips = [UI.stack(type).label];
   if (ns.domain) chips.push(`${ns.ssl ? "https" : "http"}://${ns.domain}`);
   if (ns.deployPath && ns.source !== "proxy") chips.push(ns.deployPath);
+  if (ns.source === "proxy" && ns.proxyPath) chips.push(ns.proxyPath);
+  if (ns.source === "proxy" && ns.proxyGit) chips.push("from Git");
   if (PROCESS_STACKS.has(type) && ns.port) chips.push(`port ${ns.port}`);
   if (PHP_STACKS.has(type) && ns.phpVersion) chips.push(`PHP ${ns.phpVersion}`);
   if (ns.dbCreate || type === "wordpress") chips.push("+ database");
@@ -566,7 +595,8 @@ async function nsCreate() {
     source: ns.source,
     type,
     name: ns.name || undefined,
-    deployPath: ns.source === "proxy" ? undefined : ns.deployPath || undefined,
+    deployPath:
+      (ns.source === "proxy" ? ns.proxyPath : ns.deployPath) || undefined,
     domains: [ns.domain, ...ns.aliases.split(/[\s,]+/)].filter(Boolean),
     www: ns.www,
     ssl: ns.ssl,
@@ -585,7 +615,15 @@ async function nsCreate() {
   }
   if (PROCESS_STACKS.has(type)) payload.port = ns.port || undefined;
   if (PHP_STACKS.has(type)) payload.phpVersion = ns.phpVersion || undefined;
-  if (ns.source === "proxy") payload.proxyTarget = ns.proxyTarget;
+  if (ns.source === "proxy") {
+    payload.proxyTarget = ns.proxyTarget;
+    if (ns.proxyGit)
+      Object.assign(payload, {
+        gitUrl: ns.proxyGit,
+        branch: ns.proxyBranch || "main",
+      });
+    if (ns.proxyScript.trim()) payload.deployScript = ns.proxyScript;
+  }
   if (type === "wordpress")
     payload.wordpress = {
       title: ns.wpTitle || ns.domain,

@@ -139,6 +139,15 @@ export function defaultDeployScript(stack, dir, { database = false } = {}) {
       ].join("\n");
     case "wordpress":
       return "# WordPress updates itself from wp-admin — nothing to run on deploy";
+    case "proxy":
+      return [
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "compose.yml",
+        "compose.yaml",
+      ].some(has)
+        ? "docker compose up -d --build"
+        : "# Commands that rebuild and restart this app, e.g.\n# docker compose up -d --build";
     default:
       return "";
   }

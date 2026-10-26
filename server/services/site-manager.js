@@ -8,7 +8,6 @@ import {
 } from "fs";
 import { join, dirname } from "path";
 import { createServer } from "net";
-import { randomBytes } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { getConfig, updateConfig, httpError } from "../lib/config.js";
 import { run, which, shq } from "../lib/shell.js";
@@ -23,6 +22,7 @@ import {
   slugify,
   isSystemPath,
 } from "../lib/validate.js";
+import { strongPassword } from "../lib/passwords.js";
 import {
   STACKS,
   normalizeStack,
@@ -30,6 +30,7 @@ import {
   defaultDeployScript,
   defaultStartCommand,
   suggestWebRoot,
+  hasCommands,
 } from "../lib/stacks.js";
 import { parseEnv, mergeEnv, isValidEnvKey } from "../lib/dotenv.js";
 import {
@@ -76,13 +77,55 @@ nginx -v
 echo "nginx installed and running."
 `;
 
-function randomPassword(length = 24) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-  return [...randomBytes(length)].map((b) => chars[b % chars.length]).join("");
-}
+// Database and WordPress passwords must pass MySQL's password policy
+const randomPassword = (length = 24) => strongPassword(length);
 
 function stackOf(site) {
   return STACKS[normalizeStack(site.type)];
+}
+
+// A reverse-proxied app with a folder gets its .env managed too
+function usesEnv(site) {
+  return (
+    ENV_STACKS.has(site.type) || (!!stackOf(site).external && !!site.deployPath)
+  );
+}
+
+// Remote and branch of an existing checkout, so deployments can pull it
+async function readCheckout(dir) {
+  if (!dir || !existsSync(join(dir, ".git"))) return null;
+  const info = await DeployEngine.gitInfo(dir);
+  const remote = await run("git", [
+    "-c",
+    "safe.directory=*",
+    "-C",
+    dir,
+    "remote",
+    "get-url",
+    "origin",
+  ]);
+  return {
+    gitUrl: remote.code === 0 ? remote.stdout.trim() : "",
+    branch: info?.branch && info.branch !== "HEAD" ? info.branch : "main",
+  };
+}
+
+// The local database a site's .env or wp-config.php already uses
+async function existingDatabase(site) {
+  const detected = detectDatabaseConfig(site);
+  if (!detected || !LOCAL_DB_HOSTS.has(detected.host.split(":")[0]))
+    return null;
+  const exists = MysqlManager.getCreds()
+    ? await databaseExists(detected.name).catch(() => false)
+    : true;
+  return exists
+    ? {
+        type: "mysql",
+        name: detected.name,
+        user: detected.user,
+        password: detected.password,
+      }
+    : null;
 }
 
 /**
@@ -373,7 +416,9 @@ export function detectDatabaseConfig(site) {
     const wp = read(file);
     if (!wp) continue;
     const def = (k) =>
-      (wp.match(new RegExp(`define\\(\\s*['"]${k}['"]\\s*,\\s*['"]([^'"]*)['"]`)) || [])[1];
+      (wp.match(
+        new RegExp(`define\\(\\s*['"]${k}['"]\\s*,\\s*['"]([^'"]*)['"]`),
+      ) || [])[1];
     const name = def("DB_NAME");
     if (name)
       return {
@@ -461,7 +506,7 @@ export class SiteManager {
         php: !!stack.php,
         external: !!stack.external,
         web: stack.web,
-        env: ENV_STACKS.has(site.type),
+        env: usesEnv(site),
       },
       domains,
       primaryDomain: domains[0] || null,
@@ -563,7 +608,9 @@ export class SiteManager {
       },
       phpVersions: phpFpmVersions(),
       databaseInfo: dbInfo,
-      databaseSuggestion: site.database?.name ? null : await SiteManager.detectDatabase(id).catch(() => null),
+      databaseSuggestion: site.database?.name
+        ? null
+        : await SiteManager.detectDatabase(id).catch(() => null),
       backupDirs: site.backupDirs,
       backupExcludes: site.backupExcludes,
       tools: {
@@ -703,7 +750,13 @@ export class SiteManager {
       );
 
     let deployPath = null;
-    if (type !== "proxy") {
+    // Reverse proxies need no folder; with one (or a repository) the app's
+    // code, .env and backups are managed here too
+    const proxyFolder =
+      type === "proxy" &&
+      !!(String(input.deployPath || "").trim() || input.gitUrl);
+    const linkFolder = type === "proxy" && !input.gitUrl;
+    if (type !== "proxy" || proxyFolder) {
       deployPath = assertSitePath(
         input.deployPath
           ? String(input.deployPath).trim()
@@ -722,11 +775,14 @@ export class SiteManager {
       if (
         existsSync(deployPath) &&
         readdirSync(deployPath).length &&
-        !(source === "empty" && input.useExisting)
+        !(source === "empty" && input.useExisting) &&
+        !linkFolder
       )
         throw httpError(
           409,
-          `${deployPath} already exists and is not empty — choose another folder`,
+          type === "proxy"
+            ? `${deployPath} already exists and is not empty — leave the repository empty to manage the existing folder`
+            : `${deployPath} already exists and is not empty — choose another folder`,
         );
     }
 
@@ -766,6 +822,18 @@ export class SiteManager {
         String(input.deployScript).trim()
       )
         site.deploy.script = String(input.deployScript).slice(0, 20000);
+    } else if (type === "proxy" && input.gitUrl) {
+      site.gitUrl = assertGitUrl(input.gitUrl);
+      site.branch = assertBranch(input.branch || "main");
+      site.deploy.script = String(input.deployScript || "").trim()
+        ? String(input.deployScript).slice(0, 20000)
+        : null; // null → detected after cloning
+    } else if (type === "proxy" && deployPath) {
+      const checkout = await readCheckout(deployPath);
+      if (checkout) Object.assign(site, checkout);
+      site.deploy.script = String(input.deployScript || "").trim()
+        ? String(input.deployScript).slice(0, 20000)
+        : defaultDeployScript(type, existsSync(deployPath) ? deployPath : null);
     } else {
       site.deploy.script = defaultDeployScript(type, null);
     }
@@ -845,6 +913,11 @@ export class SiteManager {
       site.database = { type: "mysql", ...db };
     }
 
+    if (!db && type === "proxy" && deployPath && existsSync(deployPath)) {
+      const found = await existingDatabase(site);
+      if (found) site.database = found;
+    }
+
     let wordpress = null;
     if (type === "wordpress") {
       const wp = input.wordpress || {};
@@ -881,6 +954,10 @@ export class SiteManager {
 
     const plan = {
       source,
+      clone:
+        type === "proxy" &&
+        !!site.gitUrl &&
+        !existsSync(join(deployPath || "/nonexistent", ".git")),
       domains,
       ssl: !!input.ssl && domains.length > 0,
       sslEmail: String(input.sslEmail || "").trim() || null,
@@ -998,7 +1075,21 @@ export class SiteManager {
           },
         },
       ],
-      proxy: [],
+      proxy: plan.clone
+        ? [DeployEngine.cloneStep(initial)]
+        : initial.deployPath
+          ? [
+              {
+                id: "folder",
+                title: "Create app folder",
+                when: () => !existsSync(current().deployPath),
+                run: async (ctx) => {
+                  mkdirSync(current().deployPath, { recursive: true });
+                  ctx.log(`Created ${current().deployPath}`);
+                },
+              },
+            ]
+          : [],
     }[plan.source];
 
     const steps = [
@@ -1030,10 +1121,10 @@ export class SiteManager {
       {
         id: "detect",
         title: "Detect build settings",
-        when: () => plan.source === "git",
+        when: () => plan.source === "git" || plan.clone,
         run: async (ctx) => {
           const site = current();
-          const detected = detectStack(site.deployPath);
+          const detected = plan.clone ? null : detectStack(site.deployPath);
           if (detected && detected !== site.type)
             ctx.log(
               `⚠ The code looks like a ${STACKS[detected].label} project, but this website was set up as ${STACKS[site.type].label}. Change it in Settings if that's wrong.`,
@@ -1066,7 +1157,7 @@ export class SiteManager {
         id: "env",
         title: "Write .env",
         when: () =>
-          ENV_STACKS.has(initial.type) &&
+          usesEnv(initial) &&
           (initial.type === "laravel" ||
             (plan.db && plan.writeEnv) ||
             !!plan.env.trim()),
@@ -1280,22 +1371,8 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
         webRoot = "";
       }
     }
-    let gitUrl = "";
-    let branch = null;
-    if (deployPath && existsSync(join(deployPath, ".git"))) {
-      const git = await DeployEngine.gitInfo(deployPath);
-      const remote = await run("git", [
-        "-c",
-        "safe.directory=*",
-        "-C",
-        deployPath,
-        "remote",
-        "get-url",
-        "origin",
-      ]);
-      gitUrl = remote.code === 0 ? remote.stdout.trim() : "";
-      branch = git?.branch && git.branch !== "HEAD" ? git.branch : "main";
-    }
+    const { gitUrl = "", branch = null } =
+      (await readCheckout(deployPath)) || {};
     const site = {
       id: uuidv4(),
       name,
@@ -1323,12 +1400,8 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
       updatedAt: new Date().toISOString(),
     };
     // Keep managing the database the site already uses (backups include it)
-    const detected = detectDatabaseConfig(site);
-    if (detected && LOCAL_DB_HOSTS.has(detected.host.split(":")[0])) {
-      const exists = MysqlManager.getCreds() ? await databaseExists(detected.name).catch(() => false) : true;
-      if (exists)
-        site.database = { type: "mysql", name: detected.name, user: detected.user, password: detected.password };
-    }
+    const found = await existingDatabase(site);
+    if (found) site.database = found;
     await NginxManager.linkProject(name, site.id);
     updateConfig((c) => {
       (c.projects || (c.projects = [])).push(site);
@@ -1393,6 +1466,41 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
         if (nginxName) await NginxManager.setProxyPass(nginxName, String(port));
         patch.port = port;
         restartNeeded = true;
+      }
+    }
+    if ("deployPath" in body && stack.external) {
+      const raw = String(body.deployPath || "").trim();
+      const next = raw ? assertSitePath(raw) : null;
+      if (next !== (site.deployPath || null)) {
+        const others = (site.backupDirs || []).filter(
+          (d) => d !== site.deployPath && d !== next,
+        );
+        if (next) {
+          if (allSites().some((s) => s.id !== id && s.deployPath === next))
+            throw httpError(409, `${next} already belongs to another website`);
+          if (!existsSync(next))
+            throw httpError(
+              400,
+              `${next} does not exist on this server — check the path or create the folder in Files first`,
+            );
+          patch.deployPath = next;
+          patch.backupDirs = [next, ...others];
+          const checkout = await readCheckout(next);
+          if (checkout && !site.gitUrl && !patch.gitUrl)
+            Object.assign(patch, checkout);
+          if (!hasCommands(site.deploy?.script || ""))
+            patch.deploy = {
+              ...(patch.deploy || site.deploy),
+              script: defaultDeployScript("proxy", next),
+            };
+          if (!site.database?.name) {
+            const found = await existingDatabase({ ...site, deployPath: next });
+            if (found) patch.database = found;
+          }
+        } else {
+          patch.deployPath = null;
+          patch.backupDirs = others;
+        }
       }
     }
     if ("proxyTarget" in body && stack.external) {
@@ -1803,7 +1911,7 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
     let envUpdated = false;
     if (
       writeEnv &&
-      ENV_STACKS.has(site.type) &&
+      usesEnv(site) &&
       site.deployPath &&
       existsSync(site.deployPath)
     ) {
@@ -1823,7 +1931,10 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
     const found = detectDatabaseConfig(site);
     if (!found) return { found: false };
     const local = LOCAL_DB_HOSTS.has(found.host.split(":")[0]);
-    const exists = local && MysqlManager.getCreds() ? await databaseExists(found.name).catch(() => null) : null;
+    const exists =
+      local && MysqlManager.getCreds()
+        ? await databaseExists(found.name).catch(() => null)
+        : null;
     return {
       found: true,
       name: found.name,
@@ -1843,7 +1954,11 @@ echo "WordPress is installed. Log in at $WP_URL/wp-admin as $WP_ADMIN_USER."
   static async linkDatabase(id, { name, user, password, fromConfig = false }) {
     if (fromConfig) {
       const found = detectDatabaseConfig(getSite(id));
-      if (!found) throw httpError(404, "No database settings found in .env or wp-config.php");
+      if (!found)
+        throw httpError(
+          404,
+          "No database settings found in .env or wp-config.php",
+        );
       ({ name, user, password } = found);
     }
     assertDbName(name);

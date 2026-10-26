@@ -1,9 +1,9 @@
 import mysql from "mysql2";
 import { existsSync, readFileSync, writeFileSync, chmodSync } from "fs";
-import { randomBytes } from "crypto";
 import { join } from "path";
 import { DATA_DIR, httpError } from "../lib/config.js";
 import { run, which, serviceActive } from "../lib/shell.js";
+import { strongPassword } from "../lib/passwords.js";
 
 // Credentials live outside the git-tracked config.json
 const CREDS_FILE = join(DATA_DIR, "mysql.json");
@@ -195,11 +195,49 @@ export class MysqlManager {
     try {
       return await fn(conn);
     } catch (err) {
+      if (err.errno === 1819)
+        throw httpError(400, await MysqlManager.policyMessage(conn));
       if (err.sqlMessage) throw httpError(400, err.sqlMessage);
       throw err;
     } finally {
       conn.end().catch(() => {});
     }
+  }
+
+  /**
+   * Password policy (MySQL validate_password or MariaDB simple_password_check),
+   * or null when no policy plugin is active.
+   */
+  static async passwordPolicy(conn) {
+    const [rows] = await conn.query(
+      "SHOW VARIABLES WHERE Variable_name LIKE 'validate_password%' OR Variable_name LIKE 'simple_password_check%'",
+    );
+    if (!rows.length) return null;
+    const vars = Object.fromEntries(
+      rows.map((r) => [
+        r.Variable_name.replace(/^validate_password[._]/, ""),
+        r.Value,
+      ]),
+    );
+    const num = (v, fallback) =>
+      Number.isFinite(parseInt(v)) ? parseInt(v) : fallback;
+    return {
+      length: num(vars.length ?? vars.simple_password_check_minimal_length, 8),
+      level: vars.policy || null,
+      symbols: num(
+        vars.special_char_count ?? vars.simple_password_check_other_characters,
+        1,
+      ),
+    };
+  }
+
+  static async policyMessage(conn) {
+    let policy = null;
+    try {
+      policy = await MysqlManager.passwordPolicy(conn);
+    } catch {}
+    const length = policy?.length || 8;
+    return `The database server's password policy rejected this password${policy?.level ? ` (policy ${policy.level})` : ""}. Use at least ${length} characters with upper- and lower-case letters, a number and ${policy?.symbols > 1 ? `${policy.symbols} symbols` : "a symbol"} — or use Generate.`;
   }
 
   // ── Status & setup ─────────────────────────────────────────
@@ -242,7 +280,37 @@ export class MysqlManager {
     const bins = await MysqlManager.binaries();
     if (!bins.client)
       throw httpError(400, "The mysql/mariadb client is not installed");
-    const password = randomBytes(24).toString("hex");
+
+    // 1. Can root log in over the unix socket? Also learn the password policy.
+    const probe = await run(
+      bins.client,
+      [
+        "-uroot",
+        "-N",
+        "-B",
+        "-e",
+        "SHOW VARIABLES WHERE Variable_name LIKE 'validate_password%length' OR Variable_name = 'simple_password_check_minimal_length'",
+      ],
+      { timeout: 20000 },
+    );
+    if (probe.code !== 0) {
+      const err = httpError(
+        422,
+        `Automatic setup needs root access over the local socket, which was refused: ${probe.stderr.trim()}. Enter the MySQL root password instead.`,
+      );
+      err.code = "NEEDS_CREDENTIALS";
+      throw err;
+    }
+    const required = Math.max(
+      0,
+      ...probe.stdout
+        .split("\n")
+        .map((line) => parseInt(line.split("\t")[1]))
+        .filter(Number.isFinite),
+    );
+
+    // 2. Create the panel's admin account with a password the policy accepts
+    const password = strongPassword(Math.max(32, required + 8));
     const sql = [
       `CREATE USER IF NOT EXISTS '${PANEL_USER}'@'localhost' IDENTIFIED BY '${password}';`,
       `ALTER USER '${PANEL_USER}'@'localhost' IDENTIFIED BY '${password}';`,
@@ -252,14 +320,11 @@ export class MysqlManager {
     const result = await run(bins.client, ["-uroot", "-e", sql], {
       timeout: 20000,
     });
-    if (result.code !== 0) {
-      const err = httpError(
+    if (result.code !== 0)
+      throw httpError(
         422,
-        `Automatic setup needs root socket access, which failed: ${result.stderr.trim()}. Enter the MySQL root password instead.`,
+        `Connected as root, but creating the panel's database account failed: ${result.stderr.trim()}`,
       );
-      err.code = "NEEDS_CREDENTIALS";
-      throw err;
-    }
     const creds = {
       user: PANEL_USER,
       password,
